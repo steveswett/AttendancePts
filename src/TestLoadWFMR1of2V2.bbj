@@ -17,11 +17,16 @@ TRUE = 1
 FALSE = 0
 BATCH_SIZE = 500
 
-QUERY_FROM_DATE$ = "2015-07-15"
-QUERY_TO_DATE$ = "2015-07-15"
+REM Uses the data source names in the SQL.INI file
+
+ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
+WFMR_DATA_SOURCE$ = "wfmr_prod"
+
+BUSINESS_DATE_FROM$ = "2015-07-15"
+BUSINESS_DATE_TO$ = "2015-07-15"
 
 
-WFMR_SELECT_STMT$ = 
+WFMR_EXCEPTIONS_SELECT_STMT$ = 
 : "select " +
 : "Lab_Exception.exception_id, " +
 : "Lab_Exception.business_unit_id, " +
@@ -45,9 +50,9 @@ WFMR_SELECT_STMT$ =
 : "inner join Lab_Employee_Attribute_List on Lab_Exception.employee_id = Lab_Employee_Attribute_List.employee_id " +
 : "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
 : "where Lab_Exception.business_date between '" +
-: QUERY_FROM_DATE$ +
+: BUSINESS_DATE_FROM$ +
 : "' and '" +
-: QUERY_TO_DATE$ +
+: BUSINESS_DATE_TO$ +
 : "' and Lab_Employee_Attribute_List.end_date is null " +
 : "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
 : "and Lab_Exception.exception_definition_id in(11,20,23,39,40,46,79) " +
@@ -78,11 +83,11 @@ REM : "," +
 REM : "(--next row here --)"
 
 
-ATTEND_PTS_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work where wfmr_src = 'E' and wfmr_exc_id = ?"
+ATTEND_PTS_EXCEPTIONS_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work where wfmr_src = 'E' and wfmr_exc_id = ?"
 
 REM  VERY IMPORTANT: Do not use apostrophes around ? symbols -- even for character fields
 
-ATTEND_PTS_UPDATE_STMT$ = 
+ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
 : "update attend_pts_work " + 
 : "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
 : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
@@ -124,11 +129,14 @@ error_trap:
     
     print "error msg = ", err, " (", errmes(err), ")"
     print "code causing error = ", pgm(tcb(5))
+    
+    REM  The following needs to be conditional: exceptions or missed work
+    
     print "wfmrResultRow.exception_id = ", wfmrResultRow.exception_id
     
     rem print "attendPtsDynamicInsertStmt$ = ", $0A$, attendPtsDynamicInsertStmt$
-    rem print "ATTEND_PTS_FIND_STMT$ = ", $0A$, ATTEND_PTS_FIND_STMT$
-    rem print "ATTEND_PTS_UPDATE_STMT$ = ", $0A$, ATTEND_PTS_UPDATE_STMT$ 
+    rem print "attendPtsFindStmt$ = ", $0A$, attendPtsFindStmt$
+    rem print "attendPtsUpdateStmt$ = ", $0A$, attendPtsUpdateStmt$ 
 
 
 REM * - - - - - - - - - - EOJ - - - - - - - - - - *
@@ -142,6 +150,8 @@ eoj:
 
 REM  *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
+subroutines:
+
 
 REM  ------------------------------
 REM  init
@@ -150,6 +160,9 @@ REM  ------------------------------
 init:
 
     attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
+    wfmrSelectStmt$ = WFMR_EXCEPTIONS_SELECT_STMT$
+    attendPtsFindStmt$ = ATTEND_PTS_EXCEPTIONS_FIND_STMT$
+    attendPtsUpdateStmt$ = ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$
     
     REM  For login user, likely need a function that ensures it is no longer than 10 chars
     
@@ -171,21 +184,17 @@ REM  ------------------------------
 
 open_sql_channels:
 
-    REM Uses the data source name in the SQL.INI file
-
     attendPtsFindRowChannel = sqlunt
-    sqlopen(attendPtsFindRowChannel) "Steve-Local"
+    sqlopen(attendPtsFindRowChannel) ATTEND_PTS_DATA_SOURCE$
     
     attendPtsInsertRowsChannel = sqlunt
-    sqlopen(attendPtsInsertRowsChannel) "Steve-Local"
+    sqlopen(attendPtsInsertRowsChannel) ATTEND_PTS_DATA_SOURCE$
     
     attendPtsUpdateRowChannel = sqlunt
-    sqlopen(attendPtsUpdateRowChannel) "Steve-Local"
+    sqlopen(attendPtsUpdateRowChannel) ATTEND_PTS_DATA_SOURCE$
     
     wfmrSelectRowsChannel = sqlunt
-    sqlopen(wfmrSelectRowsChannel) "wfmr_prod"
-    
-    rem print "channels (find, insert, update,wfmr) = ", attendPtsFindRowChannel, attendPtsInsertRowsChannel, attendPtsUpdateRowChannel, wfmrSelectRowsChannel   
+    sqlopen(wfmrSelectRowsChannel) WFMR_DATA_SOURCE$
     
     return; rem 1
 
@@ -196,9 +205,9 @@ REM  ------------------------------
 
 prepare_sql_stmts:
 
-    sqlprep(attendPtsFindRowChannel) ATTEND_PTS_FIND_STMT$
-    sqlprep(attendPtsUpdateRowChannel) ATTEND_PTS_UPDATE_STMT$
-    sqlprep(wfmrSelectRowsChannel) WFMR_SELECT_STMT$
+    sqlprep(attendPtsFindRowChannel) attendPtsFindStmt$
+    sqlprep(attendPtsUpdateRowChannel) attendPtsUpdateStmt$
+    sqlprep(wfmrSelectRowsChannel) wfmrSelectStmt$
 
     return; rem 2
 
@@ -265,7 +274,7 @@ REM  ------------------------------
 
 update_row:
 
-    REM ATTEND_PTS_UPDATE_STMT$ = 
+    REM ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
     REM : "update attend_pts_work " + 
     REM : "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
     REM : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +

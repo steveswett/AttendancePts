@@ -1,234 +1,423 @@
 REM /**
 REM  * AttendPtsWorkDataAPI.bbj
 REM  * @author stevett
+REM  * Written July 2015
 REM  *
 REM  */
 
 
 
-rem *---------- CONSTANTS ----------*
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
 rem  for each entry point.
 
 
-rem *---------- FUNCTIONS ----------*
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
 
 
-def fnGetPaddedName$(aName$)
-
-    return pad(aName$, 15, "L", " ")
-
-fnend
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 
-def fnGetPaddedShirtSize$(aShirtSize$)
+mass_load_wfmr_data:
 
-    return pad(aShirtSize$, 4, "L", " ")
-
-fnend
-
-
-
-rem *---------- ENTRY POINTS ----------*
-
-
-entry_open_sql_channel:
-
-    enter dataSourceNameIn$, sqlChannelOut
+    enter businessDateFromIn$, businessDateToIn$
     
     gosub setup_constants
     
-    fileChannelOut = sqlunt
-    open(fileChannelOut) dataSourceNameIn$
+    REM  For login user, likely need a function that ensures it is no longer than 10 chars
     
-    exit
+    loginUser$ = info(3, 2)
     
+    massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$
+    gosub run_mass_load
     
-entry_close_sql_channel:
-
-    enter sqlChannelIn
-    
-    close(sqlChannelIn)
-    
-    exit
-    
-    
-entry_mass_add_data:
-
-    enter sqlChannelIn, massAddFileNameIn$, massAddFileFormatNameIn$
-    
-    gosub setup_constants
-    
-    gosub mass_add_data
+    massLoadSrc$ = MASS_LOAD_MISSED_SHIFT_SRC$
+    gosub run_mass_load
     
     exit
 
 
-get_dimensioned_record:
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
-    enter recordOut$
-
-    gosub setup_constants
-    
-    dim recordOut$:NAMES_TEMPLATE$
-    
-    exit
-    
-
-add_or_update_record:
-
-    enter fileChannelIn, recordIn$, errMsgOut$
-    
-    gosub setup_constants
-    
-    errMsgOut$ = ""
-    
-    if len( cvs(recordIn.NAME$, 3) ) = 0 then 
-:       errMsgOut$ = "NAME$::Name cannot be blank";
-:       goto add_or_update_end
-    
-    if recordIn.GENDER$ <> "M" and recordIn.GENDER$ <> "F" then 
-:       errMsgOut$ = "GENDER$::Gender must be M or F";
-:       goto add_or_update_end
-    
-    if len( cvs(recordIn.PHONE$, 3) ) <> 10 then 
-:       errMsgOut$ = "PHONE$::Must be 10 numbers/characters in phone number";
-:       goto add_or_update_end
-    
-    trimmedSize$ = cvs(recordIn.SHIRT_SIZE$, 2)
-    
-    if trimmedSize$ <> "S" and trimmedSize$ <> "M" and trimmedSize$ <> "L" and trimmedSize$ <> "XL" and 
-:       trimmedSize$ <> "XXL" and trimmedSize$ <> "XXXL" then 
-:           errMsgOut$ = "SHIRT_SIZE$::Shirt size must be one of these: S M L XL XXL XXL";
-:           goto add_or_update_end
-
-        rem  Validation passed, so OK to write record
-    
-    write record(fileChannelIn) FIELD(recordIn$)
-    
-    add_or_update_end:
-
-    exit
+subroutines:
 
 
-delete_record:
-    
-    enter fileChannelIn, keyIn$
+REM  ------------------------------
+REM  run_mass_load
+REM  ------------------------------
 
-    gosub setup_constants
+run_mass_load:
 
-    remove(fileChannelIn, key=keyIn$, dom=delete_record_not_found)
-    
-    delete_record_not_found:
+    gosub ml_init
+    gosub ml_open_sql_channels
+    gosub ml_prepare_sql_stmts
+    gosub ml_process_wfmr_data
+    gosub ml_close_sql_channels
 
-    exit
-
-
-get_a_record:
-
-    enter fileChannel, useKeyIn, keyIn$, recordFoundOut, recordOut$
-    
-    gosub setup_constants
-    
-    dim recordOut$:NAMES_TEMPLATE$
-    
-    if useKeyIn then
-:       read record(fileChannel, key=keyIn$, dom=no_names_data) recordOut$
-:   else
-:       read record(fileChannel, dom=no_names_data, end=no_names_data) recordOut$
-    
-    recordFoundOut = TRUE
-    
-    goto get_a_record_end 
-    
-    no_names_data:
-    
-    recordFoundOut = FALSE
-    
-    get_a_record_end: 
-
-    exit
+    return
 
 
-get_a_record_with_dir:
-
-    enter fileChannel, useKeyIn, keyIn$, direction, recordFoundOut, recordOut$
-    
-    gosub setup_constants
-    
-    dim recordOut$:NAMES_TEMPLATE$
-    
-    if useKeyIn then
-:       read record(fileChannel, key=keyIn$, dir=direction, dom=no_names_data_dir) recordOut$
-:   else
-:       read record(fileChannel, dir=direction, dom=no_names_data_dir, end=no_names_data_dir) recordOut$
-    
-    recordFoundOut = TRUE
-    
-    goto get_a_record_with_dir_end 
-    
-    no_names_data_dir:
-    
-    recordFoundOut = FALSE
-    
-    get_a_record_with_dir_end: 
-
-    exit
-    
-
-
-rem *---------- SUBROUTINES ----------*
-
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
 
 setup_constants:
 
     TRUE = 1
     FALSE = 0
-    TAB_CHAR$ = $09$
     
-    ATTENDANCE_PTS_WORK_TABLE_NAME$ = "ATTEND_PTS_WORK"
+    MASS_LOAD_EXCEPTIONS_SRC$ = "E"
+    MASS_LOAD_MISSED_SHIFT_SRC$ = "M"
     
-    FMT_NAME_PUNCH_EXCEPTION_ORIGINAL$ = "punch_exception_original"
-    FMT_NAME_MISSED_SHIFT_ORIGINAL$ = "missed_shift_original"
+    PRINT_TRACE_INFO = TRUE
     
-    HDR_ROW_PUNCH_EXCEPTION_ORIGINAL$ = "department_id" + TAB_CHAR$ + "shift" + TAB_CHAR$ + "exception_date" + TAB_CHAR$ +
-:       "exception_id" + TAB_CHAR$ + "exception_descr" + TAB_CHAR$ + "exception_last_mod" + TAB_CHAR$ +
-:       "employee_id" + TAB_CHAR$ + "badge_number"
+    BATCH_SIZE = 500
+    
+    REM Uses the data source names in the SQL.INI file
+    
+    ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
+    WFMR_DATA_SOURCE$ = "wfmr_prod"
+    
+    
+    REM  Break up field list into 5 fields per row (so readable)
+       
+    STARTING_INSERT_STMT$ =
+:        "insert into ATTEND_PTS_WORK " +
+:        "(id, wfmr_src, wfmr_exc_id, wfmr_in_tm_miss, bus_unit_id, " +
+:        "dept_id, shift, emp_id, emp_badge_no, job_id, " +
+:        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
+:        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
+:        "last_mod, last_mod_user, posted_timestamp, posted_by_user) " +
+:        "values "
 
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = 
+:       "select " +
+:        "Lab_Exception.exception_id, " +
+:        "Lab_Exception.business_unit_id, " +
+:        "Lab_Job.department_id, " +
+:        "Lab_Employee_Attribute.attribute_code as shift, " +
+:        "Lab_Exception.employee_id, " +
+:        "Employee.badge_number, " +
+:        "Lab_Exception.job_id, " +
+:        "convert(varchar(8), Lab_Exception.business_date, 112) as exception_date, " +
+:        "Lab_Exception.exception_definition_id, " +
+:        "Lab_Exception_Definition.name as exception_descr, " +
+:        "convert(varchar(19), Lab_Exception.last_modified_timestamp, 120) as exception_last_mod, " +
+:        "Rad_Sys_User.last_name, " + 
+:        "Rad_Sys_User.first_name " +
+:        "from Lab_Exception " + 
+:        "inner join Lab_Exception_Definition on Lab_Exception.exception_definition_id = Lab_Exception_Definition.exception_definition_id " + 
+:        "inner join Rad_Sys_User on Lab_Exception.employee_id = Rad_Sys_User.user_id " + 
+:        "inner join Employee on Lab_Exception.employee_id = Employee.employee_id " + 
+:        "inner join Lab_Punch_Shift on Lab_Exception.shift_start_punch_id = Lab_Punch_Shift.shift_start_punch_id " +
+:        "inner join Lab_Job on Lab_Exception.job_id = Lab_Job.job_id " + 
+:        "inner join Lab_Employee_Attribute_List on Lab_Exception.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:        "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:        "where Lab_Exception.business_date between '" +
+:        businessDateFromIn$ +
+:        "' and '" +
+:        businessDateToIn$ +
+:        "' and Lab_Employee_Attribute_List.end_date is null " +
+:        "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
+:        "and Lab_Exception.exception_definition_id in(11,20,23,39,40,46,79) " +
+:        "order by exception_date, shift, last_name, first_name "
     
+    
+    REM  VERY IMPORTANT: Do not use apostrophes around ? symbols -- even for character fields
+    
+    ATTEND_PTS_EXCEPTIONS_FIND_STMT$ = 
+:        "select count(*) as hit_count from attend_pts_work " +
+:        "where wfmr_src = 'E' and wfmr_exc_id = ?"
+    
+    ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
+:        "update attend_pts_work " + 
+:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
+:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+:        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
+
+
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = 
+:       "select " +
+:       "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
+:        "Lab_Employee_Missed_Shifts.business_unit_id, " +
+:        "Lab_Job.department_id, " +
+:        "Lab_Employee_Attribute.attribute_code as shift, " +
+:        "Lab_Employee_Missed_Shifts.employee_id, " +
+:        "Employee.badge_number, " +
+:        "Lab_Employee_Missed_Shifts.job_id, " +
+:        "convert(varchar(8), Lab_Employee_Missed_Shifts.business_date, 112) as missed_shift_date, " +
+:        "Lab_Employee_Missed_Shifts.type_code, " +
+:        "convert(varchar(19), Lab_Employee_Missed_Shifts.last_modified_timestamp, 120) as missed_shift_last_mod, " +
+:        "Rad_Sys_User.last_name, " + 
+:        "Rad_Sys_User.first_name " +
+:        "from Lab_Employee_Missed_Shifts " +
+:        "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
+:        "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
+:        "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id " + 
+:        "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:        "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:        "where " + 
+:        "Lab_Employee_Missed_Shifts.business_date between '" + 
+:        businessDateFromIn$ +
+:        "' and '" +
+:        businessDateToIn$ +
+:        "' and Lab_Employee_Attribute_List.end_date is null " +
+:        "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
+:        "and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
+:       "order by missed_shift_date, shift, last_name, first_name"
+
+
+    ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = 
+:        "select count(*) as hit_count from attend_pts_work " +
+:        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
+
+    ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
+:        "update attend_pts_work " + 
+:        "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
+:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+:        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
+:        "and wfmr_exc_lastmod < ?"
+
+
     return
 
 
-mass_add_data:
+REM  ------------------------------
+REM  ml_init -- Mass Load Init
+REM  ------------------------------
 
-    goodFileFound = FALSE
+ml_init:
+
+    attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
     
-    if massAddFileFormatNameIn$ <> FMT_NAME_PUNCH_EXCEPTION_ORIGINAL$ and
-:      massAddFileFormatNameIn$ <> FMT_NAME_MISSED_SHIFT_ORIGINAL$ then
-:           print "we've got a problem";
-:           goto bail_mass_add_data
-
-    massAddFileChannel = unt
-    open(massAddFileChannel) massAddFileNameIn$
-    read record(massAddFileChannel) row$
-
-    if massAddFileFormatNameIn$ = FMT_NAME_PUNCH_EXCEPTION_ORIGINAL$ and
-:       row$ = HDR_ROW_PUNCH_EXCEPTION_ORIGINAL$ then
-:           goodFileFound = TRUE;
-:           gosub mass_add_pun_exc_orig
-
-    if !(goodFileFound) then
-:           print "we've got a problem"
+    if massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$ then
+        wfmrSelectStmt$ = WFMR_EXCEPTIONS_SELECT_STMT$
+        attendPtsFindStmt$ = ATTEND_PTS_EXCEPTIONS_FIND_STMT$
+        attendPtsUpdateStmt$ = ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$
+    else
+        wfmrSelectStmt$ = WFMR_MISSED_SHIFT_SELECT_STMT$
+        attendPtsFindStmt$ = ATTEND_PTS_MISSED_SHIFT_FIND_STMT$
+        attendPtsUpdateStmt$ = ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$
+    endif
     
-    bail_mass_add_data:
+    totalInserted = 0
+    
+    readCount = 0
+    insertCount = 0
+    batchNo = 0
 
     return
 
-    
-mass_add_pun_exc_orig:
 
+REM  ------------------------------
+REM  ml_open_sql_channels -- Mass Load Open SQL Channels
+REM  ------------------------------
+
+ml_open_sql_channels:
+
+    attendPtsFindRowChannel = sqlunt
+    sqlopen(attendPtsFindRowChannel) ATTEND_PTS_DATA_SOURCE$
+    
+    attendPtsInsertRowsChannel = sqlunt
+    sqlopen(attendPtsInsertRowsChannel) ATTEND_PTS_DATA_SOURCE$
+    
+    attendPtsUpdateRowChannel = sqlunt
+    sqlopen(attendPtsUpdateRowChannel) ATTEND_PTS_DATA_SOURCE$
+    
+    wfmrSelectRowsChannel = sqlunt
+    sqlopen(wfmrSelectRowsChannel) WFMR_DATA_SOURCE$
+    
+    return; rem 1
+
+
+REM  ------------------------------
+REM  ml_prepare_sql_stmts -- Mass Load Prepare SQL Statements
+REM  ------------------------------
+
+ml_prepare_sql_stmts:
+
+    sqlprep(attendPtsFindRowChannel) attendPtsFindStmt$
+    sqlprep(attendPtsUpdateRowChannel) attendPtsUpdateStmt$
+    sqlprep(wfmrSelectRowsChannel) wfmrSelectStmt$
+
+    return; rem 2
+
+
+REM  ------------------------------
+REM  ml_process_wfmr_data -- Mass Load Process WFMR Data
+REM  ------------------------------
+
+ml_process_wfmr_data:
+
+    sqlexec(wfmrSelectRowsChannel)
+    
+    dim wfmrResultRow$:sqltmpl(wfmrSelectRowsChannel)
+    
     while TRUE
+
+        REM  "while", "repeat" and "for" use same stack as gosub, so requires exitto.  "break" may work.  For BBj, *break on err= works.
+    
+        wfmrResultRow$ = sqlfetch(wfmrSelectRowsChannel,err=*break)
+        
+        readCount = readCount + 1
+        
+        REM  Only print details for the first record fetch
+        
+        if readCount > 1 then goto skip_print
+        
+        hits = 0
+        
+        if massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$ then
+            sqlexec(attendPtsFindRowChannel) wfmrResultRow.exception_id
+        else
+            tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
+            sqlexec(attendPtsFindRowChannel) wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$ 
+        endif
+        
+        dim ptsResultRow$:sqltmpl(attendPtsFindRowChannel)
+        ptsResultRow$ = sqlfetch(attendPtsFindRowChannel,err=hit_check_bombed)
+        hits = ptsResultRow$.hit_count
+        hit_check_bombed: 
+        
+        if PRINT_TRACE_INFO then
+            if massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$ then 
+                print "exception_id = ", wfmrResultRow.exception_id
+                print "business_unit_id = ", wfmrResultRow.business_unit_id
+                print "department_id = ", wfmrResultRow.department_id
+                print "shift = ", wfmrResultRow.shift$
+                print "employee_id = ", wfmrResultRow.employee_id
+                print "badge_number = ", wfmrResultRow.badge_number$
+                print "job_id = ", wfmrResultRow.job_id
+                print "exception_date = ", wfmrResultRow.exception_date$
+                print "exception_definition_id = ", wfmrResultRow.exception_definition_id
+                print "exception_descr = ", wfmrResultRow.exception_descr$
+                print "exception_last_mod = ", wfmrResultRow.exception_last_mod$
+                print "hits = ", hits
+                print $0A$
+            else
+                REM  put alternative "prints" here
+            endif
+        endif
+        
+        skip_print:
+        
+        if hits = 0 then
+           gosub ml_add_to_insert_batch
+        else
+           gosub ml_update_row
+        endif
+        
     wend
 
-    return
+    return; rem 3
+    
+
+REM  ------------------------------
+REM  ml_update_row -- Mass Load Update a Row
+REM  ------------------------------
+
+ml_update_row:
+
+    REM ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
+    REM : "update attend_pts_work " + 
+    REM : "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
+    REM : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+    REM : "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
+    
+    tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
+    
+    REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
+    
+    sqlexec(attendPtsUpdateRowChannel) 
+:       wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.job_id,
+:       wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, "5.7", tempLastModDate$,
+:       wfmrResultRow.exception_id, tempLastModDate$  
+
+    return; rem 4
+    
+
+REM  ------------------------------
+REM  ml_add_to_insert_batch -- Mass Load Add a values phrase to an Insert Statement
+REM  ------------------------------
+
+ml_add_to_insert_batch:
+
+    insertCount = insertCount + 1
+    
+    if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
+    
+    REM  Write out some values -- even if a bit incomplete for the moment
+    
+    
+    attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + 
+:   "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:   "'E', " +
+:   str(wfmrResultRow.exception_id) + ", " +
+:   "0, " +
+:   str(wfmrResultRow.business_unit_id) + ", " +
+:   str(wfmrResultRow.department_id) + ", " +
+:   "'" + cvs(wfmrResultRow.shift$,2) + "', " +
+:   str(wfmrResultRow.employee_id) + ", " +
+:   "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
+:   str(wfmrResultRow.job_id) + ", " +
+:   "'" + wfmrResultRow.exception_date$ + "', " +
+:   str(wfmrResultRow.exception_definition_id) + ", " +
+:   "1.5, " +
+:   "'" + wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) + "', " +
+:   "'N', " +
+:   "7, " +
+:   "'1', " +
+:   "'some note', " +
+:   "1.6, " +
+:   "'A', " +
+:   "'20150714095600', " +
+:   "'STEVETT', " +
+:   "'20150714095700', " +
+:   "'STEVETT')"
+
+    if insertCount = BATCH_SIZE then gosub ml_write_batch
+
+    return; rem 5
+
+
+REM  ------------------------------
+REM  ml_write_batch -- Mass Load Write the Insert Batch
+REM  ------------------------------
+
+ml_write_batch:
+
+    batchNo = batchNo + 1
+    
+    print "batchNo = ", batchNo
+
+    sqlprep(attendPtsInsertRowsChannel) attendPtsDynamicInsertStmt$
+    sqlexec(attendPtsInsertRowsChannel)
+    
+    totalInserted = totalInserted + insertCount
+    
+    insertCount = 0
+    
+    attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
+
+    return; rem 6
+
+
+REM  ------------------------------
+REM  ml_close_sql_channels -- Mass Load Close SQL Channels
+REM  ------------------------------
+
+ml_close_sql_channels:
+
+    sqlclose(wfmrSelectRowsChannel)
+    
+    if insertCount > 0 then gosub ml_write_batch
+    
+    sqlclose(attendPtsFindRowChannel)
+    sqlclose(attendPtsInsertRowsChannel)
+    sqlclose(attendPtsUpdateRowChannel)
+
+    return; rem 7    

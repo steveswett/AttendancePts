@@ -29,9 +29,9 @@ REM  SQL INTEGER type and 10 char buffer, so using that.
 
 TEMPLATE$ = 
 : "ID:I:DESCRIPTION=Unique_Sequence_ID:," +
-: "WFMR_SRC:C(1):DESCRIPTION=E_Exception_or_M_Missed_Work:," + 
+: "WFMR_SRC:C(1):DESCRIPTION=E_Exception_or_M_Missed_Shift:," + 
 : "WFMR_EXC_ID:I:DESCRIPTION=WFMR_Exception_ID:," +
-: "WFMR_IN_TM_MISS:C(14):DESCRIPTION=in_timestamp_from_Missed_Work:," +
+: "WFMR_IN_TM_MISS:C(14):DESCRIPTION=in_timestamp_from_Missed_Shift:," +
 : "BUS_UNIT_ID:I:DESCRIPTION=Business_Unit_ID:," +
 : "DEPT_ID:I:DESCRIPTION=Department_ID:," +
 : "SHIFT:C(1):DESCRIPTION=Shift:," +

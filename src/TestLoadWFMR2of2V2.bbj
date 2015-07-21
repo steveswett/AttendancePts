@@ -21,7 +21,7 @@ QUERY_FROM_DATE$ = "2015-07-15"
 QUERY_TO_DATE$ = "2015-07-15"
 
 
-WFMR_SELECT_STMT$ = 
+WFMR_MISSED_SHIFT_SELECT_STMT$ = 
 : "select " +
 : "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
 : "Lab_Employee_Missed_Shifts.business_unit_id, " +
@@ -76,12 +76,13 @@ REM : "," +
 REM : "(--next row here --)"
 
 
-ATTEND_PTS_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work " +
+ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = 
+: "select count(*) as hit_count from attend_pts_work " +
 : "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
 
 REM  VERY IMPORTANT: Do not use apostrophes around ? symbols -- even for character fields
 
-ATTEND_PTS_UPDATE_STMT$ = 
+ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
 : "update attend_pts_work " + 
 : "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
 : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
@@ -117,8 +118,8 @@ error_trap:
 :       wfmrResultRow.business_unit_id, ", ", wfmrResultRow.job_id, ", ", wfmrResultRow.in_timestamp$  
     
     rem print "attendPtsDynamicInsertStmt$ = ", $0A$, attendPtsDynamicInsertStmt$
-    rem print "ATTEND_PTS_FIND_STMT$ = ", $0A$, ATTEND_PTS_FIND_STMT$
-    rem print "ATTEND_PTS_UPDATE_STMT$ = ", $0A$, ATTEND_PTS_UPDATE_STMT$ 
+    rem print "ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = ", $0A$, ATTEND_PTS_MISSED_SHIFT_FIND_STMT$
+    rem print "ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = ", $0A$, ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ 
 
 
 REM * - - - - - - - - - - EOJ - - - - - - - - - - *
@@ -179,9 +180,9 @@ REM  ------------------------------
 
 prepare_sql_stmts:
 
-    sqlprep(attendPtsFindRowChannel) ATTEND_PTS_FIND_STMT$
-    sqlprep(attendPtsUpdateRowChannel) ATTEND_PTS_UPDATE_STMT$
-    sqlprep(wfmrSelectRowsChannel) WFMR_SELECT_STMT$
+    sqlprep(attendPtsFindRowChannel) ATTEND_PTS_MISSED_SHIFT_FIND_STMT$
+    sqlprep(attendPtsUpdateRowChannel) ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$
+    sqlprep(wfmrSelectRowsChannel) WFMR_MISSED_SHIFT_SELECT_STMT$
 
     return; rem 2
 
@@ -212,7 +213,7 @@ process_wfmr_data:
         
         if readCount > 1 then goto skip_print
 
-        REM ATTEND_PTS_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work " +
+        REM ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work " +
         REM : "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
         
         hits = 0
@@ -262,7 +263,7 @@ REM  ------------------------------
 
 update_row:
 
-    REM ATTEND_PTS_UPDATE_STMT$ = 
+    REM ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
     REM : "update attend_pts_work " + 
     REM : "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
     REM : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
