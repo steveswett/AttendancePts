@@ -1,0 +1,19 @@
+REM /**
+REM  * TrySeqTest2Inserts.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+seqTestChannel = sqlunt
+
+insertStmt$ = "insert into SEQ_TEST2 (id) values "
+
+for x = 1 to 160
+    if x > 1 then insertStmt$ = insertStmt$ + ","
+    insertStmt$ = insertStmt$ + "(SEQ_TEST2_SEQ.nextval)" 
+next x
+
+SQLOPEN(seqTestChannel) "Steve-Local"
+SQLPREP(seqTestChannel) insertStmt$
+SQLEXEC(seqTestChannel)
+SQLCLOSE(seqTestChannel)

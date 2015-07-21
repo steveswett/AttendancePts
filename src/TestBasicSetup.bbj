@@ -1,0 +1,7 @@
+REM /**
+REM  * TestBasicSetup.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+print "this is a test."

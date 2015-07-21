@@ -1,0 +1,378 @@
+REM /**
+REM  * TestLoadWFMR2of2V2.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+begin
+
+seterr error_trap
+
+
+REM * - - - - - - - - - - CONSTANTS - - - - - - - - - - *
+
+constants:
+
+TRUE = 1
+FALSE = 0
+BATCH_SIZE = 500
+
+QUERY_FROM_DATE$ = "2015-07-15"
+QUERY_TO_DATE$ = "2015-07-15"
+
+
+WFMR_SELECT_STMT$ = 
+: "select " +
+: "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
+: "Lab_Employee_Missed_Shifts.business_unit_id, " +
+: "Lab_Job.department_id, " +
+: "Lab_Employee_Attribute.attribute_code as shift, " +
+: "Lab_Employee_Missed_Shifts.employee_id, " +
+: "Employee.badge_number, " +
+: "Lab_Employee_Missed_Shifts.job_id, " +
+: "convert(varchar(8), Lab_Employee_Missed_Shifts.business_date, 112) as missed_shift_date, " +
+: "Lab_Employee_Missed_Shifts.type_code, " +
+: "convert(varchar(19), Lab_Employee_Missed_Shifts.last_modified_timestamp, 120) as missed_shift_last_mod, " +
+: "Rad_Sys_User.last_name, " + 
+: "Rad_Sys_User.first_name " +
+: "from Lab_Employee_Missed_Shifts " +
+: "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
+: "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
+: "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id " + 
+: "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
+: "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+: "where " + 
+: "Lab_Employee_Missed_Shifts.business_date between '" + 
+: QUERY_FROM_DATE$ +
+: "' and '" +
+: QUERY_TO_DATE$ +
+: "' and Lab_Employee_Attribute_List.end_date is null " +
+: "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
+: "and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
+: "order by missed_shift_date, shift, last_name, first_name"
+
+
+
+REM  Break up field list into 5 fields per row (so readable)
+   
+STARTING_INSERT_STMT$ =
+: "insert into ATTEND_PTS_WORK " +
+: "(id, wfmr_src, wfmr_exc_id, wfmr_in_tm_miss, bus_unit_id, " +
+: "dept_id, shift, emp_id, emp_badge_no, job_id, " +
+: "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
+: "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
+: "last_mod, last_mod_user, posted_timestamp, posted_by_user) " +
+: "values "
+
+REM  Break up field list into 5 fields per row (so readable)
+   
+REM  Examples of values (1 row):
+REM : "(ATTEND_PTS_WORK_SEQ.nextval, 'E', 1001, 0, 1001, " +
+REM : "2001, '1', 1000385, '4086', 3001, " +
+REM : "'20150714', 4001, 1.5, '20150714095400', 'N'," +
+REM : "5, '2', 'some note', 1.6, 'A', " +
+REM : "20150714095600, 'STEVETT', 20150714095700, 'STEVETT')" +
+REM : "," +
+REM : "(--next row here --)"
+
+
+ATTEND_PTS_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work " +
+: "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
+
+REM  VERY IMPORTANT: Do not use apostrophes around ? symbols -- even for character fields
+
+ATTEND_PTS_UPDATE_STMT$ = 
+: "update attend_pts_work " + 
+: "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
+: "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+: "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
+: "and wfmr_exc_lastmod < ?"
+
+
+REM * - - - - - - - - - - MAIN ROUTINE - - - - - - - - - - *
+
+main_routine:
+
+    gosub init
+    
+    gosub open_sql_channels
+    
+    gosub prepare_sql_stmts
+    
+    gosub process_wfmr_data
+    
+    gosub close_sql_channels
+    
+    goto eoj
+
+
+REM * - - - - - - - - - - ERROR TRAP - - - - - - - - - - *
+
+error_trap:
+    
+    print "error msg = ", err, " (", errmes(err), ")"
+    print "code causing error = ", pgm(tcb(5))
+
+    print "wfmrResultRow: employee_id, business_unit_id, job_id, in_timestamp = ", wfmrResultRow.employee_id, ", ", 
+:       wfmrResultRow.business_unit_id, ", ", wfmrResultRow.job_id, ", ", wfmrResultRow.in_timestamp$  
+    
+    rem print "attendPtsDynamicInsertStmt$ = ", $0A$, attendPtsDynamicInsertStmt$
+    rem print "ATTEND_PTS_FIND_STMT$ = ", $0A$, ATTEND_PTS_FIND_STMT$
+    rem print "ATTEND_PTS_UPDATE_STMT$ = ", $0A$, ATTEND_PTS_UPDATE_STMT$ 
+
+
+REM * - - - - - - - - - - EOJ - - - - - - - - - - *
+
+eoj:
+
+    print "Number of records read = ", readCount, "; inserted = ", totalInserted
+
+    end
+
+
+REM  *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+REM  ------------------------------
+REM  init
+REM  ------------------------------
+
+init:
+
+    attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
+    
+    totalInserted = 0
+    
+    readCount = 0
+    insertCount = 0
+    batchNo = 0
+
+    return
+
+
+REM  ------------------------------
+REM  open_sql_channels
+REM  ------------------------------
+
+open_sql_channels:
+
+    REM Uses the data source name in the SQL.INI file
+
+    attendPtsFindRowChannel = sqlunt
+    sqlopen(attendPtsFindRowChannel) "Steve-Local"
+    
+    attendPtsInsertRowsChannel = sqlunt
+    sqlopen(attendPtsInsertRowsChannel) "Steve-Local"
+    
+    attendPtsUpdateRowChannel = sqlunt
+    sqlopen(attendPtsUpdateRowChannel) "Steve-Local"
+    
+    wfmrSelectRowsChannel = sqlunt
+    sqlopen(wfmrSelectRowsChannel) "wfmr_prod"
+    
+    return; rem 1
+
+
+REM  ------------------------------
+REM  prepare_sql_stmts
+REM  ------------------------------
+
+prepare_sql_stmts:
+
+    sqlprep(attendPtsFindRowChannel) ATTEND_PTS_FIND_STMT$
+    sqlprep(attendPtsUpdateRowChannel) ATTEND_PTS_UPDATE_STMT$
+    sqlprep(wfmrSelectRowsChannel) WFMR_SELECT_STMT$
+
+    return; rem 2
+
+
+REM  ------------------------------
+REM  process_wfmr_data
+REM  ------------------------------
+
+process_wfmr_data:
+
+    sqlexec(wfmrSelectRowsChannel)
+    
+    dim wfmrResultRow$:sqltmpl(wfmrSelectRowsChannel)
+    
+    readCount = 0
+    insertCount = 0
+    batchNo = 0
+    
+    while TRUE
+
+        REM  "while", "repeat" and "for" use same stack as gosub, so requires exitto.  "break" may work.  For BBj, *break on err= works.
+    
+        wfmrResultRow$ = sqlfetch(wfmrSelectRowsChannel,err=*break)
+        
+        readCount = readCount + 1
+        
+        REM  Only print details for the first record fetch
+        
+        if readCount > 1 then goto skip_print
+
+        REM ATTEND_PTS_FIND_STMT$ = "select count(*) as hit_count from attend_pts_work " +
+        REM : "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
+        
+        hits = 0
+        tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
+        sqlexec(attendPtsFindRowChannel) wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$ 
+        dim ptsResultRow$:sqltmpl(attendPtsFindRowChannel)
+        ptsResultRow$ = sqlfetch(attendPtsFindRowChannel,err=hit_check_bombed)
+        hits = ptsResultRow$.hit_count
+        hit_check_bombed:
+        
+        if wfmrResultRow.type_code$ = "n" then 
+            derived_exception_id = 11
+        else 
+            if wfmrResultRow.type_code$ = "c" then derived_exception_id = 46
+        endif
+ 
+         
+        print "in_timestamp = ", wfmrResultRow.in_timestamp$
+        print "business_unit_id = ", wfmrResultRow.business_unit_id
+        print "department_id = ", wfmrResultRow.department_id
+        print "shift = ", wfmrResultRow.shift$
+        print "employee_id = ", wfmrResultRow.employee_id
+        print "badge_number = ", wfmrResultRow.badge_number$
+        print "job_id = ", wfmrResultRow.job_id
+        print "missed_shift_date = ", wfmrResultRow.missed_shift_date$
+        print "derived_exception_id = ", derived_exception_id
+        print "missed_shift_last_mod = ", wfmrResultRow.missed_shift_last_mod$
+        print "hits = ", hits
+        print $0A$
+        
+        skip_print:
+        
+        if hits = 0 then
+           gosub add_to_insert_batch
+        else
+           gosub update_row
+        endif
+        
+    wend
+
+    return; rem 3
+    
+
+REM  ------------------------------
+REM  update_row
+REM  ------------------------------
+
+update_row:
+
+    REM ATTEND_PTS_UPDATE_STMT$ = 
+    REM : "update attend_pts_work " + 
+    REM : "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
+    REM : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+    REM : "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
+    REM : "and wfmr_exc_lastmod < ?"
+    
+    tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
+    tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
+    
+    REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
+    
+    print "Update key: emp_id, bus_unit_id, job_id, wfmr_in_tm_miss = ", wfmrResultRow.employee_id, ", ", wfmrResultRow.business_unit_id, ", ", wfmrResultRow.job_id, ", ", tempInTimeStamp$   
+    
+    sqlexec(attendPtsUpdateRowChannel) 
+:       wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2),
+:       wfmrResultRow.missed_shift_date$, derived_exception_id, "5.7", tempLastModDate$,
+:       wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
+:       tempLastModDate$  
+
+    return; rem 4
+    
+
+REM  ------------------------------
+REM  add_to_insert_batch
+REM  ------------------------------
+
+add_to_insert_batch:
+
+    insertCount = insertCount + 1
+    
+    if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
+    
+    REM  Write out some values -- even if a bit incomplete for the moment
+    
+    REM     STARTING_INSERT_STMT$ =
+    REM : "insert into ATTEND_PTS_WORK " +
+    REM : "(id, wfmr_src, wfmr_exc_id, wfmr_in_tm_miss, bus_unit_id, " +
+    REM : "dept_id, shift, emp_id, emp_badge_no, job_id, " +
+    REM : "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
+    REM : "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
+    REM : "last_mod, last_mod_user, posted_timestamp, posted_by_user) " +
+    REM : "values "
+    
+    attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + 
+:   "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:   "'M', " +
+:   "0, " +
+:   "'" + wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) + "', " +
+:   str(wfmrResultRow.business_unit_id) + ", " +
+:   str(wfmrResultRow.department_id) + ", " +
+:   "'" + cvs(wfmrResultRow.shift$,2) + "', " +
+:   str(wfmrResultRow.employee_id) + ", " +
+:   "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
+:   str(wfmrResultRow.job_id) + ", " +
+:   "'" + wfmrResultRow.missed_shift_date$ + "', " +
+:   str(derived_exception_id) + ", " +
+:   "1.5, " +
+:   "'" + wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) + "', " +
+:   "'N', " +
+:   "7, " +
+:   "'1', " +
+:   "'some note', " +
+:   "1.6, " +
+:   "'A', " +
+:   "'20150714095600', " +
+:   "'STEVETT', " +
+:   "'20150714095700', " +
+:   "'STEVETT')"
+
+    if insertCount = BATCH_SIZE then gosub write_batch
+
+    return; rem 5
+
+
+REM  ------------------------------
+REM  write_batch
+REM  ------------------------------
+
+write_batch:
+
+    batchNo = batchNo + 1
+    
+    print "batchNo = ", batchNo
+
+    sqlprep(attendPtsInsertRowsChannel) attendPtsDynamicInsertStmt$
+    sqlexec(attendPtsInsertRowsChannel)
+    
+    totalInserted = totalInserted + insertCount
+
+    insertCount = 0
+    
+    attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
+
+    return; rem 6
+
+
+REM  ------------------------------
+REM  close_sql_channels
+REM  ------------------------------
+
+close_sql_channels:
+
+    sqlclose(wfmrSelectRowsChannel)
+    
+    print "Number of records read = ", readCount
+    
+    if insertCount > 0 then gosub write_batch
+    
+    sqlclose(attendPtsFindRowChannel)
+    sqlclose(attendPtsInsertRowsChannel)
+    sqlclose(attendPtsUpdateRowChannel)
+
+    return; rem 7

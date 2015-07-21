@@ -1,0 +1,25 @@
+REM /**
+REM  * TestReadingAttendPtsWorkData.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+sqlChannel = SQLUNT
+
+REM  Don't need the following when using BBj code to read the file
+REM  java.lang.Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver")
+
+rem Uses the data source name in the SQL.INI file
+SQLOPEN(sqlChannel) "Steve-Local" 
+SQLPREP(sqlChannel) "select * from attend_pts_work"
+SQLEXEC(sqlChannel)
+DIM rec$:SQLTMPL(sqlChannel)
+
+WHILE 1
+    rec$ = SQLFETCH(sqlChannel,ERR=finished)
+    PRINT rec.ID$, " - ", rec.ERP_CD$, " - ", rec.ERP_NOTE$, " - ", rec.ERP_PTS_ASSESSED$
+WEND
+
+finished:
+
+SQLCLOSE(sqlChannel)

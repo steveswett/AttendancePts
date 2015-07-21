@@ -1,0 +1,13 @@
+REM /**
+REM  * CreateSeqTest2File.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+FILE_NAME$ = "SEQ_TEST2"
+
+chdir "C:/basis-database/Steve-Local/DataFiles"
+
+erase FILE_NAME$,err=*next
+
+mkeyed FILE_NAME$, [1:1:4], 0, 32,err=*next

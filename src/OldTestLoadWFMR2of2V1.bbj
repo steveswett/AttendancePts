@@ -1,0 +1,127 @@
+REM /**
+REM  * TestLoadWFMR1of2.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+QUERY_FROM_DATE$ = "2015-07-10"
+QUERY_TO_DATE$ = "2015-07-10"
+
+wfmrSelectChannel = sqlunt
+attendPtsChannel = sqlunt
+
+
+wfmrSelectStmt$ = 
+: "select " +
+: "Lab_Job.department_id, " +
+: "nmc_non_supervisor_view.shift, " +
+: "convert(varchar(8), Lab_Employee_Missed_Shifts.business_date, 112) as missed_shift_date, " +
+: "Lab_Employee_Missed_Shifts.type_code, " +
+: "convert(varchar(19), Lab_Employee_Missed_Shifts.last_modified_timestamp, 120) as missed_shift_last_mod, " +
+: "Lab_Employee_Missed_Shifts.employee_id, " +
+: "Employee.badge_number, " +
+: "Rad_Sys_User.last_name, " + 
+: "Rad_Sys_User.first_name " +
+: "from Lab_Employee_Missed_Shifts " +
+: "inner join nmc_non_supervisor_view on nmc_non_supervisor_view.employee_id = Lab_Employee_Missed_Shifts.employee_id " +
+: "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
+: "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
+: "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id " + 
+: "where Lab_Employee_Missed_Shifts.business_date between '" +
+: QUERY_FROM_DATE$ +
+: "' and '" +
+: QUERY_TO_DATE$ +
+: "' and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
+: "order by missed_shift_date, nmc_non_supervisor_view.shift, last_name, first_name"
+
+attendPtsInsertStmt$ =
+: "insert into ATTEND_PTS_WORK " +
+: "(id, dept_id, shift, wfmr_exc_date, wfmr_exc_id, wfmr_pts_assess, wfmr_exc_lastmod, emp_id, emp_badge_no, " +
+: "disp_cd, disp_lastmod, disp_lastmod_usr, disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
+: "erp_data_lastmod, erp_lastmod_user, posted_timestamp, posted_by_user) " +
+: "values "
+
+REM  Examples of values (2 rows):
+REM : "(ATTEND_PTS_WORK_SEQ.nextval, 2, '3', '20150714', 4, 1.5, '20150714095400', 5, '6', 'A', '20150714095500', 'STEVETT', 7," + 
+REM : "'1', 'some note', 1.6, 'A', 20150714095600, 'STEVETT', 20150714095700, 'STEVETT')"
+REM : ","
+REM : "(ATTEND_PTS_WORK_SEQ.nextval, 2, '3', '20150714', 4, 1.5, '20150714095400', 5, '6', 'A', '20150714095500', 'STEVETT', 7," + 
+REM : "'1', 'some note', 1.6, 'A', 20150714095600, 'STEVETT', 20150714095700, 'STEVETT')"
+
+rem Uses the data source name in the SQL.INI file
+SQLOPEN(wfmrSelectChannel) "wfmr_prod" 
+SQLPREP(wfmrSelectChannel) wfmrSelectStmt$
+SQLEXEC(wfmrSelectChannel)
+
+DIM rs$:SQLTMPL(wfmrSelectChannel)
+
+count = 0
+
+WHILE 1
+    rs$ = SQLFETCH(wfmrSelectChannel,ERR=finished)
+    count = count + 1
+    
+    REM  Only print details for the first two record fetches
+    
+    if count > 2 then goto skip_print
+     
+    print "department_id = ", rs.department_id
+    print "shift = ", rs.shift$
+    print "missed_shift_date = ", rs.missed_shift_date$
+    print "type_code = ", rs.type_code$
+    print "missed_shift_last_mod = ", rs.missed_shift_last_mod$
+    print "employee_id = ", rs.employee_id
+    print "badge_number = ", rs.badge_number$
+    print $0A$
+    
+    skip_print:
+    
+    if count > 1 then attendPtsInsertStmt$ = attendPtsInsertStmt$ + ","
+    
+    REM  Write out some values -- even if a bit incomplete for the moment
+    
+    if rs.type_code$ = "n" then 
+:       derived_exception_id = 11
+:   else if rs.type_code$ = "c" then 
+:       derived_exception_id = 46
+    
+    attendPtsInsertStmt$ = attendPtsInsertStmt$ + 
+:   "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:   str(rs.department_id) + ", " +
+:   "'" + cvs(rs.shift$,2) + "', " +
+:   "'" + rs.missed_shift_date$ + "', " +
+:   str(derived_exception_id) + ", " +
+:   "1.5, " +
+:   "'" + rs.missed_shift_last_mod$(1,4) + rs.missed_shift_last_mod$(6,2) + rs.missed_shift_last_mod$(9,2) + rs.missed_shift_last_mod$(12,2) + rs.missed_shift_last_mod$(15,2) + rs.missed_shift_last_mod$(18,2) + "', " +
+:   str(rs.employee_id) + ", " +
+:   "'" + cvs(rs.badge_number$, 2) + "', " +
+:   "'N', " +
+:   "'20150714095500', " +
+:   "'STEVETT', " + 
+:   "7, " +
+:   "'1', " +
+:   "'some note', " +
+:   "1.6, " +
+:   "'A', " +
+:   "'20150714095600', " +
+:   "'STEVETT', " +
+:   "'20150714095700', " +
+:   "'STEVETT')"
+    
+WEND
+
+finished:
+
+SQLCLOSE(wfmrSelectChannel)
+
+print "Number of records read = ", count
+
+REM if count > 0 then
+REM :   print "attendPtsInsertStmt$ = ", $0A$, attendPtsInsertStmt$
+
+if count > 0 then
+:   SQLOPEN(attendPtsChannel) "Steve-Local";
+:   SQLPREP(attendPtsChannel) attendPtsInsertStmt$;
+:   SQLEXEC(attendPtsChannel);
+:   SQLCLOSE(attendPtsChannel)

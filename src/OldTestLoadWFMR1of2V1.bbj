@@ -1,0 +1,124 @@
+REM /**
+REM  * TestLoadWFMR1of2.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+QUERY_FROM_DATE$ = "2015-07-10"
+QUERY_TO_DATE$ = "2015-07-10"
+
+wfmrSelectChannel = sqlunt
+attendPtsChannel = sqlunt
+
+wfmrSelectStmt$ = 
+: "select " +
+: "Lab_Job.department_id, " +
+: "nmc_non_supervisor_view.shift, " +
+: "convert(varchar(8), Lab_Exception.business_date, 112) as exception_date, " +
+: "Lab_Exception.exception_definition_id as exception_id, " +
+: "Lab_Exception_Definition.name as exception_descr, " +
+: "convert(varchar(19), Lab_Exception.last_modified_timestamp, 120) as exception_last_mod, " +
+: "Lab_Exception.employee_id, " +
+: "Employee.badge_number, " +
+: "Rad_Sys_User.last_name, " + 
+: "Rad_Sys_User.first_name " +
+: "from Lab_Exception  " +
+: "inner join Lab_Exception_Definition on Lab_Exception.exception_definition_id = Lab_Exception_Definition.exception_definition_id " + 
+: "inner join nmc_non_supervisor_view on nmc_non_supervisor_view.employee_id = Lab_Exception.employee_id " +
+: "inner join Rad_Sys_User on Lab_Exception.employee_id = Rad_Sys_User.user_id " + 
+: "inner join Employee on Lab_Exception.employee_id = Employee.employee_id " + 
+: "inner join Lab_Punch_Shift on Lab_Exception.shift_start_punch_id = Lab_Punch_Shift.shift_start_punch_id " +
+: "inner join Lab_Job on Lab_Exception.job_id = Lab_Job.job_id " + 
+: "where Lab_Exception.business_date between '" +
+: QUERY_FROM_DATE$ +
+: "' and '" +
+: QUERY_TO_DATE$ +
+: "' and Lab_Exception.exception_definition_id in(11,20,23,39,40,46,79) " +
+: "order by exception_date, nmc_non_supervisor_view.shift, last_name, first_name"
+
+attendPtsInsertStmt$ =
+: "insert into ATTEND_PTS_WORK " +
+: "(id, dept_id, shift, wfmr_exc_date, wfmr_exc_id, wfmr_pts_assess, wfmr_exc_lastmod, emp_id, emp_badge_no, " +
+: "disp_cd, disp_lastmod, disp_lastmod_usr, disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
+: "erp_data_lastmod, erp_lastmod_user, posted_timestamp, posted_by_user) " +
+: "values "
+
+REM  Examples of values (2 rows):
+REM : "(ATTEND_PTS_WORK_SEQ.nextval, 2, '3', '20150714', 4, 1.5, '20150714095400', 5, '6', 'A', '20150714095500', 'STEVETT', 7," + 
+REM : "'1', 'some note', 1.6, 'A', 20150714095600, 'STEVETT', 20150714095700, 'STEVETT')"
+REM : ","
+REM : "(ATTEND_PTS_WORK_SEQ.nextval, 2, '3', '20150714', 4, 1.5, '20150714095400', 5, '6', 'A', '20150714095500', 'STEVETT', 7," + 
+REM : "'1', 'some note', 1.6, 'A', 20150714095600, 'STEVETT', 20150714095700, 'STEVETT')"
+
+
+rem Uses the data source name in the SQL.INI file
+SQLOPEN(wfmrSelectChannel) "wfmr_prod" 
+SQLPREP(wfmrSelectChannel) wfmrSelectStmt$
+SQLEXEC(wfmrSelectChannel)
+
+DIM rs$:SQLTMPL(wfmrSelectChannel)
+
+count = 0
+
+WHILE 1
+    rs$ = SQLFETCH(wfmrSelectChannel,ERR=finished)
+    count = count + 1
+    
+    REM  Only print details for the first two record fetches
+    if count > 2 then goto skip_print
+     
+    print "department_id = ", rs.department_id
+    print "shift = ", rs.shift$
+    print "exception_date = ", rs.exception_date$
+    print "exception_id = ", rs.exception_id
+    print "exception_descr = ", rs.exception_descr$
+    print "exception_last_mod = ", rs.exception_last_mod$
+    print "employee_id = ", rs.employee_id
+    print "badge_number = ", rs.badge_number$
+    print $0A$
+    
+    skip_print:
+    
+    if count > 1 then attendPtsInsertStmt$ = attendPtsInsertStmt$ + ","
+    
+    REM  Write out some values -- even if a bit incomplete for the moment
+    
+    attendPtsInsertStmt$ = attendPtsInsertStmt$ + 
+:   "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:   str(rs.department_id) + ", " +
+:   "'" + cvs(rs.shift$,2) + "', " +
+:   "'" + rs.exception_date$ + "', " +
+:   str(rs.exception_id) + ", " +
+:   "1.5, " +
+:   "'" + rs.exception_last_mod$(1,4) + rs.exception_last_mod$(6,2) + rs.exception_last_mod$(9,2) + rs.exception_last_mod$(12,2) + rs.exception_last_mod$(15,2) + rs.exception_last_mod$(18,2) + "', " +
+:   str(rs.employee_id) + ", " +
+:   "'" + cvs(rs.badge_number$, 2) + "', " +
+:   "'N', " +
+:   "'20150714095500', " +
+:   "'STEVETT', " + 
+:   "7, " +
+:   "'1', " +
+:   "'some note', " +
+:   "1.6, " +
+:   "'A', " +
+:   "'20150714095600', " +
+:   "'STEVETT', " +
+:   "'20150714095700', " +
+:   "'STEVETT')"
+    
+WEND
+
+finished:
+
+SQLCLOSE(wfmrSelectChannel)
+
+print "Number of records read = ", count
+
+REM if count > 0 then
+REM :   print "attendPtsInsertStmt$ = ", $0A$, attendPtsInsertStmt$
+
+if count > 0 then
+:   SQLOPEN(attendPtsChannel) "Steve-Local";
+:   SQLPREP(attendPtsChannel) attendPtsInsertStmt$;
+:   SQLEXEC(attendPtsChannel);
+:   SQLCLOSE(attendPtsChannel)

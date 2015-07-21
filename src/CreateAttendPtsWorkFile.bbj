@@ -1,0 +1,80 @@
+REM /**
+REM  * CreateAttendPtsWorkFile.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+REM  This works.
+
+REM From Jeff Ash at Basis:
+REM 
+REM I would say to use the format YYYYmmDDHHMMSS. Use a type C(14).  So today's date at 5:30pm would look like this:
+REM 
+REM 20150713173000
+REM 
+REM This will be ordered naturally alphabetically and will hold all the info you would need.  There is a new date format going into 
+REM 15.02 that will support using values stored in this format in SQL so by the time you switch over to BBj, you will be able to 
+REM access these values as timestamps.
+
+
+begin
+
+FILE_NAME$ = "ATTEND_PTS_WORK"
+
+REM  Column name max = 16
+REM  DESCRIPTION - if underlines not used, BBj Enterpriser will ignore data after first blank space
+
+REM  Since U(4) gives me SQL BIGINT and 20 char buffer, perhaps I should use N(10).  Actually type I gives 
+REM  SQL INTEGER type and 10 char buffer, so using that.
+
+TEMPLATE$ = 
+: "ID:I:DESCRIPTION=Unique_Sequence_ID:," +
+: "WFMR_SRC:C(1):DESCRIPTION=E_Exception_or_M_Missed_Work:," + 
+: "WFMR_EXC_ID:I:DESCRIPTION=WFMR_Exception_ID:," +
+: "WFMR_IN_TM_MISS:C(14):DESCRIPTION=in_timestamp_from_Missed_Work:," +
+: "BUS_UNIT_ID:I:DESCRIPTION=Business_Unit_ID:," +
+: "DEPT_ID:I:DESCRIPTION=Department_ID:," +
+: "SHIFT:C(1):DESCRIPTION=Shift:," +
+: "EMP_ID:I:DESCRIPTION=Employee_ID:," +
+: "EMP_BADGE_NO:C(10):DESCRIPTION=Employee_Badge_Number:," +
+: "JOB_ID:I:DESCRIPTION=Job_ID:," +
+: "WFMR_EXC_DATE:C(8):DESCRIPTION=WFMR_Exception_Date:," +
+: "WFMR_EXC_DEF_ID:I:DESCRIPTION=WFMR_Exception_Def_ID:," +
+: "WFMR_PTS_ASSESS:N(4):DESCRIPTION=WFMR_Points_Assessed:," +
+: "WFMR_EXC_LASTMOD:C(14):DESCRIPTION=WFMR_Exception_Last_Modified:," +
+: "DISP_CD:C(1):DESCRIPTION=Disposition_Code:," +
+: "DISP_EDT_REAS_ID:I:DESCRIPTION=Disposition_Edit_Reason_ID:," +
+: "ERP_CD:C(1):DESCRIPTION=ERP_Code:," +
+: "ERP_NOTE:C(50):DESCRIPTION=ERP_Note:," +
+: "ERP_PTS_ASSESSED:N(4):DESCRIPTION=ERP_Points_Assessed:," +
+: "ERP_STS_CD:C(1):DESCRIPTION=ERP_Status_Code:," +
+: "LAST_MOD:C(14):DESCRIPTION=Record_Last_Manually_Modified_Timestamp:," +
+: "LAST_MOD_USER:C(10):DESCRIPTION=Record_Last_Manually_Modified_By_User:," +
+: "POSTED_TIMESTAMP:C(14):DESCRIPTION=Posted_When:," +
+: "POSTED_BY_USER:C(10):DESCRIPTION=Posted_By_User:"
+
+
+gosub create_empty_file
+
+end
+
+
+create_empty_file:
+
+    chdir "C:/basis-database/Steve-Local/DataFiles"
+
+    erase FILE_NAME$,err=*next
+    
+    REM  VERY IMPORTANT: If a file contains binary fields, you have to be very careful about field delimiters -- since $0A$
+    REM                  for delimiting could also naturally occur in a binary field.  For new tables, perhaps consider
+    REM                  never using variable-length fields with delimiters -- and never specifying the "field" segment
+    REM                  (first segment) in key definition list.
+    
+    mkeyed FILE_NAME$, [1:4], 0, 200,err=*next
+    
+    REM  in below "1:1:4" the first "1" is the "field" segment
+    REM mkeyed FILE_NAME$, [1:1:4], 0, 200,err=*next
+
+    return
+
+

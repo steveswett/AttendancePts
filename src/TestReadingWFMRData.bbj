@@ -1,0 +1,25 @@
+REM /**
+REM  * TestReadingWFMRData.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+sqlChannel = SQLUNT
+
+REM  Don't need the following when using BBj code to read the file
+REM  java.lang.Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver")
+
+rem Uses the data source name in the SQL.INI file
+SQLOPEN(sqlChannel) "wfmr_prod" 
+SQLPREP(sqlChannel) "select * from nmc_supervisor_view"
+SQLEXEC(sqlChannel)
+DIM rec$:SQLTMPL(sqlChannel)
+
+WHILE 1
+    rec$ = SQLFETCH(sqlChannel,ERR=finished)
+    PRINT rec.first_name$, " - ", rec.last_name$
+WEND
+
+finished:
+
+SQLCLOSE(sqlChannel)

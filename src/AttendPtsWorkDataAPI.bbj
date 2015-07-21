@@ -1,0 +1,234 @@
+REM /**
+REM  * AttendPtsWorkDataAPI.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+
+rem *---------- CONSTANTS ----------*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *---------- FUNCTIONS ----------*
+
+
+def fnGetPaddedName$(aName$)
+
+    return pad(aName$, 15, "L", " ")
+
+fnend
+
+
+def fnGetPaddedShirtSize$(aShirtSize$)
+
+    return pad(aShirtSize$, 4, "L", " ")
+
+fnend
+
+
+
+rem *---------- ENTRY POINTS ----------*
+
+
+entry_open_sql_channel:
+
+    enter dataSourceNameIn$, sqlChannelOut
+    
+    gosub setup_constants
+    
+    fileChannelOut = sqlunt
+    open(fileChannelOut) dataSourceNameIn$
+    
+    exit
+    
+    
+entry_close_sql_channel:
+
+    enter sqlChannelIn
+    
+    close(sqlChannelIn)
+    
+    exit
+    
+    
+entry_mass_add_data:
+
+    enter sqlChannelIn, massAddFileNameIn$, massAddFileFormatNameIn$
+    
+    gosub setup_constants
+    
+    gosub mass_add_data
+    
+    exit
+
+
+get_dimensioned_record:
+
+    enter recordOut$
+
+    gosub setup_constants
+    
+    dim recordOut$:NAMES_TEMPLATE$
+    
+    exit
+    
+
+add_or_update_record:
+
+    enter fileChannelIn, recordIn$, errMsgOut$
+    
+    gosub setup_constants
+    
+    errMsgOut$ = ""
+    
+    if len( cvs(recordIn.NAME$, 3) ) = 0 then 
+:       errMsgOut$ = "NAME$::Name cannot be blank";
+:       goto add_or_update_end
+    
+    if recordIn.GENDER$ <> "M" and recordIn.GENDER$ <> "F" then 
+:       errMsgOut$ = "GENDER$::Gender must be M or F";
+:       goto add_or_update_end
+    
+    if len( cvs(recordIn.PHONE$, 3) ) <> 10 then 
+:       errMsgOut$ = "PHONE$::Must be 10 numbers/characters in phone number";
+:       goto add_or_update_end
+    
+    trimmedSize$ = cvs(recordIn.SHIRT_SIZE$, 2)
+    
+    if trimmedSize$ <> "S" and trimmedSize$ <> "M" and trimmedSize$ <> "L" and trimmedSize$ <> "XL" and 
+:       trimmedSize$ <> "XXL" and trimmedSize$ <> "XXXL" then 
+:           errMsgOut$ = "SHIRT_SIZE$::Shirt size must be one of these: S M L XL XXL XXL";
+:           goto add_or_update_end
+
+        rem  Validation passed, so OK to write record
+    
+    write record(fileChannelIn) FIELD(recordIn$)
+    
+    add_or_update_end:
+
+    exit
+
+
+delete_record:
+    
+    enter fileChannelIn, keyIn$
+
+    gosub setup_constants
+
+    remove(fileChannelIn, key=keyIn$, dom=delete_record_not_found)
+    
+    delete_record_not_found:
+
+    exit
+
+
+get_a_record:
+
+    enter fileChannel, useKeyIn, keyIn$, recordFoundOut, recordOut$
+    
+    gosub setup_constants
+    
+    dim recordOut$:NAMES_TEMPLATE$
+    
+    if useKeyIn then
+:       read record(fileChannel, key=keyIn$, dom=no_names_data) recordOut$
+:   else
+:       read record(fileChannel, dom=no_names_data, end=no_names_data) recordOut$
+    
+    recordFoundOut = TRUE
+    
+    goto get_a_record_end 
+    
+    no_names_data:
+    
+    recordFoundOut = FALSE
+    
+    get_a_record_end: 
+
+    exit
+
+
+get_a_record_with_dir:
+
+    enter fileChannel, useKeyIn, keyIn$, direction, recordFoundOut, recordOut$
+    
+    gosub setup_constants
+    
+    dim recordOut$:NAMES_TEMPLATE$
+    
+    if useKeyIn then
+:       read record(fileChannel, key=keyIn$, dir=direction, dom=no_names_data_dir) recordOut$
+:   else
+:       read record(fileChannel, dir=direction, dom=no_names_data_dir, end=no_names_data_dir) recordOut$
+    
+    recordFoundOut = TRUE
+    
+    goto get_a_record_with_dir_end 
+    
+    no_names_data_dir:
+    
+    recordFoundOut = FALSE
+    
+    get_a_record_with_dir_end: 
+
+    exit
+    
+
+
+rem *---------- SUBROUTINES ----------*
+
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+    TAB_CHAR$ = $09$
+    
+    ATTENDANCE_PTS_WORK_TABLE_NAME$ = "ATTEND_PTS_WORK"
+    
+    FMT_NAME_PUNCH_EXCEPTION_ORIGINAL$ = "punch_exception_original"
+    FMT_NAME_MISSED_SHIFT_ORIGINAL$ = "missed_shift_original"
+    
+    HDR_ROW_PUNCH_EXCEPTION_ORIGINAL$ = "department_id" + TAB_CHAR$ + "shift" + TAB_CHAR$ + "exception_date" + TAB_CHAR$ +
+:       "exception_id" + TAB_CHAR$ + "exception_descr" + TAB_CHAR$ + "exception_last_mod" + TAB_CHAR$ +
+:       "employee_id" + TAB_CHAR$ + "badge_number"
+
+    
+    return
+
+
+mass_add_data:
+
+    goodFileFound = FALSE
+    
+    if massAddFileFormatNameIn$ <> FMT_NAME_PUNCH_EXCEPTION_ORIGINAL$ and
+:      massAddFileFormatNameIn$ <> FMT_NAME_MISSED_SHIFT_ORIGINAL$ then
+:           print "we've got a problem";
+:           goto bail_mass_add_data
+
+    massAddFileChannel = unt
+    open(massAddFileChannel) massAddFileNameIn$
+    read record(massAddFileChannel) row$
+
+    if massAddFileFormatNameIn$ = FMT_NAME_PUNCH_EXCEPTION_ORIGINAL$ and
+:       row$ = HDR_ROW_PUNCH_EXCEPTION_ORIGINAL$ then
+:           goodFileFound = TRUE;
+:           gosub mass_add_pun_exc_orig
+
+    if !(goodFileFound) then
+:           print "we've got a problem"
+    
+    bail_mass_add_data:
+
+    return
+
+    
+mass_add_pun_exc_orig:
+
+    while TRUE
+    wend
+
+    return
