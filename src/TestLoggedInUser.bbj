@@ -9,3 +9,5 @@ print "Logged in user = ", info(3,2)
 timestamp$ = date(0:"%Y%Mz%Dz%hz%mz%sz")
 
 print "Current timestamp = ", timestamp$
+
+rem comment for source control test
