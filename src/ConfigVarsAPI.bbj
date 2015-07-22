@@ -1,0 +1,126 @@
+REM /**
+REM  * ConfigVarsAPI.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+get_value:
+
+    REM  In the future, may need a way to return values as different data types
+
+    enter configVarKeyIn$, configVarValueTypeOut$, configVarValueAsStringOut$
+    
+    gosub setup_constants
+    gosub open_sql_channels
+    gosub prepare_sql_stmts
+    gosub get_config_var_value
+    gosub close_sql_channels
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    CONFIG_VARS_DATA_SOURCE$ = "Steve-Local"
+    
+    VALUE_TYPE_STRING$ = "S"
+    VALUE_TYPE_INTEGER$ = "I"
+    VALUE_TYPE_BOOLEAN$ = "B"
+    VALUE_TYPE_DATE$ = "D"
+    VALUE_TYPE_NUMBER$ = "N"
+    
+    GET_CONFIG_VAR_SELECT_STMT$ = "select cv_value, value_type from config_vars where cv_key = ?"
+    
+    return
+
+
+REM  ------------------------------
+REM  open_sql_channels
+REM  ------------------------------
+
+open_sql_channels:
+
+    getConfigVarChannel = sqlunt
+    sqlopen(getConfigVarChannel) CONFIG_VARS_DATA_SOURCE$
+    
+    return
+
+
+REM  ------------------------------
+REM  prepare_sql_stmts
+REM  ------------------------------
+
+prepare_sql_stmts:
+
+    sqlprep(getConfigVarChannel) GET_CONFIG_VAR_SELECT_STMT$
+
+    return
+
+
+REM  ------------------------------
+REM  get_config_var_value
+REM  ------------------------------
+
+get_config_var_value:
+
+    sqlexec(getConfigVarChannel) configVarKeyIn$
+    dim configVarResultRow$:sqltmpl(getConfigVarChannel)
+    configVarResultRow$ = sqlfetch(getConfigVarChannel,err=config_var_not_found)
+    goto config_var_found
+    
+    config_var_not_found:
+    
+    configVarValueTypeOut$ = VALUE_TYPE_STRING$
+    configVarValueAsStringOut$ = ""
+    goto end_get_config_var
+    
+    config_var_found:
+    
+    configVarValueTypeOut$ = configVarResultRow.value_type$
+    configVarValueAsStringOut$ = configVarResultRow.cv_value$ 
+    goto end_get_config_var
+    
+    end_get_config_var:
+    
+    return
+
+
+REM  ------------------------------
+REM  close_sql_channels
+REM  ------------------------------
+
+close_sql_channels:
+
+    sqlclose(getConfigVarChannel)
+
+    return    
+    

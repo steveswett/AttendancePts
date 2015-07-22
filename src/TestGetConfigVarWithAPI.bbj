@@ -1,0 +1,11 @@
+REM /**
+REM  * TestGetConfigVarWithAPI.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+configVarName$ = "current.attend.pts.policy.code"
+
+call "ConfigVarsAPI.bbj::get_value", configVarName$, dataType$, value$
+
+print "config var: name, type, value = ", configVarName$, ", ", dataType$, ", ", value$

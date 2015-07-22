@@ -22,7 +22,7 @@ begin
 FILE_NAME$ = "ATTEND_PTS_WORK"
 
 REM  Column name max = 16
-REM  DESCRIPTION - if underlines not used, BBj Enterpriser will ignore data after first blank space
+REM  DESCRIPTION - if underlines not used, BBj Enterprise Manager will ignore data after first blank space
 
 REM  Since U(4) gives me SQL BIGINT and 20 char buffer, perhaps I should use N(10).  Actually type I gives 
 REM  SQL INTEGER type and 10 char buffer, so using that.

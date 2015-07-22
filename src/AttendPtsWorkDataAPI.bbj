@@ -17,19 +17,54 @@ rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
 functions:
 
+def fnIsMassLoadingExceptions(aDoIt)
+    return massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$
+fnend
+
+
+def fnGetLoginUser$(aDoIt)
+    tmpUser$ = info(3, 2)
+    
+    if len(tmpUser$) > 10 then tmpUser$ = tmpUser$(1,10)
+    
+    return tmpUser$
+fnend
+
+
+def fnGetPtsAssessed(aDoIt)
+    
+    REM  fields to read: wfmrResultRow.exception_definition_id or derived_exception_id
+    return 1.55
+fnend
+
+
+def fnGetPtsERPCode$(aDoIt)
+    
+    REM  fields to read: wfmrResultRow.exception_definition_id or derived_exception_id
+    return "1"
+fnend
+
+
+def fnGetPtsERPNote$(aDoIt)
+    
+    REM  fields to read: wfmrResultRow.exception_definition_id or derived_exception_id
+    return "some note"
+fnend
+
 
 rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
+entry_points:
 
 mass_load_wfmr_data:
+
+    REM  Business dates are in format like this: "2015-07-15"
 
     enter businessDateFromIn$, businessDateToIn$
     
     gosub setup_constants
     
-    REM  For login user, likely need a function that ensures it is no longer than 10 chars
-    
-    loginUser$ = info(3, 2)
+    loginUser$ = fnGetLoginUser$(TRUE)
     
     massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$
     gosub run_mass_load
@@ -73,8 +108,15 @@ setup_constants:
     MASS_LOAD_MISSED_SHIFT_SRC$ = "M"
     
     PRINT_TRACE_INFO = TRUE
-    
     BATCH_SIZE = 500
+    
+    DEFAULT_DISPOSITION_CODE$ = "N"
+    DEFAULT_DISPOSITION_EDIT_REASON_ID = 0
+    DEFAULT_ERP_STATUS_CODE$ = "A"
+    DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ = ""
+    DEFAULT_LAST_MANUALLY_MODIFIED_USER$ = ""
+    DEFAULT_POSTED_TIMESTAMP$ = ""
+    DEFAULT_POSTED_USER$ = ""
     
     REM Uses the data source names in the SQL.INI file
     
@@ -194,7 +236,7 @@ ml_init:
 
     attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
     
-    if massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$ then
+    if fnIsMassLoadingExceptions(TRUE) then
         wfmrSelectStmt$ = WFMR_EXCEPTIONS_SELECT_STMT$
         attendPtsFindStmt$ = ATTEND_PTS_EXCEPTIONS_FIND_STMT$
         attendPtsUpdateStmt$ = ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$
@@ -271,7 +313,7 @@ ml_process_wfmr_data:
         
         hits = 0
         
-        if massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$ then
+        if fnIsMassLoadingExceptions(TRUE) then
             sqlexec(attendPtsFindRowChannel) wfmrResultRow.exception_id
         else
             tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
@@ -281,10 +323,19 @@ ml_process_wfmr_data:
         dim ptsResultRow$:sqltmpl(attendPtsFindRowChannel)
         ptsResultRow$ = sqlfetch(attendPtsFindRowChannel,err=hit_check_bombed)
         hits = ptsResultRow$.hit_count
-        hit_check_bombed: 
+        hit_check_bombed:
+        
+        if !(fnIsMassLoadingExceptions(TRUE)) then
+            if wfmrResultRow.type_code$ = "n" then 
+                derived_exception_id = 11
+                else 
+                if wfmrResultRow.type_code$ = "c" then derived_exception_id = 46
+            endif
+        endif
+ 
         
         if PRINT_TRACE_INFO then
-            if massLoadSrc$ = MASS_LOAD_EXCEPTIONS_SRC$ then 
+            if fnIsMassLoadingExceptions(TRUE) then 
                 print "exception_id = ", wfmrResultRow.exception_id
                 print "business_unit_id = ", wfmrResultRow.business_unit_id
                 print "department_id = ", wfmrResultRow.department_id
@@ -299,7 +350,18 @@ ml_process_wfmr_data:
                 print "hits = ", hits
                 print $0A$
             else
-                REM  put alternative "prints" here
+                print "in_timestamp = ", wfmrResultRow.in_timestamp$
+                print "business_unit_id = ", wfmrResultRow.business_unit_id
+                print "department_id = ", wfmrResultRow.department_id
+                print "shift = ", wfmrResultRow.shift$
+                print "employee_id = ", wfmrResultRow.employee_id
+                print "badge_number = ", wfmrResultRow.badge_number$
+                print "job_id = ", wfmrResultRow.job_id
+                print "missed_shift_date = ", wfmrResultRow.missed_shift_date$
+                print "derived_exception_id = ", derived_exception_id
+                print "missed_shift_last_mod = ", wfmrResultRow.missed_shift_last_mod$
+                print "hits = ", hits
+                print $0A$
             endif
         endif
         
@@ -321,21 +383,26 @@ REM  ml_update_row -- Mass Load Update a Row
 REM  ------------------------------
 
 ml_update_row:
-
-    REM ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
-    REM : "update attend_pts_work " + 
-    REM : "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
-    REM : "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
-    REM : "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
-    
-    tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
     
     REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
     
-    sqlexec(attendPtsUpdateRowChannel) 
-:       wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.job_id,
-:       wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, "5.7", tempLastModDate$,
-:       wfmrResultRow.exception_id, tempLastModDate$  
+    if fnIsMassLoadingExceptions(TRUE) then
+        tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
+    
+        sqlexec(attendPtsUpdateRowChannel) 
+:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.job_id,
+:           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, "5.7", tempLastModDate$,
+:           wfmrResultRow.exception_id, tempLastModDate$
+    else
+        tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
+        tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
+    
+        sqlexec(attendPtsUpdateRowChannel) 
+:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2),
+:           wfmrResultRow.missed_shift_date$, derived_exception_id, "5.7", tempLastModDate$,
+:           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
+:           tempLastModDate$  
+    endif
 
     return; rem 4
     
@@ -350,34 +417,61 @@ ml_add_to_insert_batch:
     
     if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
     
-    REM  Write out some values -- even if a bit incomplete for the moment
+    if fnIsMassLoadingExceptions(TRUE) then
+        valuesClause$ =
+:          "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:          "'E', " +
+:          str(wfmrResultRow.exception_id) + ", " +
+:          "0, " +
+:          str(wfmrResultRow.business_unit_id) + ", " +
+:          str(wfmrResultRow.department_id) + ", " +
+:          "'" + cvs(wfmrResultRow.shift$,2) + "', " +
+:          str(wfmrResultRow.employee_id) + ", " +
+:          "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
+:          str(wfmrResultRow.job_id) + ", " +
+:          "'" + wfmrResultRow.exception_date$ + "', " +
+:          str(wfmrResultRow.exception_definition_id) + ", " +
+:          str(fnGetPtsAssessed(TRUE)) + ", " +
+:          "'" + wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) + "', " +
+:          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
+:          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
+:          "'" + fnGetPtsERPCode$(TRUE) + "', " +
+:          "'" + fnGetPtsERPNote$(TRUE) + "', " +
+:          str(fnGetPtsAssessed(TRUE)) + ", " +
+:          "'" + DEFAULT_ERP_STATUS_CODE$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
+:          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_POSTED_USER$ + "')"
+    else
+        valuesClause$ =
+:          "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:          "'M', " +
+:          "0, " +
+:          "'" + wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) + "', " +
+:          str(wfmrResultRow.business_unit_id) + ", " +
+:          str(wfmrResultRow.department_id) + ", " +
+:          "'" + cvs(wfmrResultRow.shift$,2) + "', " +
+:          str(wfmrResultRow.employee_id) + ", " +
+:          "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
+:          str(wfmrResultRow.job_id) + ", " +
+:          "'" + wfmrResultRow.missed_shift_date$ + "', " +
+:          str(derived_exception_id) + ", " +
+:          str(fnGetPtsAssessed(TRUE)) + ", " +
+:          "'" + wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) + "', " +
+:          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
+:          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
+:          "'" + fnGetPtsERPCode$(TRUE) + "', " +
+:          "'" + fnGetPtsERPNote$(TRUE) + "', " +
+:          str(fnGetPtsAssessed(TRUE)) + ", " +
+:          "'" + DEFAULT_ERP_STATUS_CODE$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
+:          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_POSTED_USER$ + "')"
+    endif
     
-    
-    attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + 
-:   "(ATTEND_PTS_WORK_SEQ.nextval, " +
-:   "'E', " +
-:   str(wfmrResultRow.exception_id) + ", " +
-:   "0, " +
-:   str(wfmrResultRow.business_unit_id) + ", " +
-:   str(wfmrResultRow.department_id) + ", " +
-:   "'" + cvs(wfmrResultRow.shift$,2) + "', " +
-:   str(wfmrResultRow.employee_id) + ", " +
-:   "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
-:   str(wfmrResultRow.job_id) + ", " +
-:   "'" + wfmrResultRow.exception_date$ + "', " +
-:   str(wfmrResultRow.exception_definition_id) + ", " +
-:   "1.5, " +
-:   "'" + wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) + "', " +
-:   "'N', " +
-:   "7, " +
-:   "'1', " +
-:   "'some note', " +
-:   "1.6, " +
-:   "'A', " +
-:   "'20150714095600', " +
-:   "'STEVETT', " +
-:   "'20150714095700', " +
-:   "'STEVETT')"
+    attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + valuesClause$ 
 
     if insertCount = BATCH_SIZE then gosub ml_write_batch
 
