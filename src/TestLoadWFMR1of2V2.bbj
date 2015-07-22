@@ -19,8 +19,12 @@ BATCH_SIZE = 500
 
 REM Uses the data source names in the SQL.INI file
 
-ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
-WFMR_DATA_SOURCE$ = "wfmr_prod"
+attendPtsDataSource$ = ""
+call "ConfigVarsAPI.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+
+wfmrDataSource$ = ""
+call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+
 
 BUSINESS_DATE_FROM$ = "2015-07-15"
 BUSINESS_DATE_TO$ = "2015-07-15"
@@ -185,16 +189,16 @@ REM  ------------------------------
 open_sql_channels:
 
     attendPtsFindRowChannel = sqlunt
-    sqlopen(attendPtsFindRowChannel) ATTEND_PTS_DATA_SOURCE$
+    sqlopen(attendPtsFindRowChannel) attendPtsDataSource$
     
     attendPtsInsertRowsChannel = sqlunt
-    sqlopen(attendPtsInsertRowsChannel) ATTEND_PTS_DATA_SOURCE$
+    sqlopen(attendPtsInsertRowsChannel) attendPtsDataSource$
     
     attendPtsUpdateRowChannel = sqlunt
-    sqlopen(attendPtsUpdateRowChannel) ATTEND_PTS_DATA_SOURCE$
+    sqlopen(attendPtsUpdateRowChannel) attendPtsDataSource$
     
     wfmrSelectRowsChannel = sqlunt
-    sqlopen(wfmrSelectRowsChannel) WFMR_DATA_SOURCE$
+    sqlopen(wfmrSelectRowsChannel) wfmrDataSource$
     
     return; rem 1
 

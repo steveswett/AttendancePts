@@ -101,7 +101,9 @@ setup_constants:
     REM Uses the data source names in the SQL.INI file
     
     ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
-    WFMR_DATA_SOURCE$ = "wfmr_prod"
+    
+    wfmrDataSource$ = ""
+    call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
     
     attendPtsPolicyCode$ = ""
     call "ConfigVarsAPI.bbj::get_value", ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$, configVarFound, configVarDataType$, attendPtsPolicyCode$
@@ -258,7 +260,7 @@ ml_open_sql_channels:
     sqlopen(attendPtsUpdateRowChannel) ATTEND_PTS_DATA_SOURCE$
     
     wfmrSelectRowsChannel = sqlunt
-    sqlopen(wfmrSelectRowsChannel) WFMR_DATA_SOURCE$
+    sqlopen(wfmrSelectRowsChannel) wfmrDataSource$
     
     return; rem 1
 

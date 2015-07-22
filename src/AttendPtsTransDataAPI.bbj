@@ -67,7 +67,9 @@ setup_constants:
     TRUE = 1
     FALSE = 0
 
-    ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
+    attendPtsDataSource$ = ""
+    call "ConfigVarsAPI.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+
     
     GET_TRANS_VALUES_SELECT_STMT$ = "select erp_cd, erp_sts, erp_pts_assess, erp_note from attend_pts_trans " +
 :                                   "where policy_cd = ? and wfmr_exc_id = ?"
@@ -84,7 +86,7 @@ REM  ------------------------------------------------------------
 open_sql_channels:
 
     getTransDataChannel = sqlunt
-    sqlopen(getTransDataChannel) ATTEND_PTS_DATA_SOURCE$
+    sqlopen(getTransDataChannel) attendPtsDataSource$
     
     return
 

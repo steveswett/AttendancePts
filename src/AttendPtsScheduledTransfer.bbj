@@ -11,9 +11,6 @@ begin
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 
-    WFMR_DATA_SOURCE$ = "wfmr_prod"
-
-
     PREFERRED_DATE_RANGE_SELECT_STMT$ = 
 :       "select top 1 " +
 :       "convert(varchar(10), start_date, 120) as from_date, " +
@@ -57,9 +54,11 @@ fnend
 
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
+    wfmrDataSource$ = ""
+    call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     wfmrDataChannel = sqlunt
-    sqlopen(wfmrDataChannel) WFMR_DATA_SOURCE$
+    sqlopen(wfmrDataChannel) wfmrDataSource$
     
     success = fnRunSQL(PREFERRED_DATE_RANGE_SELECT_STMT$)
     
