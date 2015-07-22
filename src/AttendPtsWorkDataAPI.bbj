@@ -372,21 +372,35 @@ REM  ------------------------------------------------------------
 ml_update_row:
     
     REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
+
+REM     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
+REM :        "update attend_pts_work " + 
+REM :        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
+REM :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
     
     if fnIsMassLoadingExceptions(TRUE) then
+    
+        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
         tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
     
         sqlexec(attendPtsUpdateRowChannel) 
 :           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.job_id,
-:           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, "5.7", tempLastModDate$,
+:           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, str(erpPts), tempLastModDate$,
 :           wfmrResultRow.exception_id, tempLastModDate$
     else
+    
+        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
         tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
         tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
     
         sqlexec(attendPtsUpdateRowChannel) 
 :           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2),
-:           wfmrResultRow.missed_shift_date$, derived_exception_id, "5.7", tempLastModDate$,
+:           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$,
 :           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
 :           tempLastModDate$  
     endif

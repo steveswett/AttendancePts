@@ -1,0 +1,74 @@
+REM /**
+REM  * AttendPtsScheduledTransfer.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+
+    WFMR_DATA_SOURCE$ = "wfmr_prod"
+
+
+    PREFERRED_DATE_RANGE_SELECT_STMT$ = 
+:       "select top 1 " +
+:       "convert(varchar(10), start_date, 120) as from_date, " +
+:       "convert(varchar(10), DATEADD(day, -2 ,getdate()), 120) as to_date " +
+:       "from lab_pay_period " +
+:       "where start_date < DATEADD(day, -2 ,getdate()) " +
+:       "order by start_date desc"
+
+
+    REM  Fallback position is to use a range "current date - 7" through "current date - 2"
+
+    FALLBACK_DATE_RANGE_SELECT_STMT$ = 
+:       "select " + 
+:       "convert(varchar(10), DATEADD(day, -7 ,getdate()), 120) as from_date, " +
+:       "convert(varchar(10), DATEADD(day, -2 ,getdate()), 120) as to_date" 
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+
+def fnRunSQL(pStmt$)
+
+    rtnVal = 0
+
+    sqlprep(wfmrDataChannel) pStmt$
+    sqlexec(wfmrDataChannel)
+    
+    dim resultRow$:sqltmpl(wfmrDataChannel)
+    resultRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
+    
+    fromDate$ = resultRow.from_date$
+    toDate$ = resultRow.to_date$ 
+    rtnVal = 1
+    
+    row_not_found:
+    
+    return rtnVal
+    
+fnend
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+
+    wfmrDataChannel = sqlunt
+    sqlopen(wfmrDataChannel) WFMR_DATA_SOURCE$
+    
+    success = fnRunSQL(PREFERRED_DATE_RANGE_SELECT_STMT$)
+    
+    if !(success) then success = fnRunSQL(FALLBACK_DATE_RANGE_SELECT_STMT$) 
+
+    sqlclose(wfmrDataChannel)
+
+    REM  print "dates: from, to = ", fromDate$, ", ", toDate$
+    
+    call "AttendPtsWorkDataAPI.bbj::mass_load_wfmr_data", fromDate$, toDate$
+
+end
