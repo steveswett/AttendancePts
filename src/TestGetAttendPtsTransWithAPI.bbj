@@ -5,10 +5,23 @@ REM  *
 REM  */
 
 policyCode$ = "O"
+newPolicyCode$ = "N"
 excId = 23
+
+
 
 call "AttendPtsTransDataAPI.bbj::get_erp_values", policyCode$, excId, recordFound, erpCode$, erpSts$, erpPts, erpNote$ 
 
-print "data for: policy code, exception ID = ", policyCode$, ", ", excId
+print "get_erp_values for: policy code, exception ID = ", policyCode$, ", ", excId
 
 print "ERP data: found, code, status, pts, note = ", recordFound, ", ", erpCode$, ", ", erpSts$, ", ", erpPts, ", ", erpNote$
+
+print $0A$
+
+
+
+call "AttendPtsTransDataAPI.bbj::get_exception_ids_as_csv", newPolicyCode$, returnValue$
+
+print "get_exception_ids_as_csv for: policy code = ", newPolicyCode$
+
+print "csv data = ", returnValue$

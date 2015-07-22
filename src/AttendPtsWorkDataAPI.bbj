@@ -31,27 +31,6 @@ def fnGetLoginUser$(aDoIt)
 fnend
 
 
-def fnGetPtsAssessed(aDoIt)
-    
-    REM  fields to read: wfmrResultRow.exception_definition_id or derived_exception_id
-    return 1.55
-fnend
-
-
-def fnGetPtsERPCode$(aDoIt)
-    
-    REM  fields to read: wfmrResultRow.exception_definition_id or derived_exception_id
-    return "1"
-fnend
-
-
-def fnGetPtsERPNote$(aDoIt)
-    
-    REM  fields to read: wfmrResultRow.exception_definition_id or derived_exception_id
-    return "some note"
-fnend
-
-
 rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
@@ -80,9 +59,9 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 subroutines:
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  run_mass_load
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 run_mass_load:
 
@@ -95,14 +74,16 @@ run_mass_load:
     return
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  setup_constants
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 setup_constants:
 
     TRUE = 1
     FALSE = 0
+    
+    ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$ = "current.attend.pts.policy.code"
     
     MASS_LOAD_EXCEPTIONS_SRC$ = "E"
     MASS_LOAD_MISSED_SHIFT_SRC$ = "M"
@@ -112,7 +93,6 @@ setup_constants:
     
     DEFAULT_DISPOSITION_CODE$ = "N"
     DEFAULT_DISPOSITION_EDIT_REASON_ID = 0
-    DEFAULT_ERP_STATUS_CODE$ = "A"
     DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ = ""
     DEFAULT_LAST_MANUALLY_MODIFIED_USER$ = ""
     DEFAULT_POSTED_TIMESTAMP$ = ""
@@ -123,6 +103,11 @@ setup_constants:
     ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
     WFMR_DATA_SOURCE$ = "wfmr_prod"
     
+    attendPtsPolicyCode$ = ""
+    call "ConfigVarsAPI.bbj::get_value", ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$, configVarFound, configVarDataType$, attendPtsPolicyCode$
+
+    call "AttendPtsTransDataAPI.bbj::get_exception_ids_as_csv", attendPtsPolicyCode$, exceptionIdsAsCSV$
+
     
     REM  Break up field list into 5 fields per row (so readable)
        
@@ -165,7 +150,9 @@ setup_constants:
 :        businessDateToIn$ +
 :        "' and Lab_Employee_Attribute_List.end_date is null " +
 :        "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
-:        "and Lab_Exception.exception_definition_id in(11,20,23,39,40,46,79) " +
+:        "and Lab_Exception.exception_definition_id in("+
+:        exceptionIdsAsCSV$ +
+:        ") " +
 :        "order by exception_date, shift, last_name, first_name "
     
     
@@ -228,9 +215,9 @@ setup_constants:
     return
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_init -- Mass Load Init
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_init:
 
@@ -255,9 +242,9 @@ ml_init:
     return
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_open_sql_channels -- Mass Load Open SQL Channels
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_open_sql_channels:
 
@@ -276,9 +263,9 @@ ml_open_sql_channels:
     return; rem 1
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_prepare_sql_stmts -- Mass Load Prepare SQL Statements
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_prepare_sql_stmts:
 
@@ -289,9 +276,9 @@ ml_prepare_sql_stmts:
     return; rem 2
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_process_wfmr_data -- Mass Load Process WFMR Data
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_process_wfmr_data:
 
@@ -378,9 +365,9 @@ ml_process_wfmr_data:
     return; rem 3
     
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_update_row -- Mass Load Update a Row
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_update_row:
     
@@ -407,9 +394,9 @@ ml_update_row:
     return; rem 4
     
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_add_to_insert_batch -- Mass Load Add a values phrase to an Insert Statement
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_add_to_insert_batch:
 
@@ -418,6 +405,10 @@ ml_add_to_insert_batch:
     if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
     
     if fnIsMassLoadingExceptions(TRUE) then
+    
+        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
         valuesClause$ =
 :          "(ATTEND_PTS_WORK_SEQ.nextval, " +
 :          "'E', " +
@@ -431,19 +422,24 @@ ml_add_to_insert_batch:
 :          str(wfmrResultRow.job_id) + ", " +
 :          "'" + wfmrResultRow.exception_date$ + "', " +
 :          str(wfmrResultRow.exception_definition_id) + ", " +
-:          str(fnGetPtsAssessed(TRUE)) + ", " +
+:          str(erpPts) + ", " +
 :          "'" + wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) + "', " +
 :          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
 :          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
-:          "'" + fnGetPtsERPCode$(TRUE) + "', " +
-:          "'" + fnGetPtsERPNote$(TRUE) + "', " +
-:          str(fnGetPtsAssessed(TRUE)) + ", " +
-:          "'" + DEFAULT_ERP_STATUS_CODE$ + "', " +
+:          "'" + erpCode$ + "', " +
+:          "'" + erpNote$ + "', " +
+:          str(erpPts) + ", " +
+:          "'" + erpSts$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_POSTED_USER$ + "')"
+
     else
+    
+        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
         valuesClause$ =
 :          "(ATTEND_PTS_WORK_SEQ.nextval, " +
 :          "'M', " +
@@ -457,14 +453,14 @@ ml_add_to_insert_batch:
 :          str(wfmrResultRow.job_id) + ", " +
 :          "'" + wfmrResultRow.missed_shift_date$ + "', " +
 :          str(derived_exception_id) + ", " +
-:          str(fnGetPtsAssessed(TRUE)) + ", " +
+:          str(erpPts) + ", " +
 :          "'" + wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) + "', " +
 :          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
 :          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
-:          "'" + fnGetPtsERPCode$(TRUE) + "', " +
-:          "'" + fnGetPtsERPNote$(TRUE) + "', " +
-:          str(fnGetPtsAssessed(TRUE)) + ", " +
-:          "'" + DEFAULT_ERP_STATUS_CODE$ + "', " +
+:          "'" + erpCode$ + "', " +
+:          "'" + erpNote$ + "', " +
+:          str(erpPts) + ", " +
+:          "'" + erpSts$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
@@ -478,9 +474,9 @@ ml_add_to_insert_batch:
     return; rem 5
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_write_batch -- Mass Load Write the Insert Batch
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_write_batch:
 
@@ -500,9 +496,9 @@ ml_write_batch:
     return; rem 6
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  ml_close_sql_channels -- Mass Load Close SQL Channels
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 ml_close_sql_channels:
 

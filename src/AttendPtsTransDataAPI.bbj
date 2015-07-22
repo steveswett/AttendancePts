@@ -6,7 +6,8 @@ REM  */
 
 
 REM  Performance improvements needed.  This does an SQL open, prepare, execute, close each time a config var is requested.
-REM  Currently under time constraints, so not done now (7/22/15).
+REM  Currently under time constraints, so not done now (7/22/15).  Perhaps these few records could be loaded into memory
+REM  once -- maybe via a BBJ namespace reference.
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -25,14 +26,28 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
 
+
 get_erp_values:
 
     enter policyCodeIn$, wfmrExceptionDefIdIn, recordFoundOut, erpPtsCodeOut$, erpStatusOut$, erpPtsAssessedOut, erpNoteOut$
     
     gosub setup_constants
     gosub open_sql_channels
-    gosub prepare_sql_stmts
+    gosub prepare_sql_stmts_to_get_values
     gosub get_record_values
+    gosub close_sql_channels
+    
+    exit
+
+
+get_exception_ids_as_csv:
+
+    enter policyCodeIn$, csvListOut$
+    
+    gosub setup_constants
+    gosub open_sql_channels
+    gosub prepare_sql_stmts_to_get_exc_ids
+    gosub get_exception_csv
     gosub close_sql_channels
     
     exit
@@ -43,9 +58,9 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 subroutines:
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  setup_constants
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 setup_constants:
 
@@ -57,12 +72,14 @@ setup_constants:
     GET_TRANS_VALUES_SELECT_STMT$ = "select erp_cd, erp_sts, erp_pts_assess, erp_note from attend_pts_trans " +
 :                                   "where policy_cd = ? and wfmr_exc_id = ?"
     
+    GET_EXCEPTION_IDS_SELECT_STMT$ = "select wfmr_exc_id from attend_pts_trans where policy_cd = ?"
+    
     return
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
 REM  open_sql_channels
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 open_sql_channels:
 
@@ -72,20 +89,31 @@ open_sql_channels:
     return
 
 
-REM  ------------------------------
-REM  prepare_sql_stmts
-REM  ------------------------------
+REM  ------------------------------------------------------------
+REM  prepare_sql_stmts_to_get_values
+REM  ------------------------------------------------------------
 
-prepare_sql_stmts:
+prepare_sql_stmts_to_get_values:
 
     sqlprep(getTransDataChannel) GET_TRANS_VALUES_SELECT_STMT$
 
     return
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
+REM  prepare_sql_stmts_to_get_exc_ids
+REM  ------------------------------------------------------------
+
+prepare_sql_stmts_to_get_exc_ids:
+
+    sqlprep(getTransDataChannel) GET_EXCEPTION_IDS_SELECT_STMT$
+
+    return
+
+
+REM  ------------------------------------------------------------
 REM  get_record_values
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 get_record_values:
 
@@ -117,9 +145,33 @@ get_record_values:
     return
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------
+REM  get_exception_csv
+REM  ------------------------------------------------------------
+
+get_exception_csv:
+    
+    csvListOut$ = ""
+    itemCount = 0
+    
+    sqlexec(getTransDataChannel) policyCodeIn$
+    dim translationResultRow$:sqltmpl(getTransDataChannel)
+    
+    while TRUE
+    
+        translationResultRow$ = sqlfetch(getTransDataChannel,err=*break)
+        itemCount = itemCount + 1
+        if itemCount > 1 then csvListOut$ = csvListOut$ + ","
+        csvListOut$ = csvListOut$ + str(translationResultRow.wfmr_exc_id) 
+        
+    wend
+    
+    return
+
+
+REM  ------------------------------------------------------------
 REM  close_sql_channels
-REM  ------------------------------
+REM  ------------------------------------------------------------
 
 close_sql_channels:
 
