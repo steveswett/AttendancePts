@@ -1,0 +1,14 @@
+REM /**
+REM  * TestGetAttendPtsTransWithAPI.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+policyCode$ = "O"
+excId = 23
+
+call "AttendPtsTransDataAPI.bbj::get_erp_values", policyCode$, excId, recordFound, erpCode$, erpSts$, erpPts, erpNote$ 
+
+print "data for: policy code, exception ID = ", policyCode$, ", ", excId
+
+print "ERP data: found, code, status, pts, note = ", recordFound, ", ", erpCode$, ", ", erpSts$, ", ", erpPts, ", ", erpNote$

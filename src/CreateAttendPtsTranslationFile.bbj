@@ -1,0 +1,43 @@
+REM /**
+REM  * CreateAttendPtsTranslationFile.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+begin
+
+REM  File name max = 16.  If longer, Browser EM won't let you build a table over existing file name.
+
+FILE_NAME$ = "ATTEND_PTS_TRANS"
+
+REM  Column name max = 16
+REM  DESCRIPTION - if underlines not used, BBj Enterprise Manager will ignore data after first blank space
+
+TEMPLATE$ = 
+: "POLICY_CD:C(1):DESCRIPTION=O=Old_Policy_N=New_Policy:," +
+: "WFMR_EXC_ID:I:DESCRIPTION=WFMR_Exception_Definition_ID:," +
+: "ERP_CD:C(1):DESCRIPTION=ERP_Points_Code:," +
+: "ERP_STS:C(1):DESCRIPTION=ERP_Points_Status:," +
+: "ERP_PTS_ASSESS:N(4):DESCRIPTION=ERP_Points_Assessed:," +
+: "ERP_NOTE:C(50):DESCRIPTION=ERP_Note:"
+
+
+gosub create_empty_file
+
+end
+
+
+create_empty_file:
+
+    chdir "C:/basis-database/Steve-Local/DataFiles"
+
+    erase FILE_NAME$,err=*next
+    
+    REM  In statement below, the optional "field segment" is left off since not using delimited fields
+    
+    mkeyed FILE_NAME$, [1:5], 0, 64, err=*next
+
+    return
+
+

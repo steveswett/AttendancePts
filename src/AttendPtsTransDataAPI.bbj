@@ -1,5 +1,5 @@
 REM /**
-REM  * ConfigVarsAPI.bbj
+REM  * AttendPtsTransDataAPI.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -25,16 +25,14 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
 
-get_value:
+get_erp_values:
 
-    REM  In the future, may need a way to return values as different data types
-
-    enter configVarKeyIn$, recordFoundOut, configVarValueTypeOut$, configVarValueAsStringOut$
+    enter policyCodeIn$, wfmrExceptionDefIdIn, recordFoundOut, erpPtsCodeOut$, erpStatusOut$, erpPtsAssessedOut, erpNoteOut$
     
     gosub setup_constants
     gosub open_sql_channels
     gosub prepare_sql_stmts
-    gosub get_config_var_value
+    gosub get_record_values
     gosub close_sql_channels
     
     exit
@@ -54,9 +52,10 @@ setup_constants:
     TRUE = 1
     FALSE = 0
 
-    CONFIG_VARS_DATA_SOURCE$ = "Steve-Local"
+    ATTEND_PTS_DATA_SOURCE$ = "Steve-Local"
     
-    GET_CONFIG_VAR_SELECT_STMT$ = "select cv_value, value_type from config_vars where cv_key = ?"
+    GET_TRANS_VALUES_SELECT_STMT$ = "select erp_cd, erp_sts, erp_pts_assess, erp_note from attend_pts_trans " +
+:                                   "where policy_cd = ? and wfmr_exc_id = ?"
     
     return
 
@@ -67,8 +66,8 @@ REM  ------------------------------
 
 open_sql_channels:
 
-    getConfigVarChannel = sqlunt
-    sqlopen(getConfigVarChannel) CONFIG_VARS_DATA_SOURCE$
+    getTransDataChannel = sqlunt
+    sqlopen(getTransDataChannel) ATTEND_PTS_DATA_SOURCE$
     
     return
 
@@ -79,37 +78,41 @@ REM  ------------------------------
 
 prepare_sql_stmts:
 
-    sqlprep(getConfigVarChannel) GET_CONFIG_VAR_SELECT_STMT$
+    sqlprep(getTransDataChannel) GET_TRANS_VALUES_SELECT_STMT$
 
     return
 
 
 REM  ------------------------------
-REM  get_config_var_value
+REM  get_record_values
 REM  ------------------------------
 
-get_config_var_value:
+get_record_values:
 
-    sqlexec(getConfigVarChannel) configVarKeyIn$
-    dim configVarResultRow$:sqltmpl(getConfigVarChannel)
-    configVarResultRow$ = sqlfetch(getConfigVarChannel,err=row_not_found)
+    sqlexec(getTransDataChannel) policyCodeIn$, wfmrExceptionDefIdIn
+    dim translationResultRow$:sqltmpl(getTransDataChannel)
+    translationResultRow$ = sqlfetch(getTransDataChannel,err=row_not_found)
     goto row_found
     
     row_not_found:
     
     recordFoundOut = FALSE
-    configVarValueTypeOut$ = ""
-    configVarValueAsStringOut$ = ""
-    goto end_get_config_var
+    erpPtsCodeOut$ = ""
+    erpStatusOut$ = ""
+    erpPtsAssessedOut = 0
+    erpNoteOut$ = ""
+    goto end_get_record_values
     
     row_found:
     
     recordFoundOut = TRUE
-    configVarValueTypeOut$ = configVarResultRow.value_type$
-    configVarValueAsStringOut$ = configVarResultRow.cv_value$ 
-    goto end_get_config_var
+    erpPtsCodeOut$ = translationResultRow.erp_cd$
+    erpStatusOut$ = translationResultRow.erp_sts$
+    erpPtsAssessedOut = translationResultRow.erp_pts_assess
+    erpNoteOut$ = translationResultRow.erp_note$
+    goto end_get_record_values
     
-    end_get_config_var:
+    end_get_record_values:
     
     return
 
@@ -120,7 +123,7 @@ REM  ------------------------------
 
 close_sql_channels:
 
-    sqlclose(getConfigVarChannel)
+    sqlclose(getTransDataChannel)
 
     return    
     
