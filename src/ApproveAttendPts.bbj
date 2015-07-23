@@ -32,7 +32,8 @@ START_ROW_FOR_LIST = 5
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-SHIFT_ROW = 3
+SHIFT_FIELD_NO = 1
+DEPT_FIELD_NO = 2
 
 
 REM     Note about INPUTE:
@@ -78,38 +79,6 @@ fnend
 def fnHasRecordsAfter%(aDoIt)
 
     return topLeftMapIndex + RECORDS_PER_PAGE - 1 < deptsMapSize
-
-fnend
-
-
-def fnGetCursorRowAfterTabbing%(aIsBacktab)
-
-    if SHOW_FIELD_TERMINATOR_PRESSED then
-:       print @(60,22), "aIsBacktab: ", aIsBacktab
-    
-    newRow = cursorRow
-    
-    if aIsBacktab then goto backtabbing
-    
-    if cursorRow = POSITION_TO_ROW then
-:       newRow = START_ROW_FOR_LIST
-:   else if cursorRow = lastRecordRow then
-:       newRow = POSITION_TO_ROW
-:   else
-:       newRow = cursorRow + 1
-
-    return newRow
- 
-    backtabbing:
-    
-    if cursorRow = POSITION_TO_ROW then
-:       newRow = lastRecordRow
-:   else if cursorRow = START_ROW_FOR_LIST then
-:       newRow = POSITION_TO_ROW
-:   else
-:       newRow = cursorRow - 1
-    
-    return newRow
 
 fnend
 
@@ -301,15 +270,23 @@ display_data:
     
 handle_input:
 
-    cursorRow = SHIFT_ROW
+    currentFieldNo = SHIFT_FIELD_NO
 
     while TRUE
             
         if !(canPageUp) and !(canPageDown) then exitto done_handling_input
         
-        print @(7, cursorRow), 'BU'
-        inpute 7, cursorRow, 1, "", shiftInput$ 
-        print @(8, cursorRow), 'EU' 
+        if currentFieldNo = SHIFT_FIELD_NO then
+            print @(7, 3), 'BU'
+            inpute 7, 3, 1, "", shiftInput$ 
+            print @(8, 3), 'EU'
+        endif 
+        
+        if currentFieldNo = DEPT_FIELD_NO then
+            print @(26, 3), 'BU'
+            inpute 26, 3, 2, "", deptInput$ 
+            print @(28, 3), 'EU' 
+        endif
 
         savedCTL = CTL
         isTabbing = FALSE
@@ -322,10 +299,10 @@ handle_input:
 :           gosub get_top_left_map_index_for_page_down
 :       else if CTL = ASC(TAB_CTL_OUTPUT_VALUE$) then 
 :           isTabbing = TRUE;
-:           cursorRow = fnGetCursorRowAfterTabbing%(FALSE)
+:           gosub get_field_no_after_tabbing
 :       else if CTL = ASC(BACKTAB_CTL_OUTPUT_VALUE$) then 
 :           isTabbing = TRUE;
-:           cursorRow = fnGetCursorRowAfterTabbing%(TRUE)
+:           gosub get_field_no_after_back_tabbing
 :       else if CTL = 0 and len(positionToInput$) = 0 then
 :           call "IndexActionsDataAPI.bbj::get_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$, 15, actionCount, actionKeys$, actionOptions$;
 :           if (actionCount > 0) then 
@@ -375,3 +352,29 @@ get_top_left_map_index_for_page_down:
     if topLeftMapIndex > deptsMapSize then topLeftMapIndex = deptsMapSize
 
     return    
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  get_field_no_after_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+get_field_no_after_tabbing:
+
+    currentFieldNo = currentFieldNo + 1
+    if currentFieldNo > 2 then currentFieldNo = 1
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  get_field_no_after_back_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+get_field_no_after_back_tabbing:
+
+    currentFieldNo = currentFieldNo - 1
+    if currentFieldNo < 1 then currentFieldNo = 2
+    
+    return
