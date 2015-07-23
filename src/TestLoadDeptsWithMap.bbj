@@ -1,0 +1,20 @@
+REM /**
+REM  * TestLoadDeptsWithMap.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap mapOfDepts!
+
+load_depts:
+
+enter mapOfDepts!
+
+mapOfDepts!.put("1", "Shoe Dept")
+mapOfDepts!.put("2", "Men's Dept")
+mapOfDepts!.put("3", "Women's Dept")
+
+
+exit

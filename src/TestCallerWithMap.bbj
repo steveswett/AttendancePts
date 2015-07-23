@@ -1,0 +1,54 @@
+REM /**
+REM  * TestCallerWithMap.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap deptsMap!
+
+begin
+
+deptsMap! = new java.util.LinkedHashMap()
+
+gosub do_manual_test
+
+gosub do_database_test
+
+
+end
+
+
+do_manual_test:
+
+    print "Manual Test:", $0A$
+    call "TestLoadDeptsWithMap.bbj::load_depts", deptsMap!
+    gosub print_dept_info
+
+    return
+
+
+do_database_test:
+
+    print "Database Test:", $0A$
+    call "WFMRDeptDataAPI.bbj::get_ids_and_names", deptsMap!
+    gosub print_dept_info
+
+    return
+
+
+print_dept_info:
+
+    print "Number of depts = ", deptsMap!.size()
+    
+    iter! = deptsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+      deptId! = iter!.next()
+      print "dept info: key, name = ", deptId!, ", ", deptsMap!.get(deptId!)
+    wend
+    
+    print $0A$
+    
+    return

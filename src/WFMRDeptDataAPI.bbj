@@ -1,12 +1,17 @@
 REM /**
-REM  * ConfigVarsAPI.bbj
+REM  * WFMRDeptDataAPI.bbj
 REM  * @author stevett
 REM  *
 REM  */
 
 
 REM  Performance improvements needed.  This does an SQL open, prepare, execute, close each time a config var is requested.
-REM  Currently under time constraints, so not done now (7/22/15).  THIS COULD BE DONE WITH BASIC READS/WRITES, IF DESIRED.
+REM  Currently under time constraints, so not done now (7/22/15).
+
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap deptsMap!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -25,16 +30,16 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
 
-get_value:
+get_ids_and_names:
 
     REM  In the future, may need a way to return values as different data types
 
-    enter configVarKeyIn$, recordFoundOut, configVarValueTypeOut$, configVarValueAsStringOut$
+    enter deptsMap!
     
     gosub setup_constants
     gosub open_sql_channels
     gosub prepare_sql_stmts
-    gosub get_config_var_value
+    gosub query_for_depts
     gosub close_sql_channels
     
     exit
@@ -54,9 +59,10 @@ setup_constants:
     TRUE = 1
     FALSE = 0
 
-    CONFIG_VARS_DATA_SOURCE$ = "Steve-Local"
+    wfmrDataSource$ = ""
+    call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
     
-    GET_CONFIG_VAR_SELECT_STMT$ = "select cv_value, value_type from config_vars where cv_key = ?"
+    DEPTS_SELECT_STMT$ = "select department_id, name from lab_department where status_code = 'a' order by name"
     
     return
 
@@ -67,8 +73,8 @@ REM  ------------------------------
 
 open_sql_channels:
 
-    getConfigVarChannel = sqlunt
-    sqlopen(getConfigVarChannel) CONFIG_VARS_DATA_SOURCE$
+    deptsChannel = sqlunt
+    sqlopen(deptsChannel) wfmrDataSource$
     
     return
 
@@ -79,37 +85,28 @@ REM  ------------------------------
 
 prepare_sql_stmts:
 
-    sqlprep(getConfigVarChannel) GET_CONFIG_VAR_SELECT_STMT$
+    sqlprep(deptsChannel) DEPTS_SELECT_STMT$
 
     return
 
 
 REM  ------------------------------
-REM  get_config_var_value
+REM  query_for_depts
 REM  ------------------------------
 
-get_config_var_value:
+query_for_depts:
 
-    sqlexec(getConfigVarChannel) configVarKeyIn$
-    dim configVarResultRow$:sqltmpl(getConfigVarChannel)
-    configVarResultRow$ = sqlfetch(getConfigVarChannel,err=row_not_found)
-    goto row_found
+    deptsMap!.clear()
+
+    sqlexec(deptsChannel) 
+    dim resultRow$:sqltmpl(deptsChannel)
     
-    row_not_found:
+    while TRUE
     
-    recordFoundOut = FALSE
-    configVarValueTypeOut$ = ""
-    configVarValueAsStringOut$ = ""
-    goto end_get_config_var
-    
-    row_found:
-    
-    recordFoundOut = TRUE
-    configVarValueTypeOut$ = configVarResultRow.value_type$
-    configVarValueAsStringOut$ = cvs(configVarResultRow.cv_value$, 2) 
-    goto end_get_config_var
-    
-    end_get_config_var:
+        resultRow$ = sqlfetch(deptsChannel,err=*break)
+        deptsMap!.put(resultRow.department_id, cvs(resultRow.name$, 2) )
+        
+    wend
     
     return
 
@@ -120,7 +117,7 @@ REM  ------------------------------
 
 close_sql_channels:
 
-    sqlclose(getConfigVarChannel)
+    sqlclose(deptsChannel)
 
     return    
     

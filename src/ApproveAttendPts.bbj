@@ -1,0 +1,377 @@
+REM /**
+REM  * ApproveAttendPts.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap deptsMap!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+TRUE = 1
+FALSE = 0
+
+call "TerminalUtilities.bbj::get_unqualified_program_name", PROGRAM_NAME$
+
+TERMINAL_ID$ = fid(0)
+
+RECORDS_PER_PAGE = 30
+COLUMNS_PER_PAGE = 2
+RECORDS_PER_COLUMN = 15
+START_ROW_FOR_LIST = 5
+END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
+SHOW_FIELD_TERMINATOR_PRESSED = FALSE
+
+SHIFT_ROW = 3
+
+
+REM     Note about INPUTE:
+REM     
+REM     Any value less than 63 will cause the input function to exit setting the CTL value to the function value. 
+REM     The "help" function causes an exit with CTL=-1.
+
+
+F2_CUSTOM_INPUT_VALUE$ = $81$
+F2_CTL_OUTPUT_VALUE$ = $02$
+
+F4_CUSTOM_INPUT_VALUE$ = $82$
+F4_CTL_OUTPUT_VALUE$ = $04$
+
+F6_CUSTOM_INPUT_VALUE$ = $83$
+F6_CTL_OUTPUT_VALUE$ = $06$
+
+TAB_CUSTOM_INPUT_VALUE$ = $09$
+TAB_CTL_OUTPUT_VALUE$ = $19$
+
+BACKTAB_CUSTOM_INPUT_VALUE$ = $3C$
+BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
+
+PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
+
+PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+def fnHasRecordsBefore%(aDoIt)
+
+    return topLeftMapIndex > 1
+
+fnend
+
+
+def fnHasRecordsAfter%(aDoIt)
+
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < deptsMapSize
+
+fnend
+
+
+def fnGetCursorRowAfterTabbing%(aIsBacktab)
+
+    if SHOW_FIELD_TERMINATOR_PRESSED then
+:       print @(60,22), "aIsBacktab: ", aIsBacktab
+    
+    newRow = cursorRow
+    
+    if aIsBacktab then goto backtabbing
+    
+    if cursorRow = POSITION_TO_ROW then
+:       newRow = START_ROW_FOR_LIST
+:   else if cursorRow = lastRecordRow then
+:       newRow = POSITION_TO_ROW
+:   else
+:       newRow = cursorRow + 1
+
+    return newRow
+ 
+    backtabbing:
+    
+    if cursorRow = POSITION_TO_ROW then
+:       newRow = lastRecordRow
+:   else if cursorRow = START_ROW_FOR_LIST then
+:       newRow = POSITION_TO_ROW
+:   else
+:       newRow = cursorRow - 1
+    
+    return newRow
+
+fnend
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub init
+    
+    gosub display_screen_headings
+    
+    gosub display_first_page
+    
+    gosub handle_input
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    input @(0,22), "Hit enter to quit", ignoreInput$
+    release
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+
+        rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
+        rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
+
+    print 'UC', 'CS', 'ET'
+    
+        rem Set color.  In the following, $03$ is the background (blue) and $3F$ is the foreground (white).
+        rem The bits for that were: 0 0 1 1 1 1 1 1  (<-- foreground)   0 0 0 0 0 0 1 1  (<-- background)
+        
+    print 'RGB'($033F$);   rem blue background, white foreground
+    rem print 'RGB'($033C$);   rem blue background, yellow foreground
+    rem print 'RGB'($0330$);   rem blue background, red foreground
+    
+    rem print 'CURSOR'("rep_block");   rem This only works in BBj -- not Pro/5
+
+
+        rem For info on function key programming, see this article: http://www.basis.com/kb00025
+        rem Also see Basis help: PRO/5 > User's Ref > Character Devices > Terminals > Function and Edit Keys
+    
+        rem Below is how the 'FL' (function keys) and 'EL' (edit keys) mnemonics are used to assign a key a value
+        
+        rem "2" - load only one key
+        rem $01$ - means the F2 key (0-based)
+        rem chr(1) - means the custom value of the function key is 1 byte long
+        rem F2_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
+        
+    print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
+    print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
+    
+    f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
+    f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
+    f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
+    pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
+    pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
+    tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
+    backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
+    
+    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    
+    deptsMap! = new java.util.LinkedHashMap()
+    call "WFMRDeptDataAPI.bbj::get_ids_and_names", deptsMap!
+    
+    topLeftMapIndex = 1
+    deptsMapSize = deptsMap!.size()
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the screen headings
+    rem ------------------------------------------------------------------------------------------
+
+
+display_screen_headings:
+
+    call "TerminalUtilities.bbj::get_current_time", formattedCurrentTime$
+    
+    print @(0,0), pad(day, 20, "L", " ")
+    print @(20,0), pad("NOTIONS MARKETING", 50, "L", " ")
+    print @(70,0), pad(TERMINAL_ID$, 10, "R", " ")
+    
+    print 'BU'
+    print @(0,1), pad(formattedCurrentTime$, 20, "L", " ")
+    print @(20,1), pad("SUPERVISOR APPROVAL OF POINTS", 35, "L", " ")
+    print @(55,1), pad(PROGRAM_NAME$ + ".01", 25, "R", " ")
+    print 'EU' 
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the first page of records, which starts at the beginning of the file
+    rem ------------------------------------------------------------------------------------------
+    
+
+display_first_page:
+
+    gosub display_data
+    
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display data on page, besides page headings
+    rem ------------------------------------------------------------------------------------------
+
+    
+display_data:
+
+    print @(0,0), 'CE', 'UC'
+    
+    gosub display_screen_headings
+    
+    print @(0, 3), "SHIFT: ", 'BU', " ", 'EU', " (1, 2, 3)  DEPT: ", 'BU', "  ", 'EU'
+    
+    count = 0
+    displayedCount = 0
+
+    iter! = deptsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+      deptId! = iter!.next()
+      count = count + 1
+      
+      if count < topLeftMapIndex then continue
+      if count > topLeftMapIndex + RECORDS_PER_PAGE - 1 then break
+      
+      displayedCount = displayedCount + 1
+      deptName$ = deptsMap!.get(deptId!)
+      if len(deptName$) > 36 then deptName$ = deptName$(1, 36)
+      
+      REM  First column:
+      
+      if displayedCount <= RECORDS_PER_COLUMN then 
+          colEdge = 0
+          row = START_ROW_FOR_LIST + displayedCount - 1
+          print @(colEdge, row), pad( str(displayedCount), 2, "R"), ". ", deptName$ 
+      else
+          colEdge = 42
+          row = START_ROW_FOR_LIST + displayedCount - 1 - RECORDS_PER_COLUMN
+          print @(colEdge, row), displayedCount, ". ", deptName$ 
+      endif
+      
+    wend
+
+    
+    canPageUp = fnHasRecordsBefore%(TRUE)
+    canPageDown = fnHasRecordsAfter%(TRUE)
+    
+    actionLabel$ = "F4=Exit   "
+    
+    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
+    if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Page   "
+    
+    actionLabel$ = actionLabel$ + "Enter=Select"
+    
+    print @(0,21), actionLabel$ 
+    
+    if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator: ", savedCTL
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Handle input, which will be F4 or Page Up or Page Down
+    rem ------------------------------------------------------------------------------------------
+
+    
+handle_input:
+
+    cursorRow = SHIFT_ROW
+
+    while TRUE
+            
+        if !(canPageUp) and !(canPageDown) then exitto done_handling_input
+        
+        print @(7, cursorRow), 'BU'
+        inpute 7, cursorRow, 1, "", shiftInput$ 
+        print @(8, cursorRow), 'EU' 
+
+        savedCTL = CTL
+        isTabbing = FALSE
+        
+        if CTL = ASC(F4_CTL_OUTPUT_VALUE$) then
+:           exitto done_handling_input
+:       else if CTL = ASC(PAGE_UP_CTL_OUTPUT_VALUE$) and canPageUp then 
+:           gosub get_top_left_map_index_for_page_up
+:       else if CTL = ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$) and canPageDown then 
+:           gosub get_top_left_map_index_for_page_down
+:       else if CTL = ASC(TAB_CTL_OUTPUT_VALUE$) then 
+:           isTabbing = TRUE;
+:           cursorRow = fnGetCursorRowAfterTabbing%(FALSE)
+:       else if CTL = ASC(BACKTAB_CTL_OUTPUT_VALUE$) then 
+:           isTabbing = TRUE;
+:           cursorRow = fnGetCursorRowAfterTabbing%(TRUE)
+:       else if CTL = 0 and len(positionToInput$) = 0 then
+:           call "IndexActionsDataAPI.bbj::get_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$, 15, actionCount, actionKeys$, actionOptions$;
+:           if (actionCount > 0) then 
+:               call "FileHeader.bbj", namesFileChannel, PROGRAM_NAME$, TERMINAL_ID$, actionCount, actionKeys$, actionOptions$;
+:               call "IndexActionsDataAPI.bbj::delete_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$;
+:               cursorRow = POSITION_TO_ROW;
+:               startingKey$ = fnGetStartingKeyForPositionTo$(startingKey$)
+
+                rem Above call to fnGetStartingKeyForPositionTo$(startingKey$) is done just in case a record was deleted   
+
+        if isTabbing and SHOW_FIELD_TERMINATOR_PRESSED then
+:           print @(55,21), 'CL', "CTL, savedCTL: ", CTL, " ", savedCTL
+
+        if !(isTabbing) then
+            gosub display_data
+        
+    wend
+    
+    done_handling_input:
+    
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Up is pressed, calculate a new topLeftMapIndex
+    rem ------------------------------------------------------------------------------------------
+    
+    
+get_top_left_map_index_for_page_up:
+
+    topLeftMapIndex = topLeftMapIndex - RECORDS_PER_PAGE
+    
+    if topLeftMapIndex < 1 then topLeftMapIndex = 1
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Down is pressed, calculate a new topLeftMapIndex
+    rem ------------------------------------------------------------------------------------------
+    
+    
+get_top_left_map_index_for_page_down:
+
+    topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
+    
+    if topLeftMapIndex > deptsMapSize then topLeftMapIndex = deptsMapSize
+
+    return    
