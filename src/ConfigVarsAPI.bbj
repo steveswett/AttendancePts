@@ -106,7 +106,7 @@ get_config_var_value:
     
     recordFoundOut = TRUE
     configVarValueTypeOut$ = configVarResultRow.value_type$
-    configVarValueAsStringOut$ = configVarResultRow.cv_value$ 
+    configVarValueAsStringOut$ = cvs(configVarResultRow.cv_value$, 2) 
     goto end_get_config_var
     
     end_get_config_var:

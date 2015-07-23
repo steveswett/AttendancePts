@@ -10,4 +10,7 @@ timestamp$ = date(0:"%Y%Mz%Dz%hz%mz%sz")
 
 print "Current timestamp = ", timestamp$
 
-rem comment for source control test
+
+weekday$ = date(0: "%Ds")
+
+print "Current weekday = ", weekday$
