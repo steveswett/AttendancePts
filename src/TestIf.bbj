@@ -1,0 +1,30 @@
+REM /**
+REM  * TestIf.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+REM  ***** DOESN'T WORK WITH 1 *****
+
+savedCTL = 1
+output$ = "blank"
+outputU$ = "BLANK"
+
+        if savedCTL = 1 then
+            output$ = "one"
+            outputU$ = "ONE"
+        else 
+            if savedCTL = 2 then 
+                output$ = "two"
+                outputU$ = "TWO"
+        else 
+            if savedCTL = 3 then 
+                output$ = "three"
+                outputU$ = "THREE"
+        else 
+            if savedCTL = 4 then
+                output$ = "four"
+                outputU$ = "FOUR"
+        endif
+        
+print "savedCTL = ", savedCTL, "; output$ = ", output$, "; outputU$ = ", outputU$        

@@ -1,0 +1,59 @@
+REM /**
+REM  * TestIf.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+begin
+
+savedCTL = 2
+output$ = "blank"
+outputU$ = "BLANK"
+steveDave = 1
+
+switch savedCTL
+
+    case 1
+            output$ = "one"
+            outputU$ = "ONE"
+            
+            break
+    case 2
+            output$ = "two"
+            outputU$ = "TWO"
+            
+            if steveDave then
+                gosub print_steve
+                gosub print_dave
+            endif
+            
+            break
+    case 3
+            output$ = "three"
+            outputU$ = "THREE"
+            break
+    case 4
+            output$ = "four"
+            outputU$ = "FOUR"
+            break
+
+swend
+        
+print "savedCTL = ", savedCTL, "; output$ = ", output$, "; outputU$ = ", outputU$        
+
+end
+
+
+print_steve:
+
+print "steve"
+
+return
+
+
+
+print_dave:
+
+print "dave"
+
+return
