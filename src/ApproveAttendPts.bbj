@@ -30,7 +30,7 @@ COLUMNS_PER_PAGE = 2
 RECORDS_PER_COLUMN = 15
 START_ROW_FOR_LIST = 5
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
-SHOW_FIELD_TERMINATOR_PRESSED = FALSE
+SHOW_FIELD_TERMINATOR_PRESSED = TRUE
 
 SHIFT_FIELD_NO = 1
 DEPT_FIELD_NO = 2
@@ -100,7 +100,6 @@ rem *- - - - - - - - - - EOJ - - - - - - - - - -*
 
 eoj:
 
-    input @(0,22), "Hit enter to quit", ignoreInput$
     release
     end
 
@@ -127,7 +126,7 @@ init:
     rem print 'RGB'($033C$);   rem blue background, yellow foreground
     rem print 'RGB'($0330$);   rem blue background, red foreground
     
-    rem print 'CURSOR'("rep_block");   rem This only works in BBj -- not Pro/5
+    print 'CURSOR'("rep_block");   rem This only works in BBj -- not Pro/5
 
 
         rem For info on function key programming, see this article: http://www.basis.com/kb00025
@@ -258,7 +257,7 @@ display_data:
     
     print @(0,21), actionLabel$ 
     
-    if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator: ", savedCTL
+    if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
     return
 
@@ -274,7 +273,7 @@ handle_input:
 
     while TRUE
             
-        if !(canPageUp) and !(canPageDown) then exitto done_handling_input
+        if !(canPageUp) and !(canPageDown) then break
         
         if currentFieldNo = SHIFT_FIELD_NO then
             print @(7, 3), 'BU'
@@ -291,37 +290,50 @@ handle_input:
         savedCTL = CTL
         isTabbing = FALSE
         
-        if CTL = ASC(F4_CTL_OUTPUT_VALUE$) then
-:           exitto done_handling_input
-:       else if CTL = ASC(PAGE_UP_CTL_OUTPUT_VALUE$) and canPageUp then 
-:           gosub get_top_left_map_index_for_page_up
-:       else if CTL = ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$) and canPageDown then 
-:           gosub get_top_left_map_index_for_page_down
-:       else if CTL = ASC(TAB_CTL_OUTPUT_VALUE$) then 
-:           isTabbing = TRUE;
-:           gosub get_field_no_after_tabbing
-:       else if CTL = ASC(BACKTAB_CTL_OUTPUT_VALUE$) then 
-:           isTabbing = TRUE;
-:           gosub get_field_no_after_back_tabbing
-:       else if CTL = 0 and len(positionToInput$) = 0 then
-:           call "IndexActionsDataAPI.bbj::get_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$, 15, actionCount, actionKeys$, actionOptions$;
-:           if (actionCount > 0) then 
-:               call "FileHeader.bbj", namesFileChannel, PROGRAM_NAME$, TERMINAL_ID$, actionCount, actionKeys$, actionOptions$;
-:               call "IndexActionsDataAPI.bbj::delete_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$;
-:               cursorRow = POSITION_TO_ROW;
-:               startingKey$ = fnGetStartingKeyForPositionTo$(startingKey$)
+        if savedCTL = ASC(F4_CTL_OUTPUT_VALUE$) then
+            break
+        else 
+            if savedCTL = ASC(PAGE_UP_CTL_OUTPUT_VALUE$) and canPageUp then 
+                gosub get_top_left_map_index_for_page_up
+            endif
+        else 
+            if savedCTL = ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$) and canPageDown then 
+                gosub get_top_left_map_index_for_page_down
+            endif
+        else 
+            if savedCTL = ASC(TAB_CTL_OUTPUT_VALUE$) then 
+                isTabbing = TRUE
+                gosub get_field_no_after_tabbing
+            endif
+        else 
+            if savedCTL = ASC(BACKTAB_CTL_OUTPUT_VALUE$) then 
+                isTabbing = TRUE
+                gosub get_field_no_after_back_tabbing
+            endif
+        else 
+            if savedCTL = 0 and len(positionToInput$) = 0 then
+                call "IndexActionsDataAPI.bbj::get_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$, 15, actionCount, actionKeys$, actionOptions$
+                
+                if (actionCount > 0) then 
+                    call "FileHeader.bbj", namesFileChannel, PROGRAM_NAME$, TERMINAL_ID$, actionCount, actionKeys$, actionOptions$
+                    call "IndexActionsDataAPI.bbj::delete_all_records", actionsFileChannel, PROGRAM_NAME$, TERMINAL_ID$
+                    cursorRow = POSITION_TO_ROW
+                    startingKey$ = fnGetStartingKeyForPositionTo$(startingKey$)
+                endif
+            endif
+        endif
 
                 rem Above call to fnGetStartingKeyForPositionTo$(startingKey$) is done just in case a record was deleted   
 
         if isTabbing and SHOW_FIELD_TERMINATOR_PRESSED then
-:           print @(55,21), 'CL', "CTL, savedCTL: ", CTL, " ", savedCTL
+            print @(55,21), 'CL', "CTL, savedCTL: ", CTL, ", ", savedCTL
+        endif
 
         if !(isTabbing) then
             gosub display_data
+        endif
         
     wend
-    
-    done_handling_input:
     
     return
 
