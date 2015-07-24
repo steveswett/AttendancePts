@@ -163,6 +163,9 @@ init:
     topLeftMapIndex = 1
     deptsMapSize = deptsMap!.size()
     
+    shift$ = "1"
+    dept$ = "  "
+    
     return
 
 
@@ -211,7 +214,7 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0, 3), "SHIFT: ", 'BU', " ", 'EU', " (1, 2, 3)  DEPT: ", 'BU', "  ", 'EU'
+    print @(0, 3), "SHIFT: ", 'BU', shift$, 'EU', " (1, 2, 3)  DEPT: ", 'BU', "  ", 'EU'
     
     count = 0
     displayedCount = 0
@@ -272,20 +275,20 @@ handle_input:
     currentFieldNo = SHIFT_FIELD_NO
 
     while TRUE
-            
-        rem if !(canPageUp) and !(canPageDown) then break
         
         if currentFieldNo = SHIFT_FIELD_NO then
             print @(7, 3), 'BU'
-            inpute 7, 3, 1, "", shiftInput$
+            inpute 7, 3, 1, "", shift$
             print @(8, 3), 'EU'
         endif 
         
         if currentFieldNo = DEPT_FIELD_NO then
             print @(26, 3), 'BU'
-            inpute 26, 3, 2, "", deptInput$ 
+            inpute 26, 3, 2, "", dept$ 
             print @(28, 3), 'EU' 
         endif
+            
+        gosub clear_err_msg
 
         savedCTL = CTL
         isTabbing = FALSE
@@ -325,7 +328,13 @@ handle_input:
                     break
                     
             case 0
-                    input "This is what would run if Enter was pressed", ignoreInput$
+                    gosub validate_input
+                    
+                    if len(errMsg$) > 0 then
+                        gosub display_err_msg
+                    else
+                        input "This is what would run if Enter was pressed", ignoreInput$
+                    endif
                     
                     break
         swend
@@ -336,7 +345,7 @@ handle_input:
             print @(55,21), 'CL', "CTL, savedCTL: ", CTL, ", ", savedCTL
         endif
 
-        if !(isTabbing) then
+        if !(isTabbing) and len(errMsg$) = 0 then
             gosub display_data
         endif
         
@@ -396,4 +405,71 @@ get_field_no_after_back_tabbing:
     currentFieldNo = currentFieldNo - 1
     if currentFieldNo < 1 then currentFieldNo = 2
     
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  clear_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+clear_err_msg:
+
+    print @(0,22), 'CL'
+    errMsg$ = ""
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  display_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+display_err_msg:
+
+    print @(0,22), 'CL', 'BR', pad(errMsg$, 80, "L", " "), 'ER'
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  validate_input
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_input:
+
+    if shift$ <> "1" and shift$ <> "2" and shift$ <> "3" then
+        errMsg$ = "Shift must be 1, 2 or 3."
+        currentFieldNo = SHIFT_FIELD_NO
+    endif
+    
+    hasDeptErr = FALSE
+    
+    dept = num(dept$,err=invalid_dept_no_format)
+    
+    if dept < 1 or dept > displayedCount then
+        hasDeptErr = TRUE
+    endif
+    
+    remainder = mod(dept, 1)
+    
+    if remainder <> 0 then
+        hasDeptErr = TRUE
+    endif
+    
+    goto skip_dept_no_format
+    
+    invalid_dept_no_format:
+        hasDeptErr = TRUE
+    
+    skip_dept_no_format:
+    
+    if hasDeptErr then
+        errMsg$ = "Invalid department number."
+        currentFieldNo = DEPT_FIELD_NO
+    endif
+  
+        
     return
