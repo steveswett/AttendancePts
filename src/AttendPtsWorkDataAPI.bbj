@@ -6,6 +6,10 @@ REM  *
 REM  */
 
 
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap datesMapOut!
+
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
@@ -35,6 +39,7 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
 
+
 mass_load_wfmr_data:
 
     REM  Business dates are in format like this: "2015-07-15"
@@ -53,6 +58,17 @@ mass_load_wfmr_data:
     
     exit
 
+
+get_dates_with_totals:
+
+    enter shiftIn$, deptIdIn, datesMapOut!
+    
+    gosub setup_constants
+    
+    gosub load_dates_map
+    
+    exit
+    
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
@@ -124,6 +140,8 @@ setup_constants:
 :        "values "
 
 
+    REM  Probably could have parameterized the following query with ?
+
     WFMR_EXCEPTIONS_SELECT_STMT$ = 
 :       "select " +
 :        "Lab_Exception.exception_id, " +
@@ -172,6 +190,8 @@ setup_constants:
 :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
 
 
+    REM  Probably could have parameterized the following query with ?
+
     WFMR_MISSED_SHIFT_SELECT_STMT$ = 
 :       "select " +
 :       "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
@@ -214,6 +234,17 @@ setup_constants:
 :        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
 :        "and wfmr_exc_lastmod < ?"
 
+    PAY_PERIODS_SELECT_STMT$ = 
+:       "select distinct convert(varchar(8), start_date, 112) as pay_yyyymmdd from lab_pay_period " +
+:       "where start_date < getdate() " +
+:       "order by pay_yyyymmdd desc"
+
+    ATTEND_PTS_WORK_DATES_SELECT_STMT$ = 
+:       "select wfmr_exc_date, count(*) as total " +
+:       "from attend_pts_work " + 
+:       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
+:       "group by wfmr_exc_date " +
+:       "order by wfmr_exc_date desc"
 
     return
 
@@ -528,3 +559,60 @@ ml_close_sql_channels:
     sqlclose(attendPtsUpdateRowChannel)
 
     return; rem 7    
+
+
+REM  ------------------------------------------------------------
+REM  load_dates_map -- Load one set of info per work file date into the datesMapOut!
+REM  ------------------------------------------------------------
+    
+load_dates_map:
+    
+    datesMapOut!.clear()
+    
+    REM  Step 1.  Calculate the "from date" to be used to query the ATTEND_PTS_WORK file. The default will be today.
+
+    payPeriodsChannel = sqlunt
+    sqlopen(payPeriodsChannel) wfmrDataSource$
+    
+    sqlprep(payPeriodsChannel) PAY_PERIODS_SELECT_STMT$
+
+    sqlexec(payPeriodsChannel) 
+    dim resultRow$:sqltmpl(payPeriodsChannel)
+    
+    fromDate = num( date(0:"%Y%Mz%Dz") )
+    
+    payPeriods = 0
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(payPeriodsChannel,err=*break)
+        payPeriods = payPeriods + 1
+        fromDate = num(resultRow.pay_yyyymmdd$)
+        
+        if payPeriods >= 2 then break
+        
+    wend
+    
+    sqlclose(payPeriodsChannel)
+    
+    
+    REM  Step 2. Query the ATTEND_PTS_WORK file.
+    
+    attendPtsWorkDatesChannel = sqlunt
+    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_DATES_SELECT_STMT$
+
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
+    dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
+        datesMapOut!.put(resultRow.wfmr_exc_date$, resultRow.total)
+        
+    wend
+    
+    sqlclose(attendPtsWorkDatesChannel)
+
+    return

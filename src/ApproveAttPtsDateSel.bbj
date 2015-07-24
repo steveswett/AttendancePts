@@ -1,5 +1,5 @@
 REM /**
-REM  * ApproveAttendPts.bbj
+REM  * ApproveAttendPts02.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -7,10 +7,10 @@ REM  */
 
 use java.util.LinkedHashMap
 
-declare java.util.LinkedHashMap deptsMap!
+declare java.util.LinkedHashMap datesMap!
 
 
-begin
+enter shiftIn$, deptIdIn, deptNameIn$
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -25,10 +25,10 @@ call "TerminalUtilities.bbj::get_unqualified_program_name", PROGRAM_NAME$
 
 TERMINAL_ID$ = fid(0)
 
-RECORDS_PER_PAGE = 30
-COLUMNS_PER_PAGE = 2
-RECORDS_PER_COLUMN = 15
-START_ROW_FOR_LIST = 5
+RECORDS_PER_PAGE = 12
+COLUMNS_PER_PAGE = 1
+RECORDS_PER_COLUMN = 12
+START_ROW_FOR_LIST = 8
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
@@ -78,7 +78,7 @@ fnend
 
 def fnHasRecordsAfter%(aDoIt)
 
-    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < deptsMapSize
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < datesMapSize
 
 fnend
 
@@ -91,17 +91,18 @@ main_routine:
     
     gosub display_screen_headings
     
-    gosub display_first_page
+    gosub display_data
     
-    gosub handle_input
+    input @(0,22), 'CL', "Hit Enter to continue", ignoreInput$
+    
+    rem gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
 
 eoj:
 
-    release
-    end
+    exit
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -157,14 +158,11 @@ init:
     resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
-    deptsMap! = new java.util.LinkedHashMap()
-    call "WFMRDeptDataAPI.bbj::get_ids_and_names", deptsMap!
+    datesMap! = new java.util.LinkedHashMap()
+    call "AttendPtsWorkDataAPI.bbj::get_dates_with_totals", shiftIn$, deptIdIn, datesMap!
     
     topLeftMapIndex = 1
-    deptsMapSize = deptsMap!.size()
-    
-    shift$ = "1"
-    dept$ = "  "
+    datesMapSize = datesMap!.size()
     
     return
 
@@ -185,21 +183,9 @@ display_screen_headings:
     print 'BU'
     print @(0,1), pad(formattedCurrentTime$, 20, "L", " ")
     print @(20,1), pad("SUPERVISOR APPROVAL OF POINTS", 35, "L", " ")
-    print @(55,1), pad(PROGRAM_NAME$ + ".01", 25, "R", " ")
+    print @(55,1), pad("ApproveAttPts.02", 25, "R", " ")
     print 'EU' 
 
-    return
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Display the first page of records, which starts at the beginning of the file
-    rem ------------------------------------------------------------------------------------------
-    
-
-display_first_page:
-
-    gosub display_data
-    
     return
 
     
@@ -214,36 +200,37 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0, 3), "SHIFT: ", 'BU', shift$, 'EU', " (1, 2, 3)  DEPT: ", 'BU', "  ", 'EU'
+    print @(0,3), "Shift: ", shiftIn$
+    print @(20,3), "Dept: ", deptNameIn$
+    
+    print @(34,5), "NOT"
+    print @(63, 5), "FLMA    NOT"
+    
+    print @(0,6), """X"""
+    print @(6,6), "DATE"
+    print @(18,6), "TOTAL  POSTED   POSTED  APPROVED   EDITED   PENDING  HANDLED"
     
     count = 0
     displayedCount = 0
 
-    iter! = deptsMap!.keySet().iterator()
+    iter! = datesMap!.keySet().iterator()
     
     while iter!.hasNext()
     
-      deptId! = iter!.next()
+      dateKey! = iter!.next()
       count = count + 1
       
       if count < topLeftMapIndex then continue
       if count > topLeftMapIndex + RECORDS_PER_PAGE - 1 then break
       
       displayedCount = displayedCount + 1
-      deptName$ = deptsMap!.get(deptId!)
-      if len(deptName$) > 36 then deptName$ = deptName$(1, 36)
+      qtyTotal = datesMap!.get(dateKey!)
+
+      row = START_ROW_FOR_LIST + displayedCount - 1
       
-      REM  First column:
-      
-      if displayedCount <= RECORDS_PER_COLUMN then 
-          colEdge = 0
-          row = START_ROW_FOR_LIST + displayedCount - 1
-          print @(colEdge, row), pad( str(displayedCount), 2, "R"), ". ", deptName$ 
-      else
-          colEdge = 42
-          row = START_ROW_FOR_LIST + displayedCount - 1 - RECORDS_PER_COLUMN
-          print @(colEdge, row), displayedCount, ". ", deptName$ 
-      endif
+      print @(1, row), 'BU', " ", 'EU'
+      print @(4, row), dateKey!
+      print @(18,row), qtyTotal 
       
     wend
 
@@ -377,7 +364,7 @@ get_top_left_map_index_for_page_down:
 
     topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
     
-    if topLeftMapIndex > deptsMapSize then topLeftMapIndex = deptsMapSize
+    if topLeftMapIndex > datesMapSize then topLeftMapIndex = datesMapSize
 
     return    
     

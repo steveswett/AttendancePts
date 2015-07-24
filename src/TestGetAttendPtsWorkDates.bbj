@@ -1,0 +1,43 @@
+REM /**
+REM  * TestCallerWithMap.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap datesMap!
+
+begin
+
+datesMap! = new java.util.LinkedHashMap()
+
+shiftIn$ = "1"
+deptIdIn = 1000101
+
+gosub do_database_test
+
+
+end
+
+
+do_database_test:
+
+    call "AttendPtsWorkDataAPI.bbj::get_dates_with_totals", shiftIn$, deptIdIn, datesMap!
+    gosub print_date_info
+
+    return
+
+
+print_date_info:
+
+    print "Number of dates = ", datesMap!.size()
+    
+    iter! = datesMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+      date! = iter!.next()
+      print "date info: date, total = ", date!, ", ", datesMap!.get(date!)
+    wend
+    
+    return
