@@ -7,9 +7,13 @@ REM  */
 
 
 use java.util.LinkedHashMap
+use java.util.HashMap
 
 declare java.util.LinkedHashMap datesMapOut!
 declare java.util.HashMap dateQtys!
+
+declare java.util.LinkedHashMap employeesMapOut!
+declare java.util.HashMap employeeData!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -67,6 +71,17 @@ get_dates_with_totals:
     gosub setup_constants
     
     gosub load_dates_map
+    
+    exit
+
+
+get_employees_for_date:
+
+    enter shiftIn$, deptIdIn, dateIn!, employeesMapOut!
+    
+    gosub setup_constants
+    
+    gosub load_employees_map
     
     exit
     
@@ -259,8 +274,25 @@ setup_constants:
 :       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
 :       "group by wfmr_exc_date, disp_cd"
 
-    return
+    ATTEND_PTS_WORK_GET_EMPLOYEES_STMT$ = 
+:       "select " +
+:       "attend_pts_work.id, " +
+:       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
+:       "attend_pts_work.disp_cd, " +
+:       "attend_pts_work.WFMR_EXC_DEF_ID, " +
+:       "attend_pts_work.WFMR_PTS_ASSESS, " +
+:       "attend_pts_work.POSTED_TIMESTAMP, " +
+:       "attend_pts_work.WFMR_EXC_LASTMOD, " +
+:       "attend_pts_work.ERP_CD, " +
+:       "attend_pts_work.ERP_PTS_ASSESSED, " +
+:       "attend_pts_work.ERP_NOTE " +
+:       "from attend_pts_work " +
+:       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
+:       "where " + 
+:       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? " +
+:       "order by last_first_mi"
 
+    return
 
 REM  ------------------------------------------------------------
 REM  ml_init -- Mass Load Init
@@ -681,5 +713,44 @@ load_dates_map:
     
     sqlclose(attendPtsWorkDatesChannel)
 
+
+    return
+
+
+REM  ------------------------------------------------------------
+REM  load_employees_map -- For one date, Load a set of info per employee into the employeesMapOut!
+REM  ------------------------------------------------------------
+    
+load_employees_map:
+
+    employeesMapOut!.clear()
+
+    attendPtsWorkDatesChannel = sqlunt
+    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_EMPLOYEES_STMT$
+
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, dateIn!, shiftIn$ 
+    dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
+        employeeData! = new java.util.HashMap()
+        employeeData!.put("last_first_mi", resultRow.last_first_mi$)
+        employeeData!.put("disp_cd", resultRow.disp_cd$)
+        employeeData!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        employeeData!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)
+        employeeData!.put("posted_timestamp", resultRow.posted_timestamp$)
+        employeeData!.put("wfmr_exc_lastmod", resultRow.wfmr_exc_lastmod$)
+        employeeData!.put("erp_cd", resultRow.erp_cd$)
+        employeeData!.put("erp_pts_assessed", resultRow.erp_pts_assessed)
+        employeeData!.put("erp_note", resultRow.erp_note$)
+
+        employeesMapOut!.put(resultRow.id, employeeData!)
+        
+    wend
+    
+    sqlclose(attendPtsWorkDatesChannel)
 
     return

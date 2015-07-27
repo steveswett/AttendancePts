@@ -7,8 +7,10 @@ REM  */
 use java.util.LinkedHashMap
 use java.util.HashMap
 
-declare java.util.LinkedHashMap employeesMap!
 declare java.util.HashMap dateQtys!
+
+declare java.util.LinkedHashMap employeesMap!
+declare java.util.HashMap employeeData!
 
 
 enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, dateQtys!
@@ -22,10 +24,11 @@ constants:
 TRUE = 1
 FALSE = 0
 
-RECORDS_PER_PAGE = 12
+RECORDS_PER_PAGE = 5
 COLUMNS_PER_PAGE = 1
-RECORDS_PER_COLUMN = 12
-START_ROW_FOR_LIST = 8
+RECORDS_PER_COLUMN = 5
+ROWS_PER_RECORD = 2
+START_ROW_FOR_LIST = 10
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
@@ -154,7 +157,7 @@ init:
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     employeesMap! = new java.util.LinkedHashMap()
-    REM  call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, 3, datesMap!
+    call "AttendPtsWorkDAO.bbj::get_employees_for_date", shiftIn$, deptIdIn, dateIn!, employeesMap!
     
     topLeftMapIndex = 1
     employeesMapSize = employeesMap!.size()
@@ -216,14 +219,15 @@ display_data:
     
     count = 0
     displayedCount = 0
+    anyChangedSincedPosted = FALSE
     
-    goto temp_skip_1
-
+    dim idsArray[1:RECORDS_PER_PAGE]
+    
     iter! = employeesMap!.keySet().iterator()
     
     while iter!.hasNext()
     
-      dateKey! = iter!.next()
+      idKey! = iter!.next()
       count = count + 1
       
       if count < topLeftMapIndex then continue
@@ -231,36 +235,42 @@ display_data:
       
       displayedCount = displayedCount + 1
       
-      unformattedDate$ = dateKey!
-      
-      call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedDate$ 
+      idsArray[displayedCount] = idKey!
 
-      dateQtys! = cast( java.util.HashMap, datesMap!.get(dateKey!) )
+      employeeData! = cast( java.util.HashMap, employeesMap!.get(idKey!) )
       
-      qtyTotal = dateQtys!.get("total")
-      qtyPosted = dateQtys!.get("posted")
-      qtyNotPosted = qtyTotal - qtyPosted
-      qtyApproved = dateQtys!.get("A")
-      qtyEdited = dateQtys!.get("E")
-      qtyFMLAPending = dateQtys!.get("F")
-      qtyNotHandled = dateQtys!.get("N")
+      empName$ = employeeData!.get("last_first_mi")
+      if len(empName$) > 20 then empName$ = empName$(1, 20)
+      
+      trimmedWFMRLastMod$ = cvs(employeeData!.get("wfmr_exc_lastmod"), 3)
+      trimmedPostedTimestamp$ = cvs(employeeData!.get("posted_timestamp"), 3)
+      wasPosted = len(trimmedPostedTimestamp$) > 0
 
-      row = START_ROW_FOR_LIST + displayedCount - 1
+      row = START_ROW_FOR_LIST + displayedCount * ROWS_PER_RECORD - ROWS_PER_RECORD
       
       print @(0, row), pad( str(displayedCount), 2, "R"), "." 
-      print @(4, row), formattedDate$
-      print @(19,row), str(qtyTotal:"##0") 
-      print @(26,row), str(qtyPosted:"##0") 
-      print @(35,row), str(qtyNotPosted:"##0") 
-      print @(44,row), str(qtyApproved:"##0") 
-      print @(54,row), str(qtyEdited:"##0") 
-      print @(64,row), str(qtyFMLAPending:"##0") 
-      print @(73,row), str(qtyNotHandled:"##0") 
+      print @(5, row), empName$
+      print @(32, row), employeeData!.get("disp_cd")
+      print @(38, row), "WFMR"
+      print @(46, row), employeeData!.get("wfmr_exc_def_id")
+      print @(52, row), str( employeeData!.get("wfmr_pts_assess"):"#.0" )
+      print @(78, row), iff(wasPosted, "Y", "N")
+      
+      
+      rem str(qtyPosted:"##0")
+      
+      if wasPosted and trimmedWFMRLastMod$ > trimmedPostedTimestamp$ then
+        print @(79, row), "*"
+        anyChangedSincedPosted = TRUE
+      endif 
+      
+      print @(38, row + 1), "ERP"
+      print @(47, row + 1), employeeData!.get("erp_cd")
+      print @(52, row + 1), str( employeeData!.get("erp_pts_assessed"):"#.0" )
+      print @(57, row + 1), employeeData!.get("erp_note")
       
     wend
 
-    temp_skip_1:
-    
     print @(0, 21), "Line: ", 'BU', " ", 'EU', " (A=All)"
     
     canPageUp = fnHasRecordsBefore%(TRUE)
@@ -271,7 +281,9 @@ display_data:
     if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
     if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Page   "
     
-    actionLabel$ = actionLabel$ + "   *changed since posted"
+    if anyChangedSincedPosted then
+        actionLabel$ = actionLabel$ + "   *changed since posted"
+    endif
     
     print @(17,21), actionLabel$ 
     
