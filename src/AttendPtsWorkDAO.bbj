@@ -62,7 +62,7 @@ mass_load_wfmr_data:
 
 get_dates_with_totals:
 
-    enter shiftIn$, deptIdIn, datesMapOut!
+    enter shiftIn$, deptIdIn, payPeriodsBackIn, datesMapOut!
     
     gosub setup_constants
     
@@ -602,7 +602,7 @@ load_dates_map:
         payPeriods = payPeriods + 1
         fromDate = num(resultRow.pay_yyyymmdd$)
         
-        if payPeriods >= 2 then break
+        if payPeriods >= payPeriodsBackIn then break
         
     wend
     
