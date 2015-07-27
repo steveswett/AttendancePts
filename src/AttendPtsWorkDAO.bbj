@@ -635,14 +635,9 @@ load_dates_map:
         datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
         
     wend
-    
-    sqlclose(attendPtsWorkDatesChannel)
 
     
     REM  Step 3. Query the ATTEND_PTS_WORK file: populate posted/not posted
-    
-    attendPtsWorkDatesChannel = sqlunt
-    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
     
     sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_POSTED_STMT$
 
@@ -662,14 +657,9 @@ load_dates_map:
         endif
         
     wend
-    
-    sqlclose(attendPtsWorkDatesChannel)
 
     
     REM  Step 4. Query the ATTEND_PTS_WORK file: populate disposition status
-    
-    attendPtsWorkDatesChannel = sqlunt
-    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
     
     sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_DISPOSITION_STMT$
 

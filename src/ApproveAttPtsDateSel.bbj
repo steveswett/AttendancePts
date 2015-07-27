@@ -29,8 +29,8 @@ START_ROW_FOR_LIST = 8
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-SHIFT_FIELD_NO = 1
-DEPT_FIELD_NO = 2
+LINE_FIELD_NO = 1
+
 
 
 REM     Note about INPUTE:
@@ -90,9 +90,7 @@ main_routine:
     
     gosub display_data
     
-    input @(0,22), 'CL', "Hit Enter to continue", ignoreInput$
-    
-    rem gosub handle_input
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -266,20 +264,14 @@ display_data:
     
 handle_input:
 
-    currentFieldNo = SHIFT_FIELD_NO
+    currentFieldNo = LINE_FIELD_NO
 
     while TRUE
         
-        if currentFieldNo = SHIFT_FIELD_NO then
-            print @(7, 3), 'BU'
-            inpute 7, 3, 1, "", shift$
-            print @(8, 3), 'EU'
-        endif 
-        
-        if currentFieldNo = DEPT_FIELD_NO then
-            print @(26, 3), 'BU'
-            inpute 26, 3, 2, "", dept$ 
-            print @(28, 3), 'EU' 
+        if currentFieldNo = LINE_FIELD_NO then
+            print @(6, 21), 'BU'
+            inpute 6, 21, 2, "", line$ 
+            print @(8, 21), 'EU' 
         endif
             
         gosub clear_err_msg
@@ -434,35 +426,30 @@ display_err_msg:
     
 validate_input:
 
-    if shift$ <> "1" and shift$ <> "2" and shift$ <> "3" then
-        errMsg$ = "Shift must be 1, 2 or 3."
-        currentFieldNo = SHIFT_FIELD_NO
+    hasLineErr = FALSE
+    
+    line = num(line$,err=invalid_line_no_format)
+    
+    if line < 1 or line > displayedCount then
+        hasLineErr = TRUE
     endif
     
-    hasDeptErr = FALSE
-    
-    dept = num(dept$,err=invalid_dept_no_format)
-    
-    if dept < 1 or dept > displayedCount then
-        hasDeptErr = TRUE
-    endif
-    
-    remainder = mod(dept, 1)
+    remainder = mod(line, 1)
     
     if remainder <> 0 then
-        hasDeptErr = TRUE
+        hasLineErr = TRUE
     endif
     
-    goto skip_dept_no_format
+    goto skip_line_no_format
     
-    invalid_dept_no_format:
-        hasDeptErr = TRUE
+    invalid_line_no_format:
+        hasLineErr = TRUE
     
-    skip_dept_no_format:
+    skip_line_no_format:
     
-    if hasDeptErr then
-        errMsg$ = "Invalid department number."
-        currentFieldNo = DEPT_FIELD_NO
+    if hasLineErr then
+        errMsg$ = "Invalid line number."
+        currentFieldNo = LINE_FIELD_NO
     endif
   
         
