@@ -21,10 +21,6 @@ constants:
 TRUE = 1
 FALSE = 0
 
-call "TerminalUtilities.bbj::get_unqualified_program_name", PROGRAM_NAME$
-
-TERMINAL_ID$ = fid(0)
-
 RECORDS_PER_PAGE = 30
 COLUMNS_PER_PAGE = 2
 RECORDS_PER_COLUMN = 15
@@ -32,8 +28,8 @@ START_ROW_FOR_LIST = 5
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-SHIFT_FIELD_NO = 1
-DEPT_FIELD_NO = 2
+DEPT_FIELD_NO = 1
+SHIFT_FIELD_NO = 2
 
 
 REM     Note about INPUTE:
@@ -176,17 +172,7 @@ init:
 
 display_screen_headings:
 
-    call "TerminalUtilities.bbj::get_current_time", formattedCurrentTime$
-    
-    print @(0,0), pad(day, 20, "L", " ")
-    print @(20,0), pad("NOTIONS MARKETING", 50, "L", " ")
-    print @(70,0), pad(TERMINAL_ID$, 10, "R", " ")
-    
-    print 'BU'
-    print @(0,1), pad(formattedCurrentTime$, 20, "L", " ")
-    print @(20,1), pad("SUPERVISOR APPROVAL OF POINTS", 35, "L", " ")
-    print @(55,1), pad("ApproveAttPts.01", 25, "R", " ")
-    print 'EU' 
+    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "SUPERVISOR APPROVAL OF POINTS" 
 
     return
 
@@ -202,7 +188,7 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0, 3), "SHIFT: ", 'BU', shift$, 'EU', " (1, 2, 3)  DEPT: ", 'BU', "  ", 'EU'
+    print @(0, 3), "DEPT: ", 'BU', "  ", 'EU', "   SHIFT: ", 'BU', shift$, 'EU', " (1, 2, 3)"
     
     count = 0
     displayedCount = 0
@@ -267,21 +253,21 @@ display_data:
     
 handle_input:
 
-    currentFieldNo = SHIFT_FIELD_NO
+    currentFieldNo = DEPT_FIELD_NO
 
     while TRUE
         
-        if currentFieldNo = SHIFT_FIELD_NO then
-            print @(7, 3), 'BU'
-            inpute 7, 3, 1, "", shift$
-            print @(8, 3), 'EU'
-        endif 
-        
         if currentFieldNo = DEPT_FIELD_NO then
-            print @(26, 3), 'BU'
-            inpute 26, 3, 2, "", dept$ 
-            print @(28, 3), 'EU' 
+            print @(6, 3), 'BU'
+            inpute 6, 3, 2, "", dept$ 
+            print @(8, 3), 'EU' 
         endif
+        
+        if currentFieldNo = SHIFT_FIELD_NO then
+            print @(18, 3), 'BU'
+            inpute 18, 3, 1, "", shift$
+            print @(19, 3), 'EU'
+        endif 
             
         gosub clear_err_msg
 
@@ -437,10 +423,7 @@ display_err_msg:
     
 validate_input:
 
-    if shift$ <> "1" and shift$ <> "2" and shift$ <> "3" then
-        errMsg$ = "Shift must be 1, 2 or 3."
-        currentFieldNo = SHIFT_FIELD_NO
-    endif
+    REM  Validate Dept
     
     hasDeptErr = FALSE
     
@@ -466,7 +449,18 @@ validate_input:
     if hasDeptErr then
         errMsg$ = "Invalid department number."
         currentFieldNo = DEPT_FIELD_NO
+        goto end_validate
+    endif
+    
+    
+    REM  Validate Shift
+
+    if shift$ <> "1" and shift$ <> "2" and shift$ <> "3" then
+        errMsg$ = "Shift must be 1, 2 or 3."
+        currentFieldNo = SHIFT_FIELD_NO
+        goto end_validate
     endif
   
+    end_validate:
         
     return

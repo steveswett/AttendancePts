@@ -1,0 +1,50 @@
+REM /**
+REM  * DateUtilities.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem * - - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+def fnGetYYMDasMDYwithDayAbbrev$(aYYYYMMDD$)
+    
+    tmpJul = jul( num(aYYYYMMDD$(1,4)), num(aYYYYMMDD$(5,2)), num(aYYYYMMDD$(7,2)) )
+    tmpDate$ = date(tmpJul:"%Mz/%Dz/%Yz %Ds")
+    if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
+    return tmpDate$
+      
+fnend
+
+
+rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+
+entry_points:
+
+
+get_yymd_as_mdy_with_day_name:
+
+    enter yyyymmddIn$, mdyDayAbbrevOut$
+    
+    gosub setup_constants
+    
+    mdyDayAbbrevOut$ = fnGetYYMDasMDYwithDayAbbrev$(yyyymmddIn$)
+    
+    exit
+
+
+rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    return

@@ -9,6 +9,7 @@ REM  */
 use java.util.LinkedHashMap
 
 declare java.util.LinkedHashMap datesMapOut!
+declare java.util.HashMap dateQtys!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -239,12 +240,24 @@ setup_constants:
 :       "where start_date < getdate() " +
 :       "order by pay_yyyymmdd desc"
 
-    ATTEND_PTS_WORK_DATES_SELECT_STMT$ = 
+    ATTEND_PTS_WORK_GET_TOTALS_STMT$ = 
 :       "select wfmr_exc_date, count(*) as total " +
 :       "from attend_pts_work " + 
 :       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
 :       "group by wfmr_exc_date " +
 :       "order by wfmr_exc_date desc"
+
+    ATTEND_PTS_WORK_GET_POSTED_STMT$ = 
+:       "select wfmr_exc_date, posted_timestamp, count(*) as posted_count " +
+:       "from attend_pts_work " + 
+:       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
+:       "group by wfmr_exc_date, posted_timestamp"
+
+    ATTEND_PTS_WORK_GET_DISPOSITION_STMT$ = 
+:       "select wfmr_exc_date, disp_cd, count(*) as disp_count " +
+:       "from attend_pts_work " + 
+:       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
+:       "group by wfmr_exc_date, disp_cd"
 
     return
 
@@ -596,12 +609,12 @@ load_dates_map:
     sqlclose(payPeriodsChannel)
     
     
-    REM  Step 2. Query the ATTEND_PTS_WORK file.
+    REM  Step 2. Query the ATTEND_PTS_WORK file: populate totals
     
     attendPtsWorkDatesChannel = sqlunt
     sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
     
-    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_DATES_SELECT_STMT$
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_TOTALS_STMT$
 
     sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
     dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
@@ -609,10 +622,74 @@ load_dates_map:
     while TRUE
     
         resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
-        datesMapOut!.put(resultRow.wfmr_exc_date$, resultRow.total)
+        dateQtys! = new java.util.HashMap()
+        dateQtys!.put("total", resultRow.total)
+        dateQtys!.put("posted", 0)
+        
+        REM  In following, key is disposition code:
+        dateQtys!.put("A", 0)
+        dateQtys!.put("E", 0)
+        dateQtys!.put("F", 0)
+        dateQtys!.put("N", 0)
+
+        datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
         
     wend
     
     sqlclose(attendPtsWorkDatesChannel)
+
+    
+    REM  Step 3. Query the ATTEND_PTS_WORK file: populate posted/not posted
+    
+    attendPtsWorkDatesChannel = sqlunt
+    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_POSTED_STMT$
+
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
+    dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
+        
+        if !(cvs(resultRow.posted_timestamp$, 3) = "") then
+            dateQtys! = cast( java.util.HashMap, datesMapOut!.get(resultRow.wfmr_exc_date$) )
+            posted = dateQtys!.get("posted")
+            posted = posted + resultRow.posted_count
+            dateQtys!.put("posted", posted)
+            datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
+        endif
+        
+    wend
+    
+    sqlclose(attendPtsWorkDatesChannel)
+
+    
+    REM  Step 4. Query the ATTEND_PTS_WORK file: populate disposition status
+    
+    attendPtsWorkDatesChannel = sqlunt
+    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_DISPOSITION_STMT$
+
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
+    dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
+        
+        dateQtys! = cast( java.util.HashMap, datesMapOut!.get(resultRow.wfmr_exc_date$) )
+        
+        tmpTotal = dateQtys!.get(resultRow.disp_cd$)
+        tmpTotal = tmpTotal + resultRow.disp_count
+        dateQtys!.put(resultRow.disp_cd$, tmpTotal)
+        datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
+        
+    wend
+    
+    sqlclose(attendPtsWorkDatesChannel)
+
 
     return

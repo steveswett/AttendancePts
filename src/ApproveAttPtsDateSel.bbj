@@ -8,6 +8,7 @@ REM  */
 use java.util.LinkedHashMap
 
 declare java.util.LinkedHashMap datesMap!
+declare java.util.HashMap dateQtys!
 
 
 enter shiftIn$, deptIdIn, deptNameIn$
@@ -20,10 +21,6 @@ constants:
 
 TRUE = 1
 FALSE = 0
-
-call "TerminalUtilities.bbj::get_unqualified_program_name", PROGRAM_NAME$
-
-TERMINAL_ID$ = fid(0)
 
 RECORDS_PER_PAGE = 12
 COLUMNS_PER_PAGE = 1
@@ -174,17 +171,7 @@ init:
 
 display_screen_headings:
 
-    call "TerminalUtilities.bbj::get_current_time", formattedCurrentTime$
-    
-    print @(0,0), pad(day, 20, "L", " ")
-    print @(20,0), pad("NOTIONS MARKETING", 50, "L", " ")
-    print @(70,0), pad(TERMINAL_ID$, 10, "R", " ")
-    
-    print 'BU'
-    print @(0,1), pad(formattedCurrentTime$, 20, "L", " ")
-    print @(20,1), pad("SUPERVISOR APPROVAL OF POINTS", 35, "L", " ")
-    print @(55,1), pad("ApproveAttPts.02", 25, "R", " ")
-    print 'EU' 
+    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "SUPERVISOR APPROVAL OF POINTS" 
 
     return
 
@@ -200,13 +187,13 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0,3), "Shift: ", shiftIn$
-    print @(20,3), "Dept: ", deptNameIn$
+    print @(0,3), "Dept: ", deptNameIn$
+    print @(71,3), "Shift: ", shiftIn$
     
     print @(34,5), "NOT"
-    print @(63, 5), "FLMA    NOT"
+    print @(62, 5), "FLMA     NOT"
     
-    print @(0,6), """X"""
+    print @(0,6), "LINE"
     print @(6,6), "DATE"
     print @(18,6), "TOTAL  POSTED   POSTED  APPROVED   EDITED   PENDING  HANDLED"
     
@@ -224,16 +211,36 @@ display_data:
       if count > topLeftMapIndex + RECORDS_PER_PAGE - 1 then break
       
       displayedCount = displayedCount + 1
-      qtyTotal = datesMap!.get(dateKey!)
+      
+      unformattedDate$ = dateKey!
+      
+      call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedDate$ 
+
+      dateQtys! = cast( java.util.HashMap, datesMap!.get(dateKey!) )
+      
+      qtyTotal = dateQtys!.get("total")
+      qtyPosted = dateQtys!.get("posted")
+      qtyNotPosted = qtyTotal - qtyPosted
+      qtyApproved = dateQtys!.get("A")
+      qtyEdited = dateQtys!.get("E")
+      qtyFMLAPending = dateQtys!.get("F")
+      qtyNotHandled = dateQtys!.get("N")
 
       row = START_ROW_FOR_LIST + displayedCount - 1
       
-      print @(1, row), 'BU', " ", 'EU'
-      print @(4, row), dateKey!
-      print @(18,row), qtyTotal 
+      print @(0, row), pad( str(displayedCount), 2, "R"), "." 
+      print @(4, row), formattedDate$
+      print @(19,row), str(qtyTotal:"##0") 
+      print @(26,row), str(qtyPosted:"##0") 
+      print @(35,row), str(qtyNotPosted:"##0") 
+      print @(44,row), str(qtyApproved:"##0") 
+      print @(54,row), str(qtyEdited:"##0") 
+      print @(64,row), str(qtyFMLAPending:"##0") 
+      print @(73,row), str(qtyNotHandled:"##0") 
       
     wend
 
+    print @(0, 21), "Line: ", 'BU', "  ", 'EU'
     
     canPageUp = fnHasRecordsBefore%(TRUE)
     canPageDown = fnHasRecordsAfter%(TRUE)
@@ -245,7 +252,7 @@ display_data:
     
     actionLabel$ = actionLabel$ + "Enter=Select"
     
-    print @(0,21), actionLabel$ 
+    print @(14,21), actionLabel$ 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
