@@ -95,7 +95,7 @@ init:
 
 
     wfmrDataSource$ = ""
-    call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     wfmrDataChannel = sqlunt
     sqlopen(wfmrDataChannel) wfmrDataSource$

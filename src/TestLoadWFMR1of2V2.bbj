@@ -20,10 +20,10 @@ BATCH_SIZE = 500
 REM Uses the data source names in the SQL.INI file
 
 attendPtsDataSource$ = ""
-call "ConfigVarsAPI.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
 
 wfmrDataSource$ = ""
-call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
 
 BUSINESS_DATE_FROM$ = "2015-07-15"

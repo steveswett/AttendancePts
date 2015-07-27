@@ -158,7 +158,7 @@ init:
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     deptsMap! = new java.util.LinkedHashMap()
-    call "WFMRDeptDataAPI.bbj::get_ids_and_names", deptsMap!
+    call "WFMRDeptDAO.bbj::get_ids_and_names", deptsMap!
     
     topLeftMapIndex = 1
     deptsMapSize = deptsMap!.size()

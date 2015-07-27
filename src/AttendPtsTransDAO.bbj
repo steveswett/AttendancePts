@@ -1,5 +1,5 @@
 REM /**
-REM  * AttendPtsTransDataAPI.bbj
+REM  * AttendPtsTransDAO.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -68,7 +68,7 @@ setup_constants:
     FALSE = 0
 
     attendPtsDataSource$ = ""
-    call "ConfigVarsAPI.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
 
     
     GET_TRANS_VALUES_SELECT_STMT$ = "select erp_cd, erp_sts, erp_pts_assess, erp_note from attend_pts_trans " +

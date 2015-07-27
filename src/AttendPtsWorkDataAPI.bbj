@@ -117,15 +117,15 @@ setup_constants:
     REM Uses the data source names in the SQL.INI file
     
     attendPtsDataSource$ = ""
-    call "ConfigVarsAPI.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
     
     wfmrDataSource$ = ""
-    call "ConfigVarsAPI.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
     
     attendPtsPolicyCode$ = ""
-    call "ConfigVarsAPI.bbj::get_value", ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$, configVarFound, configVarDataType$, attendPtsPolicyCode$
+    call "ConfigVarsDAO.bbj::get_value", ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$, configVarFound, configVarDataType$, attendPtsPolicyCode$
 
-    call "AttendPtsTransDataAPI.bbj::get_exception_ids_as_csv", attendPtsPolicyCode$, exceptionIdsAsCSV$
+    call "AttendPtsTransDAO.bbj::get_exception_ids_as_csv", attendPtsPolicyCode$, exceptionIdsAsCSV$
 
     
     REM  Break up field list into 5 fields per row (so readable)
@@ -415,7 +415,7 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
     
     if fnIsMassLoadingExceptions(TRUE) then
     
-        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
 :           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
     
         tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
@@ -426,7 +426,7 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
 :           wfmrResultRow.exception_id, tempLastModDate$
     else
     
-        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
 :           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
     
         tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
@@ -454,7 +454,7 @@ ml_add_to_insert_batch:
     
     if fnIsMassLoadingExceptions(TRUE) then
     
-        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
 :           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
     
         valuesClause$ =
@@ -485,7 +485,7 @@ ml_add_to_insert_batch:
 
     else
     
-        call "AttendPtsTransDataAPI.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
 :           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
     
         valuesClause$ =

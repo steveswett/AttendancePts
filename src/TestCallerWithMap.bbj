@@ -32,7 +32,7 @@ do_manual_test:
 do_database_test:
 
     print "Database Test:", $0A$
-    call "WFMRDeptDataAPI.bbj::get_ids_and_names", deptsMap!
+    call "WFMRDeptDAO.bbj::get_ids_and_names", deptsMap!
     gosub print_dept_info
 
     return

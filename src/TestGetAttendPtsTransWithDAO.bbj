@@ -1,5 +1,5 @@
 REM /**
-REM  * TestGetAttendPtsTransWithAPI.bbj
+REM  * TestGetAttendPtsTransWithDAO.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -10,7 +10,7 @@ excId = 23
 
 
 
-call "AttendPtsTransDataAPI.bbj::get_erp_values", policyCode$, excId, recordFound, erpCode$, erpSts$, erpPts, erpNote$ 
+call "AttendPtsTransDAO.bbj::get_erp_values", policyCode$, excId, recordFound, erpCode$, erpSts$, erpPts, erpNote$ 
 
 print "get_erp_values for: policy code, exception ID = ", policyCode$, ", ", excId
 
@@ -20,7 +20,7 @@ print $0A$
 
 
 
-call "AttendPtsTransDataAPI.bbj::get_exception_ids_as_csv", newPolicyCode$, returnValue$
+call "AttendPtsTransDAO.bbj::get_exception_ids_as_csv", newPolicyCode$, returnValue$
 
 print "get_exception_ids_as_csv for: policy code = ", newPolicyCode$
 
