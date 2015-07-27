@@ -4,15 +4,14 @@ REM  * @author stevett
 REM  *
 REM  */
 
-
 use java.util.LinkedHashMap
 use java.util.HashMap
 
-declare java.util.LinkedHashMap datesMap!
+declare java.util.LinkedHashMap employeesMap!
 declare java.util.HashMap dateQtys!
 
 
-enter shiftIn$, deptIdIn, deptNameIn$
+enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, dateQtys!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -76,7 +75,7 @@ fnend
 
 def fnHasRecordsAfter%(aDoIt)
 
-    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < datesMapSize
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < employeesMapSize
 
 fnend
 
@@ -87,11 +86,11 @@ main_routine:
 
     gosub init
     
-    gosub display_screen_headings
-    
     gosub display_data
     
-    gosub handle_input
+    REM  gosub handle_input
+    
+    input @(0,22), "Press Enter to continue", ignoreInput$
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -154,11 +153,11 @@ init:
     resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
-    datesMap! = new java.util.LinkedHashMap()
-    call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, 3, datesMap!
+    employeesMap! = new java.util.LinkedHashMap()
+    REM  call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, 3, datesMap!
     
     topLeftMapIndex = 1
-    datesMapSize = datesMap!.size()
+    employeesMapSize = employeesMap!.size()
     
     return
 
@@ -188,21 +187,39 @@ display_data:
     
     print @(0,3), "Dept: ", deptNameIn$
     print @(71,3), "Shift: ", shiftIn$
+      
+    unformattedDate$ = dateIn!
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedDate$
     
-    print @(34,5), "NOT"
-    print @(62, 5), "FLMA     NOT"
+    print @(0,5), formattedDate$ 
     
-    print @(0,6), "LINE"
-    print @(6,6), "DATE"
-    print @(18,6), "TOTAL  POSTED   POSTED  APPROVED   EDITED   PENDING  HANDLED"
+    qtyTotal = dateQtys!.get("total")
+    qtyPosted = dateQtys!.get("posted")
+    qtyNotPosted = qtyTotal - qtyPosted
+    qtyApproved = dateQtys!.get("A")
+    qtyEdited = dateQtys!.get("E")
+    qtyFMLAPending = dateQtys!.get("F")
+    qtyNotHandled = dateQtys!.get("N")
+    
+    print @(23, 5), "Total:", str(qtyTotal:"##0")
+    print @(37, 5), "Posted:", str(qtyPosted:"##0")
+    print @(53, 5), "Unposted:", str(qtyNotPosted:"##0")
+    
+    print @(14, 6), "DISP:  Approved:", str(qtyApproved:"##0")
+    print @(35, 6), "Edited:", str(qtyEdited:"##0")
+    print @(47, 6), "FMLA Pend:", str(qtyFMLAPending:"##0")
+    print @(62, 6), "Not Handled:", str(qtyNotHandled:"##0")
+    
+    print @(0, 8), "LIN  EMPLOYEE"
+    print @(25, 8), "DISPOSITION  SYSTEM  CODE  PTS  DESCRIPTION"
+    print @(74, 8), "POSTED"
     
     count = 0
     displayedCount = 0
     
-    dim datesArray![1:RECORDS_PER_PAGE]
+    goto temp_skip_1
 
-
-    iter! = datesMap!.keySet().iterator()
+    iter! = employeesMap!.keySet().iterator()
     
     while iter!.hasNext()
     
@@ -214,9 +231,8 @@ display_data:
       
       displayedCount = displayedCount + 1
       
-      datesArray![displayedCount] = dateKey!
-      
       unformattedDate$ = dateKey!
+      
       call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedDate$ 
 
       dateQtys! = cast( java.util.HashMap, datesMap!.get(dateKey!) )
@@ -243,7 +259,9 @@ display_data:
       
     wend
 
-    print @(0, 21), "Line: ", 'BU', "  ", 'EU'
+    temp_skip_1:
+    
+    print @(0, 21), "Line: ", 'BU', " ", 'EU', " (A=All)"
     
     canPageUp = fnHasRecordsBefore%(TRUE)
     canPageDown = fnHasRecordsAfter%(TRUE)
@@ -253,9 +271,9 @@ display_data:
     if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
     if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Page   "
     
-    actionLabel$ = actionLabel$ + "Enter=Select"
+    actionLabel$ = actionLabel$ + "   *changed since posted"
     
-    print @(14,21), actionLabel$ 
+    print @(17,21), actionLabel$ 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
@@ -324,9 +342,7 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        tmpDate! = datesArray![ num(line$) ]
-                        dateQtys! = cast( java.util.HashMap, datesMap!.get(tmpDate!) )
-                        call "ApproveAttPtsEmpSel.bbj", shiftIn$, deptIdIn, deptNameIn$, tmpDate!, dateQtys!
+                        input "This is what would run if Enter was pressed", ignoreInput$
                     endif
                     
                     break
@@ -370,7 +386,7 @@ get_top_left_map_index_for_page_down:
 
     topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
     
-    if topLeftMapIndex > datesMapSize then topLeftMapIndex = datesMapSize
+    if topLeftMapIndex > employeesMapSize then topLeftMapIndex = employeesMapSize
 
     return    
     
