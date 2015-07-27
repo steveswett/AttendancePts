@@ -117,7 +117,7 @@ mass_load:
 
     REM  print "dates: from, to = ", fromDate$, ", ", toDate$
     
-    call "AttendPtsWorkDataAPI.bbj::mass_load_wfmr_data", fromDate$, toDate$
+    call "AttendPtsWorkDAO.bbj::mass_load_wfmr_data", fromDate$, toDate$
 
     return
 

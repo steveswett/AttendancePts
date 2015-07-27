@@ -23,7 +23,7 @@ end
 
 do_database_test:
 
-    call "AttendPtsWorkDataAPI.bbj::get_dates_with_totals", shiftIn$, deptIdIn, datesMap!
+    call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, datesMap!
     gosub print_date_info
 
     return

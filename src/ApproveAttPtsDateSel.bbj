@@ -159,7 +159,7 @@ init:
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     datesMap! = new java.util.LinkedHashMap()
-    call "AttendPtsWorkDataAPI.bbj::get_dates_with_totals", shiftIn$, deptIdIn, datesMap!
+    call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, datesMap!
     
     topLeftMapIndex = 1
     datesMapSize = datesMap!.size()
