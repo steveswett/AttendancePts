@@ -294,27 +294,27 @@ handle_input:
         
             case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
                     if canPageUp then
-                        gosub get_top_left_map_index_for_page_up
+                        gosub set_top_left_map_index_for_page_up
                     endif
         
                     break
                     
             case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
                     if canPageDown then
-                        gosub get_top_left_map_index_for_page_down
+                        gosub set_top_left_map_index_for_page_down
                     endif
                     
                     break
                     
             case ASC(TAB_CTL_OUTPUT_VALUE$)
                     isTabbing = TRUE
-                    gosub get_field_no_after_tabbing
+                    gosub set_field_no_after_tabbing
                     
                     break
                     
             case ASC(BACKTAB_CTL_OUTPUT_VALUE$)
                     isTabbing = TRUE
-                    gosub get_field_no_after_back_tabbing
+                    gosub set_field_no_after_back_tabbing
                     
                     break
                     
@@ -352,7 +352,7 @@ handle_input:
     rem ------------------------------------------------------------------------------------------
     
     
-get_top_left_map_index_for_page_up:
+set_top_left_map_index_for_page_up:
 
     topLeftMapIndex = topLeftMapIndex - RECORDS_PER_PAGE
     
@@ -366,7 +366,7 @@ get_top_left_map_index_for_page_up:
     rem ------------------------------------------------------------------------------------------
     
     
-get_top_left_map_index_for_page_down:
+set_top_left_map_index_for_page_down:
 
     topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
     
@@ -376,11 +376,11 @@ get_top_left_map_index_for_page_down:
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  get_field_no_after_tabbing
+    rem  set_field_no_after_tabbing
     rem ------------------------------------------------------------------------------------------
     
     
-get_field_no_after_tabbing:
+set_field_no_after_tabbing:
 
     currentFieldNo = currentFieldNo + 1
     if currentFieldNo > 2 then currentFieldNo = 1
@@ -389,11 +389,11 @@ get_field_no_after_tabbing:
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  get_field_no_after_back_tabbing
+    rem  set_field_no_after_back_tabbing
     rem ------------------------------------------------------------------------------------------
     
     
-get_field_no_after_back_tabbing:
+set_field_no_after_back_tabbing:
 
     currentFieldNo = currentFieldNo - 1
     if currentFieldNo < 1 then currentFieldNo = 2

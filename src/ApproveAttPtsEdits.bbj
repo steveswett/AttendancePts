@@ -34,7 +34,7 @@ START_ROW_FOR_LIST = 0
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-LINE_FIELD_NO = 1
+DISPOSITION_FIELD_NO = 1
 
 
 
@@ -73,14 +73,14 @@ functions:
 
 def fnHasRecordsBefore%(aDoIt)
 
-    return topLeftMapIndex > 1
+    return currentRecordNo > 1
 
 fnend
 
 
 def fnHasRecordsAfter%(aDoIt)
 
-    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < attPtsWorkRecordsMapSize
+    return currentRecordNo + RECORDS_PER_PAGE - 1 < attPtsWorkRecordsMapSize
 
 fnend
 
@@ -93,9 +93,7 @@ main_routine:
     
     gosub display_data
     
-    rem  gosub handle_input
-    
-    input @(0,20), "Press Enter to continue", ignoreInput$
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -164,7 +162,7 @@ init:
     attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
     call "AttendPtsWorkDAO.bbj::get_records_by_ids_in_list", attPtsWorkIds!, attPtsWorkRecordsMap!
     
-    topLeftMapIndex = 1
+    currentRecordNo = 1
     attPtsWorkRecordsMapSize = attPtsWorkRecordsMap!.size()
     
     return
@@ -193,20 +191,27 @@ display_data:
     
     gosub display_screen_headings
     
-    REM  Temporarily grab first record to display:
-    firstId! = attPtsWorkIds!.get(0)
-    
-    attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsMap!.get(firstId!) )
+    REM  The maps are 0-based.
+    currentId! = attPtsWorkIds!.get(currentRecordNo - 1)
+    attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsMap!.get(currentId!) )
       
     unformattedDate$ = dateIn!
     call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedExcDate$
 
-    call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", attPtsWorkDataMap!.get("wfmr_exc_lastmod"), fmtWFMRLastModDate$
+    call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", attPtsWorkDataMap!.get("wfmr_exc_lastmod"), fmtWFMRLastModDate$
+
+    workRecdLastModDate$ = cvs( attPtsWorkDataMap!.get("last_mod"), 3 )
+
+    postedTimestamp$ = cvs( attPtsWorkDataMap!.get("posted_timestamp"), 3 )
 
     empName$ = attPtsWorkDataMap!.get("last_first_mi")
     if len(empName$) > 24 then empName$ = empName$(1,24)
     
     jobName$ = "TO DO"
+    
+    wfrmExcDefId! = attPtsWorkDataMap!.get("wfmr_exc_def_id")
+    wfmrExcDefDescr$ = exceptionDefsMap!.get(wfrmExcDefId!)
+    if len(wfmrExcDefDescr$) > 75 then wfmrExcDefDescr$ = wfmrExcDefDescr$(1,75)
     
     print @(0,3), "Dept: ", deptNameIn$
     print @(71,3), "Shift: ", shiftIn$
@@ -216,20 +221,52 @@ display_data:
     print @(46,5), "Job: ", jobName$
     
     print @(0,7), "INCOMING from WFMR: (modified ", fmtWFMRLastModDate$, ")"
-    print @(72,7), "XX of XX"
+    print @(72,7), currentRecordNo, " of ", attPtsWorkRecordsMapSize
     
     print @(2,8), "Code:"
-    print @(10,8), attPtsWorkDataMap!.get("wfmr_exc_def_id")
+    print @(10,8), wfrmExcDefId!
+    print @(15,8), wfmrExcDefDescr$
     
     print @(2,9), "Pts:"
     print @(10,9), str( attPtsWorkDataMap!.get("wfmr_pts_assess"):"#.0" )
     
-    REM  TODO: following is temporary:
-    canPageUp = TRUE
-    canPageDown = TRUE
-
-REM     canPageUp = fnHasRecordsBefore%(TRUE)
-REM     canPageDown = fnHasRecordsAfter%(TRUE)
+    print @(0,11), "Disposition: ", 'BU', attPtsWorkDataMap!.get("disp_cd"), 'EU'
+    print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
+    
+    print @(0,12), "Edit reason: ", attPtsWorkDataMap!.get("edt_reas_descr")
+    print @(65,12), "F2=prompt"
+    
+    print @(0,14), "OUTGOING to ERP:"
+    
+    if len(workRecdLastModDate$) > 0 then     
+        call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", workRecdLastModDate$, fmtWorkRecdLastModDate$
+        print @(17,14), "(modified ", fmtWorkRecdLastModDate$, ")"
+    endif
+    
+    print @(2,15), "WFMR Code:"
+    print @(13,15), wfrmExcDefId!
+    
+    print @(2,16), "ERP Code:   ", 'BU', attPtsWorkDataMap!.get("erp_cd"), 'EU'
+    print @(17,16), "(1=Late, 2=Absent)"
+    
+    print @(2, 17), "Descr:"
+    print @(14, 17), 'BU', attPtsWorkDataMap!.get("erp_note"), 'EU'
+    
+    print @(2, 18), "Pts:"
+    print @(14,18), 'BU', str( attPtsWorkDataMap!.get("erp_pts_assessed"):"#.0" ), 'EU'
+    
+    print @(2,19), "Status:"
+    print @(14,19), 'BU', attPtsWorkDataMap!.get("erp_sts_cd"), 'EU'
+    
+    if len(postedTimestamp$) > 0 then     
+        call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", workRecdLastModDate$, fmtWorkRecdLastModDate$
+        print @(37,19), "Posted: ", fmtWorkRecdLastModDate$
+        print @(66,19), "By: ", attPtsWorkDataMap!.get("posted_by_user")
+    endif
+    
+    
+    canPageUp = fnHasRecordsBefore%(TRUE)
+    canPageDown = fnHasRecordsAfter%(TRUE)
     
     actionLabel$ = "F4=Exit   "
     
@@ -252,14 +289,14 @@ REM     canPageDown = fnHasRecordsAfter%(TRUE)
     
 handle_input:
 
-    currentFieldNo = LINE_FIELD_NO
+    currentFieldNo = DISPOSITION_FIELD_NO
 
     while TRUE
         
-        if currentFieldNo = LINE_FIELD_NO then
-            print @(6, 21), 'BU'
-            inpute 6, 21, 1, "", line$ 
-            print @(7, 21), 'EU' 
+        if currentFieldNo = DISPOSITION_FIELD_NO then
+            print @(13, 11), 'BU'
+            inpute 13, 11, 1, "", dispCode$ 
+            print @(14, 11), 'EU' 
         endif
             
         gosub clear_err_msg
@@ -277,27 +314,27 @@ handle_input:
         
             case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
                     if canPageUp then
-                        gosub get_top_left_map_index_for_page_up
+                        gosub set_current_record_no_for_page_up
                     endif
         
                     break
                     
             case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
                     if canPageDown then
-                        gosub get_top_left_map_index_for_page_down
+                        gosub set_current_record_no_for_page_down
                     endif
                     
                     break
                     
             case ASC(TAB_CTL_OUTPUT_VALUE$)
                     isTabbing = TRUE
-                    gosub get_field_no_after_tabbing
+                    gosub set_field_no_after_tabbing
                     
                     break
                     
             case ASC(BACKTAB_CTL_OUTPUT_VALUE$)
                     isTabbing = TRUE
-                    gosub get_field_no_after_back_tabbing
+                    gosub set_field_no_after_back_tabbing
                     
                     break
                     
@@ -329,39 +366,39 @@ handle_input:
 
     
     rem ------------------------------------------------------------------------------------------
-    rem  When Page Up is pressed, calculate a new topLeftMapIndex
+    rem  When Page Up is pressed, calculate a new currentRecordNo
     rem ------------------------------------------------------------------------------------------
     
     
-get_top_left_map_index_for_page_up:
+set_current_record_no_for_page_up:
 
-    topLeftMapIndex = topLeftMapIndex - RECORDS_PER_PAGE
+    currentRecordNo = currentRecordNo - RECORDS_PER_PAGE
     
-    if topLeftMapIndex < 1 then topLeftMapIndex = 1
+    if currentRecordNo < 1 then currentRecordNo = 1
 
     return
 
     
     rem ------------------------------------------------------------------------------------------
-    rem  When Page Down is pressed, calculate a new topLeftMapIndex
+    rem  When Page Down is pressed, calculate a new currentRecordNo
     rem ------------------------------------------------------------------------------------------
     
     
-get_top_left_map_index_for_page_down:
+set_current_record_no_for_page_down:
 
-    topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
+    currentRecordNo = currentRecordNo + RECORDS_PER_PAGE
     
-    if topLeftMapIndex > attPtsWorkRecordsMapSize then topLeftMapIndex = attPtsWorkRecordsMapSize
+    if currentRecordNo > attPtsWorkRecordsMapSize then currentRecordNo = attPtsWorkRecordsMapSize
 
     return    
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  get_field_no_after_tabbing
+    rem  set_field_no_after_tabbing
     rem ------------------------------------------------------------------------------------------
     
     
-get_field_no_after_tabbing:
+set_field_no_after_tabbing:
 
     currentFieldNo = currentFieldNo + 1
     if currentFieldNo > 2 then currentFieldNo = 1
@@ -370,11 +407,11 @@ get_field_no_after_tabbing:
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  get_field_no_after_back_tabbing
+    rem  set_field_no_after_back_tabbing
     rem ------------------------------------------------------------------------------------------
     
     
-get_field_no_after_back_tabbing:
+set_field_no_after_back_tabbing:
 
     currentFieldNo = currentFieldNo - 1
     if currentFieldNo < 1 then currentFieldNo = 2

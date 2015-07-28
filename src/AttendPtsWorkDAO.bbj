@@ -309,29 +309,6 @@ setup_constants:
 :       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? " +
 :       "order by last_first_mi"
 
-    ATTEND_PTS_WORK_GET_RECORDS_BY_ID_LIST_STMT$ =
-:       "select " +
-:       "attend_pts_work.id, " +
-:       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
-:       "attend_pts_work.job_id, " +
-:       "attend_pts_work.wfmr_exc_def_id, " +
-:       "attend_pts_work.wfmr_pts_assess, " +
-:       "attend_pts_work.wfmr_exc_lastmod, " +
-:       "attend_pts_work.disp_cd, " +
-:       "attend_pts_work.disp_edt_reas_id, " +
-:       "attend_pts_reasn.descr as edt_reas_descr, " +
-:       "attend_pts_work.erp_cd, " +
-:       "attend_pts_work.erp_note, " +
-:       "attend_pts_work.erp_pts_assessed, " +
-:       "attend_pts_work.erp_sts_cd, " +
-:       "attend_pts_work.last_mod, " +
-:       "attend_pts_work.posted_timestamp, " +
-:       "attend_pts_work.posted_by_user " +
-:       "from attend_pts_work " +
-:       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
-:       "left join attend_pts_reasn on attend_pts_reasn.id = attend_pts_work.disp_edt_reas_id " +
-:       "where id in(?)"
-
     return
 
 REM  ------------------------------------------------------------
@@ -803,26 +780,54 @@ REM  ------------------------------------------------------------
 load_work_records_map:
 
     attPtsRecordsMapOut!.clear()
+    
+    REM  Build CSV list of ids from incoming vector:
+    
+    inClause$ = ""
+    
+    idCount = attPtsWorkIds!.size()
+    
+    for i = 0 to idCount - 1
+    
+        if i > 0 then inClause$ = inClause$ + ","
+        inClause$ = inClause$ + str( attPtsWorkIds!.get(i) ) 
+         
+    next i
+    
+    REM  Unfortunately, you can't use a single ? parm in a prepared query for a list of ids
+
+    attendPtsWorkGetRecordsByIdListStmt$ =
+:       "select " +
+:       "attend_pts_work.id, " +
+:       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
+:       "attend_pts_work.job_id, " +
+:       "attend_pts_work.wfmr_exc_def_id, " +
+:       "attend_pts_work.wfmr_pts_assess, " +
+:       "attend_pts_work.wfmr_exc_lastmod, " +
+:       "attend_pts_work.disp_cd, " +
+:       "attend_pts_work.disp_edt_reas_id, " +
+:       "attend_pts_reasn.descr as edt_reas_descr, " +
+:       "attend_pts_work.erp_cd, " +
+:       "attend_pts_work.erp_note, " +
+:       "attend_pts_work.erp_pts_assessed, " +
+:       "attend_pts_work.erp_sts_cd, " +
+:       "attend_pts_work.last_mod, " +
+:       "attend_pts_work.posted_timestamp, " +
+:       "attend_pts_work.posted_by_user " +
+:       "from attend_pts_work " +
+:       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
+:       "left join attend_pts_reasn on attend_pts_reasn.id = attend_pts_work.disp_edt_reas_id " +
+:       "where id in(" +
+:       inClause$ +
+:       ")"
 
     attendPtsWorkDatesChannel = sqlunt
     sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
     
-    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_RECORDS_BY_ID_LIST_STMT$
+    sqlprep(attendPtsWorkDatesChannel) attendPtsWorkGetRecordsByIdListStmt$
     
-    REM  Build CSV list of ids from incoming vector:
-    
-    idsAsCSV$ = ""
-    
-    idCount = attPtsWorkIds!.size()
-    
-    for i = 0 to idCount -1
-    
-        if i > 0 then idsAsCSV$ = idsAsCSV$ + ","
-        idsAsCSV$ = idsAsCSV$ + str( attPtsWorkIds!.get(i) ) 
-         
-    next i
 
-    sqlexec(attendPtsWorkDatesChannel) idsAsCSV$ 
+    sqlexec(attendPtsWorkDatesChannel)  
     dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
 
     while TRUE

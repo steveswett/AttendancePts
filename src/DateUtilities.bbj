@@ -13,7 +13,29 @@ functions:
 def fnGetYYMDasMDYwithDayAbbrev$(aYYYYMMDD$)
     
     tmpJul = jul( num(aYYYYMMDD$(1,4)), num(aYYYYMMDD$(5,2)), num(aYYYYMMDD$(7,2)) )
-    tmpDate$ = date(tmpJul:"%Mz/%Dz/%Yz %Ds")
+    tmpDate$ = date(tmpJul:"%Mz/%D/%Yz %Ds")
+    if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
+    return tmpDate$
+      
+fnend
+
+
+def fnGetYYMDHMSasMDYwithTime$(aYYYYMMDDHHMMSS$)
+    
+    tmpJulDate = jul( num(aYYYYMMDDHHMMSS$(1,4)), num(aYYYYMMDDHHMMSS$(5,2)), num(aYYYYMMDDHHMMSS$(7,2)) )
+    tmpHrs = num(aYYYYMMDDHHMMSS$(9,2))
+    tmpMins$ = aYYYYMMDDHHMMSS$(11,2)
+    tmpSecs$ = aYYYYMMDDHHMMSS$(13,2)
+    tmpDate$ = date(tmpJulDate,tmpHrs:"%Mz/%D/%Yz %h:" + tmpMins$ + "." + tmpSecs$ + "%p")
+
+REM  The following was expected to work, but doesn't:
+REM      
+REM     tmpHrsFromMins = num(aYYYYMMDDHHMMSS$(11,2)) / 60
+REM     tmpHrsFromSecs = num(aYYYYMMDDHHMMSS$(13,2)) / 360
+REM     tmpTotalHrs = tmpHrs + tmpHrsFromMins + tmpHrsFromSecs
+REM     tmpDate$ = date(tmpJulDate,tmpTotalHrs:"%Mz/%Dz/%Yz %h:%mz:%sz%p")
+
+
     if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
     return tmpDate$
       
@@ -33,6 +55,17 @@ get_yymd_as_mdy_with_day_name:
     gosub setup_constants
     
     mdyDayAbbrevOut$ = fnGetYYMDasMDYwithDayAbbrev$(yyyymmddIn$)
+    
+    exit
+
+
+get_yymdhms_as_mdy_with_time:
+
+    enter yyyymmddhhmmssIn$, mdyDayWithTimeOut$
+    
+    gosub setup_constants
+    
+    mdyDayWithTimeOut$ = fnGetYYMDHMSasMDYwithTime$(yyyymmddhhmmssIn$)
     
     exit
 

@@ -17,3 +17,7 @@ print "Current weekday = ", weekday$
 
 
 print "mod(1.5, 1) = ", mod(1.5, 1) 
+
+
+call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", "20150728154516", fmtTimestamp$
+print "formatted timestamp = ", fmtTimestamp$
