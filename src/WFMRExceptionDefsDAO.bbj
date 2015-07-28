@@ -7,7 +7,7 @@ REM  */
 
 use java.util.LinkedHashMap
 
-declare java.util.LinkedHashMap deptsMap!
+declare java.util.LinkedHashMap exceptionDefsMap!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -28,13 +28,11 @@ entry_points:
 
 get_ids_and_names:
 
-    REM  In the future, may need a way to return values as different data types
-
-    enter deptsMap!
+    enter exceptionDefsMap!
     
     gosub setup_constants
     
-    gosub load_depts_map
+    gosub load_defs_map
     
     exit
 
@@ -56,34 +54,34 @@ setup_constants:
     wfmrDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
     
-    DEPTS_SELECT_STMT$ = "select department_id, name from lab_department where status_code = 'a' order by name"
+    EXCEPTION_DEFS_SELECT_STMT$ = "select exception_definition_id, name from lab_exception_definition order by name"
     
     return
 
 
 REM  ------------------------------
-REM  load_depts_map
+REM  load_defs_map
 REM  ------------------------------
 
-load_depts_map:
+load_defs_map:
 
-    deptsChannel = sqlunt
-    sqlopen(deptsChannel) wfmrDataSource$
+    defsChannel = sqlunt
+    sqlopen(defsChannel) wfmrDataSource$
 
-    sqlprep(deptsChannel) DEPTS_SELECT_STMT$
+    sqlprep(defsChannel) EXCEPTION_DEFS_SELECT_STMT$
 
-    deptsMap!.clear()
+    exceptionDefsMap!.clear()
 
-    sqlexec(deptsChannel) 
-    dim resultRow$:sqltmpl(deptsChannel)
+    sqlexec(defsChannel) 
+    dim resultRow$:sqltmpl(defsChannel)
     
     while TRUE
     
-        resultRow$ = sqlfetch(deptsChannel,err=*break)
-        deptsMap!.put(resultRow.department_id, cvs(resultRow.name$, 2) )
+        resultRow$ = sqlfetch(defsChannel,err=*break)
+        exceptionDefsMap!.put(resultRow.exception_definition_id, cvs(resultRow.name$, 2) )
         
     wend
     
-    sqlclose(deptsChannel)
+    sqlclose(defsChannel)
 
     return

@@ -13,6 +13,9 @@ declare java.util.LinkedHashMap employeesMap!
 declare java.util.HashMap employeeData!
 
 
+declare java.util.LinkedHashMap exceptionDefsMap!
+
+
 enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, dateQtys!
 
 
@@ -91,9 +94,7 @@ main_routine:
     
     gosub display_data
     
-    REM  gosub handle_input
-    
-    input @(0,22), "Press Enter to continue", ignoreInput$
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -155,6 +156,9 @@ init:
     
     resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    
+    exceptionDefsMap! = new java.util.LinkedHashMap()
+    call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
     
     employeesMap! = new java.util.LinkedHashMap()
     call "AttendPtsWorkDAO.bbj::get_employees_for_date", shiftIn$, deptIdIn, dateIn!, employeesMap!
@@ -242,6 +246,10 @@ display_data:
       empName$ = employeeData!.get("last_first_mi")
       if len(empName$) > 20 then empName$ = empName$(1, 20)
       
+      wfmrExceptionId! = employeeData!.get("wfmr_exc_def_id")
+      wfmrExceptionDescr$ = exceptionDefsMap!.get(wfmrExceptionId!)
+      if len(wfmrExceptionDescr$) > 17 then wfmrExceptionDescr$ = wfmrExceptionDescr$(1, 17)
+      
       trimmedWFMRLastMod$ = cvs(employeeData!.get("wfmr_exc_lastmod"), 3)
       trimmedPostedTimestamp$ = cvs(employeeData!.get("posted_timestamp"), 3)
       wasPosted = len(trimmedPostedTimestamp$) > 0
@@ -252,8 +260,9 @@ display_data:
       print @(5, row), empName$
       print @(32, row), employeeData!.get("disp_cd")
       print @(38, row), "WFMR"
-      print @(46, row), employeeData!.get("wfmr_exc_def_id")
+      print @(46, row), wfmrExceptionId!
       print @(52, row), str( employeeData!.get("wfmr_pts_assess"):"#.0" )
+      print @(57, row), wfmrExceptionDescr$
       print @(78, row), iff(wasPosted, "Y", "N")
       
       
@@ -305,8 +314,8 @@ handle_input:
         
         if currentFieldNo = LINE_FIELD_NO then
             print @(6, 21), 'BU'
-            inpute 6, 21, 2, "", line$ 
-            print @(8, 21), 'EU' 
+            inpute 6, 21, 1, "", line$ 
+            print @(7, 21), 'EU' 
         endif
             
         gosub clear_err_msg
@@ -463,6 +472,8 @@ validate_input:
 
     hasLineErr = FALSE
     
+    if line$ = "A" then goto end_validate_input
+    
     line = num(line$,err=invalid_line_no_format)
     
     if line < 1 or line > displayedCount then
@@ -486,6 +497,8 @@ validate_input:
         errMsg$ = "Invalid line number."
         currentFieldNo = LINE_FIELD_NO
     endif
+    
+    end_validate_input:
   
         
     return
