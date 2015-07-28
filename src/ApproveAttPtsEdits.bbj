@@ -34,8 +34,11 @@ START_ROW_FOR_LIST = 0
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-DISPOSITION_FIELD_NO = 1
-
+ERP_CODE_FIELD_NO = 1
+ERP_DESCR_FIELD_NO = 2
+ERP_PTS_FIELD_NO = 3
+ERP_STS_FIELD_NO = 4
+HIDDEN_FIELD_NO = 5
 
 
 REM     Note about INPUTE:
@@ -215,6 +218,10 @@ display_data:
     wfmrExcDefDescr$ = exceptionDefsMap!.get(wfrmExcDefId!)
     if len(wfmrExcDefDescr$) > 75 then wfmrExcDefDescr$ = wfmrExcDefDescr$(1,75)
     
+    dispCode$ = attPtsWorkDataMap!.get("disp_cd") 
+    dispDescr$ = ""
+    call "ApproveAttPtsDispPopup.bbj::get_description", dispCode$, dispDescr$
+    
     print @(0,3), "Dept: ", deptNameIn$
     print @(71,3), "Shift: ", shiftIn$
     
@@ -232,11 +239,14 @@ display_data:
     print @(2,9), "Pts:"
     print @(10,9), str( attPtsWorkDataMap!.get("wfmr_pts_assess"):"#.0" )
     
-    print @(0,11), "Disposition: ", 'BU', attPtsWorkDataMap!.get("disp_cd"), 'EU'
-    print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
+REM     print @(0,11), "Disposition: ", 'BU', attPtsWorkDataMap!.get("disp_cd"), 'EU'
+REM     print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
+
+    print @(0,11), "Disposition: ", dispDescr$, "  (F2=change)"
     
-    print @(0,12), "Edit reason: ", attPtsWorkDataMap!.get("edt_reas_descr")
-    print @(65,12), "F2=prompt"
+    if dispCode$ = "E" then
+        print @(0,12), "Edit reason: ", cvs( attPtsWorkDataMap!.get("edt_reas_descr"), 2), "  (F3=change)"
+    endif
     
     print @(0,14), "OUTGOING to ERP:"
     
@@ -277,7 +287,7 @@ display_data:
     
     actionLabel$ = actionLabel$ + "Enter=Save"
     
-    print @(0,21), actionLabel$ 
+    print @(2,21), actionLabel$ 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
@@ -291,14 +301,14 @@ display_data:
     
 handle_input:
 
-    currentFieldNo = DISPOSITION_FIELD_NO
+    currentFieldNo = HIDDEN_FIELD_NO
 
     while TRUE
         
-        if currentFieldNo = DISPOSITION_FIELD_NO then
-            print @(13, 11), 'BU'
-            inpute 13, 11, 1, "", dispCode$ 
-            print @(14, 11), 'EU' 
+        if currentFieldNo = HIDDEN_FIELD_NO then
+            REM print @(13, 11), 'BU'
+            inpute 0, 21, 1, "", ignoreInput$
+            REM print @(14, 11), 'EU' 
         endif
             
         gosub clear_err_msg
