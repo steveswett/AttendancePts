@@ -1,5 +1,5 @@
 REM /**
-REM  * ApproveAttendPts02.bbj
+REM  * ApproveAttPtsEdits.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -8,17 +8,14 @@ use java.util.LinkedHashMap
 use java.util.HashMap
 use java.util.Vector
 
-declare java.util.HashMap dateQtys!
-
-declare java.util.LinkedHashMap employeesMap!
-declare java.util.HashMap employeeDataMap!
-
-declare java.util.LinkedHashMap exceptionDefsMap!
+declare java.util.LinkedHashMap attPtsWorkRecordsMap!
+declare java.util.HashMap attPtsWorkDataMap!
 
 declare java.util.Vector attPtsWorkIds!
 
+REM  Pass a 0 for the attPtsWorkId! to show/process ALL records
 
-enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, dateQtys!
+enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -29,11 +26,11 @@ constants:
 TRUE = 1
 FALSE = 0
 
-RECORDS_PER_PAGE = 5
+RECORDS_PER_PAGE = 1
 COLUMNS_PER_PAGE = 1
-RECORDS_PER_COLUMN = 5
-ROWS_PER_RECORD = 2
-START_ROW_FOR_LIST = 10
+RECORDS_PER_COLUMN = 1
+ROWS_PER_RECORD = 1
+START_ROW_FOR_LIST = 0
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
@@ -83,7 +80,7 @@ fnend
 
 def fnHasRecordsAfter%(aDoIt)
 
-    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < employeesMapSize
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < attPtsWorkRecordsMapSize
 
 fnend
 
@@ -96,7 +93,9 @@ main_routine:
     
     gosub display_data
     
-    gosub handle_input
+    rem  gosub handle_input
+    
+    input @(0,20), "Press Enter to continue", ignoreInput$
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -162,11 +161,11 @@ init:
     exceptionDefsMap! = new java.util.LinkedHashMap()
     call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
     
-    employeesMap! = new java.util.LinkedHashMap()
-    call "AttendPtsWorkDAO.bbj::get_employees_for_date", shiftIn$, deptIdIn, dateIn!, employeesMap!
+    attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
+    call "AttendPtsWorkDAO.bbj::get_records_by_ids_in_list", attPtsWorkIds!, attPtsWorkRecordsMap!
     
     topLeftMapIndex = 1
-    employeesMapSize = employeesMap!.size()
+    attPtsWorkRecordsMapSize = attPtsWorkRecordsMap!.size()
     
     return
 
@@ -194,109 +193,52 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0,3), "Dept: ", deptNameIn$
-    print @(71,3), "Shift: ", shiftIn$
+    REM  Temporarily grab first record to display:
+    firstId! = attPtsWorkIds!.get(0)
+    
+    attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsMap!.get(firstId!) )
       
     unformattedDate$ = dateIn!
-    call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedDate$
-    
-    print @(0,5), formattedDate$ 
-    
-    qtyTotal = dateQtys!.get("total")
-    qtyPosted = dateQtys!.get("posted")
-    qtyNotPosted = qtyTotal - qtyPosted
-    qtyApproved = dateQtys!.get("A")
-    qtyEdited = dateQtys!.get("E")
-    qtyFMLAPending = dateQtys!.get("F")
-    qtyNotHandled = dateQtys!.get("N")
-    
-    print @(23, 5), "Total:", str(qtyTotal:"##0")
-    print @(37, 5), "Posted:", str(qtyPosted:"##0")
-    print @(53, 5), "Unposted:", str(qtyNotPosted:"##0")
-    
-    print @(14, 6), "DISP:  Approved:", str(qtyApproved:"##0")
-    print @(35, 6), "Edited:", str(qtyEdited:"##0")
-    print @(47, 6), "FMLA Pend:", str(qtyFMLAPending:"##0")
-    print @(62, 6), "Not Handled:", str(qtyNotHandled:"##0")
-    
-    print @(0, 8), "LIN  EMPLOYEE"
-    print @(25, 8), "DISPOSITION  SYSTEM  CODE  PTS  DESCRIPTION"
-    print @(74, 8), "POSTED"
-    
-    count = 0
-    displayedCount = 0
-    anyChangedSincedPosted = FALSE
-    
-    dim idsArray![1:RECORDS_PER_PAGE]
-    
-    iter! = employeesMap!.keySet().iterator()
-    
-    while iter!.hasNext()
-    
-      idKey! = iter!.next()
-      count = count + 1
-      
-      if count < topLeftMapIndex then continue
-      if count > topLeftMapIndex + RECORDS_PER_PAGE - 1 then break
-      
-      displayedCount = displayedCount + 1
-      
-      idsArray![displayedCount] = idKey!
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedExcDate$
 
-      employeeDataMap! = cast( java.util.HashMap, employeesMap!.get(idKey!) )
-      
-      empName$ = employeeDataMap!.get("last_first_mi")
-      if len(empName$) > 20 then empName$ = empName$(1, 20)
-      
-      wfmrExceptionId! = employeeDataMap!.get("wfmr_exc_def_id")
-      wfmrExceptionDescr$ = exceptionDefsMap!.get(wfmrExceptionId!)
-      if len(wfmrExceptionDescr$) > 17 then wfmrExceptionDescr$ = wfmrExceptionDescr$(1, 17)
-      
-      trimmedWFMRLastMod$ = cvs(employeeDataMap!.get("wfmr_exc_lastmod"), 3)
-      trimmedPostedTimestamp$ = cvs(employeeDataMap!.get("posted_timestamp"), 3)
-      wasPosted = len(trimmedPostedTimestamp$) > 0
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", attPtsWorkDataMap!.get("wfmr_exc_lastmod"), fmtWFMRLastModDate$
 
-      row = START_ROW_FOR_LIST + displayedCount * ROWS_PER_RECORD - ROWS_PER_RECORD
-      
-      print @(0, row), pad( str(displayedCount), 2, "R"), "." 
-      print @(5, row), empName$
-      print @(32, row), employeeDataMap!.get("disp_cd")
-      print @(38, row), "WFMR"
-      print @(46, row), wfmrExceptionId!
-      print @(52, row), str( employeeDataMap!.get("wfmr_pts_assess"):"#.0" )
-      print @(57, row), wfmrExceptionDescr$
-      print @(78, row), iff(wasPosted, "Y", "N")
-      
-      
-      rem str(qtyPosted:"##0")
-      
-      if wasPosted and trimmedWFMRLastMod$ > trimmedPostedTimestamp$ then
-        print @(79, row), "*"
-        anyChangedSincedPosted = TRUE
-      endif 
-      
-      print @(38, row + 1), "ERP"
-      print @(47, row + 1), employeeDataMap!.get("erp_cd")
-      print @(52, row + 1), str( employeeDataMap!.get("erp_pts_assessed"):"#.0" )
-      print @(57, row + 1), employeeDataMap!.get("erp_note")
-      
-    wend
-
-    print @(0, 21), "Line: ", 'BU', " ", 'EU', " (A=All)"
+    empName$ = attPtsWorkDataMap!.get("last_first_mi")
+    if len(empName$) > 24 then empName$ = empName$(1,24)
     
-    canPageUp = fnHasRecordsBefore%(TRUE)
-    canPageDown = fnHasRecordsAfter%(TRUE)
+    jobName$ = "TO DO"
+    
+    print @(0,3), "Dept: ", deptNameIn$
+    print @(71,3), "Shift: ", shiftIn$
+    
+    print @(0,5), formattedExcDate$ 
+    print @(15,5), "Emp: ", empName$
+    print @(46,5), "Job: ", jobName$
+    
+    print @(0,7), "INCOMING from WFMR: (modified ", fmtWFMRLastModDate$, ")"
+    print @(72,7), "XX of XX"
+    
+    print @(2,8), "Code:"
+    print @(10,8), attPtsWorkDataMap!.get("wfmr_exc_def_id")
+    
+    print @(2,9), "Pts:"
+    print @(10,9), str( attPtsWorkDataMap!.get("wfmr_pts_assess"):"#.0" )
+    
+    REM  TODO: following is temporary:
+    canPageUp = TRUE
+    canPageDown = TRUE
+
+REM     canPageUp = fnHasRecordsBefore%(TRUE)
+REM     canPageDown = fnHasRecordsAfter%(TRUE)
     
     actionLabel$ = "F4=Exit   "
     
-    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
-    if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Page   "
+    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Employee   " 
+    if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Employee   "
     
-    if anyChangedSincedPosted then
-        actionLabel$ = actionLabel$ + "   *changed since posted"
-    endif
+    actionLabel$ = actionLabel$ + "Enter=Save"
     
-    print @(17,21), actionLabel$ 
+    print @(0,21), actionLabel$ 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
@@ -365,20 +307,7 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        attPtsWorkIds! = new java.util.Vector()
-                        
-                        if line$ = "A" then
-                            iter! = employeesMap!.keySet().iterator()
-                            
-                            while iter!.hasNext()
-                                idKey! = iter!.next()
-                                attPtsWorkIds!.add(idKey!)
-                            wend
-                        else
-                            attPtsWorkIds!.add( idsArray![ num(line$) ] )
-                        endif
-   
-                        call "ApproveAttPtsEdits.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!
+                        input "This is what would run if Enter was pressed", ignoreInput$
                     endif
                     
                     break
@@ -422,7 +351,7 @@ get_top_left_map_index_for_page_down:
 
     topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
     
-    if topLeftMapIndex > employeesMapSize then topLeftMapIndex = employeesMapSize
+    if topLeftMapIndex > attPtsWorkRecordsMapSize then topLeftMapIndex = attPtsWorkRecordsMapSize
 
     return    
     

@@ -8,12 +8,18 @@ REM  */
 
 use java.util.LinkedHashMap
 use java.util.HashMap
+use java.util.Vector
 
 declare java.util.LinkedHashMap datesMapOut!
-declare java.util.HashMap dateQtys!
+declare java.util.HashMap dateQtysMap!
 
 declare java.util.LinkedHashMap employeesMapOut!
-declare java.util.HashMap employeeData!
+declare java.util.HashMap employeeDataMap!
+
+declare java.util.LinkedHashMap attPtsRecordsMapOut!
+declare java.util.HashMap attPtsWorkDataMap!
+
+declare java.util.Vector attPtsWorkIds!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -82,6 +88,17 @@ get_employees_for_date:
     gosub setup_constants
     
     gosub load_employees_map
+    
+    exit
+
+
+get_records_by_ids_in_list:
+
+    enter attPtsWorkIds!, attPtsRecordsMapOut!
+    
+    gosub setup_constants
+    
+    gosub load_work_records_map
     
     exit
     
@@ -291,6 +308,29 @@ setup_constants:
 :       "where " + 
 :       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? " +
 :       "order by last_first_mi"
+
+    ATTEND_PTS_WORK_GET_RECORDS_BY_ID_LIST_STMT$ =
+:       "select " +
+:       "attend_pts_work.id, " +
+:       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
+:       "attend_pts_work.job_id, " +
+:       "attend_pts_work.wfmr_exc_def_id, " +
+:       "attend_pts_work.wfmr_pts_assess, " +
+:       "attend_pts_work.wfmr_exc_lastmod, " +
+:       "attend_pts_work.disp_cd, " +
+:       "attend_pts_work.disp_edt_reas_id, " +
+:       "attend_pts_reasn.descr as edt_reas_descr, " +
+:       "attend_pts_work.erp_cd, " +
+:       "attend_pts_work.erp_note, " +
+:       "attend_pts_work.erp_pts_assessed, " +
+:       "attend_pts_work.erp_sts_cd, " +
+:       "attend_pts_work.last_mod, " +
+:       "attend_pts_work.posted_timestamp, " +
+:       "attend_pts_work.posted_by_user " +
+:       "from attend_pts_work " +
+:       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
+:       "left join attend_pts_reasn on attend_pts_reasn.id = attend_pts_work.disp_edt_reas_id " +
+:       "where id in(?)"
 
     return
 
@@ -654,17 +694,17 @@ load_dates_map:
     while TRUE
     
         resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
-        dateQtys! = new java.util.HashMap()
-        dateQtys!.put("total", resultRow.total)
-        dateQtys!.put("posted", 0)
+        dateQtysMap! = new java.util.HashMap()
+        dateQtysMap!.put("total", resultRow.total)
+        dateQtysMap!.put("posted", 0)
         
         REM  In following, key is disposition code:
-        dateQtys!.put("A", 0)
-        dateQtys!.put("E", 0)
-        dateQtys!.put("F", 0)
-        dateQtys!.put("N", 0)
+        dateQtysMap!.put("A", 0)
+        dateQtysMap!.put("E", 0)
+        dateQtysMap!.put("F", 0)
+        dateQtysMap!.put("N", 0)
 
-        datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
+        datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtysMap!)
         
     wend
 
@@ -681,11 +721,11 @@ load_dates_map:
         resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
         
         if !(cvs(resultRow.posted_timestamp$, 3) = "") then
-            dateQtys! = cast( java.util.HashMap, datesMapOut!.get(resultRow.wfmr_exc_date$) )
-            posted = dateQtys!.get("posted")
+            dateQtysMap! = cast( java.util.HashMap, datesMapOut!.get(resultRow.wfmr_exc_date$) )
+            posted = dateQtysMap!.get("posted")
             posted = posted + resultRow.posted_count
-            dateQtys!.put("posted", posted)
-            datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
+            dateQtysMap!.put("posted", posted)
+            datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtysMap!)
         endif
         
     wend
@@ -702,12 +742,12 @@ load_dates_map:
     
         resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
         
-        dateQtys! = cast( java.util.HashMap, datesMapOut!.get(resultRow.wfmr_exc_date$) )
+        dateQtysMap! = cast( java.util.HashMap, datesMapOut!.get(resultRow.wfmr_exc_date$) )
         
-        tmpTotal = dateQtys!.get(resultRow.disp_cd$)
+        tmpTotal = dateQtysMap!.get(resultRow.disp_cd$)
         tmpTotal = tmpTotal + resultRow.disp_count
-        dateQtys!.put(resultRow.disp_cd$, tmpTotal)
-        datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtys!)
+        dateQtysMap!.put(resultRow.disp_cd$, tmpTotal)
+        datesMapOut!.put(resultRow.wfmr_exc_date$, dateQtysMap!)
         
     wend
     
@@ -736,20 +776,79 @@ load_employees_map:
     while TRUE
     
         resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
-        employeeData! = new java.util.HashMap()
-        employeeData!.put("last_first_mi", resultRow.last_first_mi$)
-        employeeData!.put("disp_cd", resultRow.disp_cd$)
-        employeeData!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
-        employeeData!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)
-        employeeData!.put("posted_timestamp", resultRow.posted_timestamp$)
-        employeeData!.put("wfmr_exc_lastmod", resultRow.wfmr_exc_lastmod$)
-        employeeData!.put("erp_cd", resultRow.erp_cd$)
-        employeeData!.put("erp_pts_assessed", resultRow.erp_pts_assessed)
-        employeeData!.put("erp_note", resultRow.erp_note$)
+        employeeDataMap! = new java.util.HashMap()
+        employeeDataMap!.put("last_first_mi", resultRow.last_first_mi$)
+        employeeDataMap!.put("disp_cd", resultRow.disp_cd$)
+        employeeDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        employeeDataMap!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)
+        employeeDataMap!.put("posted_timestamp", resultRow.posted_timestamp$)
+        employeeDataMap!.put("wfmr_exc_lastmod", resultRow.wfmr_exc_lastmod$)
+        employeeDataMap!.put("erp_cd", resultRow.erp_cd$)
+        employeeDataMap!.put("erp_pts_assessed", resultRow.erp_pts_assessed)
+        employeeDataMap!.put("erp_note", resultRow.erp_note$)
 
-        employeesMapOut!.put(resultRow.id, employeeData!)
+        employeesMapOut!.put(resultRow.id, employeeDataMap!)
         
     wend
+    
+    sqlclose(attendPtsWorkDatesChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------
+REM  load_work_records_map -- For each id in list, load a set of info into the attPtsRecordsMapOut!
+REM  ------------------------------------------------------------
+    
+load_work_records_map:
+
+    attPtsRecordsMapOut!.clear()
+
+    attendPtsWorkDatesChannel = sqlunt
+    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_RECORDS_BY_ID_LIST_STMT$
+    
+    REM  Build CSV list of ids from incoming vector:
+    
+    idsAsCSV$ = ""
+    
+    idCount = attPtsWorkIds!.size()
+    
+    for i = 0 to idCount -1
+    
+        if i > 0 then idsAsCSV$ = idsAsCSV$ + ","
+        idsAsCSV$ = idsAsCSV$ + str( attPtsWorkIds!.get(i) ) 
+         
+    next i
+
+    sqlexec(attendPtsWorkDatesChannel) idsAsCSV$ 
+    dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
+
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
+        attPtsWorkDataMap! = new java.util.HashMap()
+        
+        attPtsWorkDataMap!.put("last_first_mi", resultRow.last_first_mi$)
+        attPtsWorkDataMap!.put("job_id", resultRow.job_id)
+        attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        attPtsWorkDataMap!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)
+        attPtsWorkDataMap!.put("wfmr_exc_lastmod", resultRow.wfmr_exc_lastmod$)
+        attPtsWorkDataMap!.put("disp_cd", resultRow.disp_cd$)
+        attPtsWorkDataMap!.put("disp_edt_reas_id", resultRow.disp_edt_reas_id)
+        attPtsWorkDataMap!.put("edt_reas_descr", resultRow.edt_reas_descr$)
+        attPtsWorkDataMap!.put("erp_cd", resultRow.erp_cd$)
+        attPtsWorkDataMap!.put("erp_note", resultRow.erp_note$)
+        attPtsWorkDataMap!.put("erp_pts_assessed", resultRow.erp_pts_assessed)
+        attPtsWorkDataMap!.put("erp_sts_cd", resultRow.erp_sts_cd$)
+        attPtsWorkDataMap!.put("last_mod", resultRow.last_mod$)
+        attPtsWorkDataMap!.put("posted_timestamp", resultRow.posted_timestamp$)
+        attPtsWorkDataMap!.put("posted_by_user", resultRow.posted_by_user$)
+        
+        attPtsRecordsMapOut!.put(resultRow.id, attPtsWorkDataMap!)
+        
+    wend        
     
     sqlclose(attendPtsWorkDatesChannel)
 
