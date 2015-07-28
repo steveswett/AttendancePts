@@ -207,7 +207,9 @@ display_data:
     empName$ = attPtsWorkDataMap!.get("last_first_mi")
     if len(empName$) > 24 then empName$ = empName$(1,24)
     
-    jobName$ = "TO DO"
+    jobName$ = ""
+    call "WFMRJobDAO.bbj::get_name", attPtsWorkDataMap!.get("job_id"), jobName$
+    if len(jobName$) > 29 then jobName$ = jobName$(1,29)
     
     wfrmExcDefId! = attPtsWorkDataMap!.get("wfmr_exc_def_id")
     wfmrExcDefDescr$ = exceptionDefsMap!.get(wfrmExcDefId!)

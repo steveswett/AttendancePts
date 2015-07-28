@@ -5,11 +5,6 @@ REM  *
 REM  */
 
 
-use java.util.LinkedHashMap
-
-declare java.util.LinkedHashMap deptsMap!
-
-
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
@@ -26,15 +21,14 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
 
-get_ids_and_names:
 
-    REM  In the future, may need a way to return values as different data types
+get_name:
 
-    enter deptsMap!
+    enter jobIdIn, jobNameOut$
     
     gosub setup_constants
     
-    gosub load_depts_map
+    gosub query_for_job_name
     
     exit
 
@@ -56,34 +50,32 @@ setup_constants:
     wfmrDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
     
-    DEPTS_SELECT_STMT$ = "select department_id, name from lab_department where status_code = 'a' order by name"
+    GET_JOB_NAME_SELECT_STMT$ = "select name from lab_job where job_id = ?"
     
     return
 
 
 REM  ------------------------------
-REM  load_depts_map
+REM  query_for_job_name
 REM  ------------------------------
 
-load_depts_map:
+query_for_job_name:
 
-    deptsChannel = sqlunt
-    sqlopen(deptsChannel) wfmrDataSource$
+    jobsChannel = sqlunt
+    sqlopen(jobsChannel) wfmrDataSource$
 
-    sqlprep(deptsChannel) DEPTS_SELECT_STMT$
+    sqlprep(jobsChannel) GET_JOB_NAME_SELECT_STMT$
 
-    deptsMap!.clear()
+    jobNameOut$ = ""
 
-    sqlexec(deptsChannel) 
-    dim resultRow$:sqltmpl(deptsChannel)
+    sqlexec(jobsChannel) jobIdIn
+    dim resultRow$:sqltmpl(jobsChannel)
     
-    while TRUE
+    resultRow$ = sqlfetch(jobsChannel,err=job_name_not_found)
+    jobNameOut$ = cvs(resultRow.name$, 2)
     
-        resultRow$ = sqlfetch(deptsChannel,err=*break)
-        deptsMap!.put(resultRow.department_id, cvs(resultRow.name$, 2) )
-        
-    wend
+    job_name_not_found:
     
-    sqlclose(deptsChannel)
+    sqlclose(jobsChannel)
 
     return
