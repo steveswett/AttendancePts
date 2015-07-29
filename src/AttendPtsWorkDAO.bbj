@@ -851,6 +851,13 @@ load_work_records_map:
         attPtsWorkDataMap!.put("posted_timestamp", resultRow.posted_timestamp$)
         attPtsWorkDataMap!.put("posted_by_user", resultRow.posted_by_user$)
         
+        REM  Save original values of editable ERP fields:
+
+        attPtsWorkDataMap!.put("orig_erp_cd", resultRow.erp_cd$)
+        attPtsWorkDataMap!.put("orig_erp_note", resultRow.erp_note$)
+        attPtsWorkDataMap!.put("orig_erp_pts_assessed", resultRow.erp_pts_assessed)
+        attPtsWorkDataMap!.put("orig_erp_sts_cd", resultRow.erp_sts_cd$)
+        
         attPtsRecordsMapOut!.put(resultRow.id, attPtsWorkDataMap!)
         
     wend        

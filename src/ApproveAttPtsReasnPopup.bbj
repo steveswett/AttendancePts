@@ -1,5 +1,5 @@
 REM /**
-REM  * ApproveAttPtsDispPopup.bbj
+REM  * ApproveAttPtsReasnPopup.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -7,7 +7,7 @@ REM  */
 
 use java.util.LinkedHashMap
 
-declare java.util.LinkedHashMap dispCodesMap!
+declare java.util.LinkedHashMap reasonsMap!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -23,22 +23,9 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 entry_points:
     
     
-get_description:
-
-    enter dispCodeIn$, descriptionOut$
-
-    gosub setup_constants
-
-    gosub init
-    
-    gosub get_descr
-    
-    exit
-
-
 show_popup:
 
-    enter upperLeftColumn, upperLeftRow, dispCode$
+    enter upperLeftColumn, upperLeftRow, reasonIdInOut, reasonDescrOut$
     
     gosub setup_constants
 
@@ -109,30 +96,10 @@ init:
     
     resultIgnored$ = stbl("!TERMS", upArrowPair$ + downArrowPair$ + stbl("!TERMS"))
     
-    dispCodesMap! = new java.util.LinkedHashMap()
+    reasonsMap! = new java.util.LinkedHashMap()
+
+    call "AttendPtsReasnDAO.bbj::get_ids_and_descrs", reasonsMap! 
     
-    dispCodesMap!.put("N", "Not Handled")
-    dispCodesMap!.put("A", "Approve WFMR Values")
-    dispCodesMap!.put("E", "Edit")
-    dispCodesMap!.put("F", "FMLA Pending")
-    
-    return
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Get the description for a single code
-    rem ------------------------------------------------------------------------------------------
-
-get_descr:
-
-    tmpDescr! = dispCodesMap!.get(dispCodeIn$)
-    
-    if tmpDescr! = null() then
-        descriptionOut$ = ""
-    else
-        descriptionOut$ = tmpDescr!
-    endif
-
     return
 
 
@@ -143,7 +110,7 @@ get_descr:
     
 display_popup:
 
-    print 'window' (upperLeftColumn, upperLeftRow, 31, 8, "Choose Disposition",'br'),
+    print 'window' (upperLeftColumn, upperLeftRow, 61, 14, "Choose Edit Reason",'br'),
     
     rem The row and column values used here are relative to inside the window
     
@@ -152,16 +119,16 @@ display_popup:
     cursorRow = START_ROW_FOR_LIST
     x = 0
     
-    iter! = dispCodesMap!.keySet().iterator()
+    iter! = reasonsMap!.keySet().iterator()
     
     while iter!.hasNext()
     
-      tmpDispCode! = iter!.next()
+      tmpId! = iter!.next()
       x = x + 1
       
-      print @(5, x),  dispCodesMap!.get(tmpDispCode!)
+      print @(5, x),  reasonsMap!.get(tmpId!)
       
-      if dispCode$ = tmpDispCode! then cursorRow = x
+      if reasonIdInOut = tmpId! then cursorRow = x
       
     wend
 
@@ -204,16 +171,17 @@ handle_input:
     
     done_handling_input:
     
-    iter! = dispCodesMap!.keySet().iterator()
+    iter! = reasonsMap!.keySet().iterator()
     x = 0
     
     while iter!.hasNext()
     
-      tmpDispCode! = iter!.next()
+      tmpId! = iter!.next()
       x = x + 1
       
       if x = cursorRow then
-          dispCode$ = tmpDispCode!
+          reasonIdInOut = tmpId!
+          reasonDescrOut$ = reasonsMap!.get(tmpId!)
           break
       endif
       

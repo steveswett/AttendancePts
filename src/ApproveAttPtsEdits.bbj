@@ -50,11 +50,11 @@ REM     The "help" function causes an exit with CTL=-1.
 F2_CUSTOM_INPUT_VALUE$ = $81$
 F2_CTL_OUTPUT_VALUE$ = $02$
 
-F4_CUSTOM_INPUT_VALUE$ = $82$
-F4_CTL_OUTPUT_VALUE$ = $04$
+F3_CUSTOM_INPUT_VALUE$ = $82$
+F3_CTL_OUTPUT_VALUE$ = $03$
 
-F6_CUSTOM_INPUT_VALUE$ = $83$
-F6_CTL_OUTPUT_VALUE$ = $06$
+F4_CUSTOM_INPUT_VALUE$ = $83$
+F4_CTL_OUTPUT_VALUE$ = $04$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
@@ -142,22 +142,22 @@ init:
         rem F2_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
         
     print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $02$, chr(1), F3_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
-    print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
     
     f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
+    f3Pair$ = F3_CUSTOM_INPUT_VALUE$ + F3_CTL_OUTPUT_VALUE$
     f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
-    f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
     pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f3Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f3Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     exceptionDefsMap! = new java.util.LinkedHashMap()
     call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
@@ -239,9 +239,6 @@ display_data:
     print @(2,9), "Pts:"
     print @(10,9), str( attPtsWorkDataMap!.get("wfmr_pts_assess"):"#.0" )
     
-REM     print @(0,11), "Disposition: ", 'BU', attPtsWorkDataMap!.get("disp_cd"), 'EU'
-REM     print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
-
     print @(0,11), "Disposition: ", dispDescr$, "  (F2=change)"
     
     if dispCode$ = "E" then
@@ -274,6 +271,7 @@ REM     print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
     
     print @(2,19), "Status:"
     print @(14,19), begUnLin$, attPtsWorkDataMap!.get("erp_sts_cd"), endUnLin$
+    print @(17,19), "(A=Active, I=Inactive)"
     
     if len(postedTimestamp$) > 0 then     
         call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", workRecdLastModDate$, fmtWorkRecdLastModDate$
@@ -322,18 +320,26 @@ handle_input:
                 afterValue$ = beforeValue$ 
                 print @(14, 16), 'BU'
                 inpute 14, 16, 1, "", afterValue$
-                print @(15, 16), 'EU' 
-                if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("erp_cd", afterValue$)
+                print @(15, 16), 'EU'
+                 
+                if !(afterValue$ = beforeValue$) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_cd", afterValue$)
+                endif
                 
                 break
         
             case ERP_DESCR_FIELD_NO
                 beforeValue$ = attPtsWorkDataMap!.get("erp_note")
                 afterValue$ = beforeValue$ 
-                print @(14, 17), 'BU'
+                print @(14, 17), 'BU', 'LC'
                 inpute 14, 17, 50, "", afterValue$
-                print @(64, 17), 'EU' 
-                if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("erp_note", afterValue$)
+                print @(64, 17), 'EU', 'UC' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_note", afterValue$)
+                endif
                 
                 break
         
@@ -342,8 +348,12 @@ handle_input:
                 afterValue = beforeValue 
                 print @(14, 18), 'BU'
                 inputn 14, 18, "#.0", "#.0", "", 5, afterValue
-                print @(17, 18), 'EU' 
-                if !(afterValue = beforeValue) then attPtsWorkDataMap!.put("erp_pts_assessed", afterValue)
+                print @(17, 18), 'EU'
+                 
+                if !(afterValue = beforeValue) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_pts_assessed", afterValue)
+                endif
                 
                 break
         
@@ -353,7 +363,11 @@ handle_input:
                 print @(14, 19), 'BU'
                 inpute 14, 19, 1, "", afterValue$
                 print @(15, 19), 'EU' 
-                if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("erp_sts_cd", afterValue$)
+                
+                if !(afterValue$ = beforeValue$) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_sts_cd", afterValue$)
+                endif
                 
                 break
             
@@ -372,9 +386,42 @@ handle_input:
                     beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
                     afterValue$ = beforeValue$ 
                     call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 9, afterValue$
-                    if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("disp_cd", afterValue$)
+
+                    if !(afterValue$ = beforeValue$) then 
+                        attPtsWorkDataMap!.put("changed", TRUE)
+                        attPtsWorkDataMap!.put("disp_cd", afterValue$)
+                        
+                        if afterValue$ = "A" or afterValue$ = "N" or afterValue$ = "F" then
+                        
+                            REM  Revert to original values:
+                            
+                            attPtsWorkDataMap!.put("erp_cd", attPtsWorkDataMap!.get("orig_erp_cd"))
+                            attPtsWorkDataMap!.put("erp_note", attPtsWorkDataMap!.get("orig_erp_note"))
+                            attPtsWorkDataMap!.put("erp_pts_assessed", attPtsWorkDataMap!.get("orig_erp_pts_assessed"))
+                            attPtsWorkDataMap!.put("erp_sts_cd", attPtsWorkDataMap!.get("orig_erp_sts_cd"))
+
+                        endif
+                        
+                        if afterValue$ = "F" then
+                            attPtsWorkDataMap!.put("erp_sts_cd", "I")
+                        endif
+                        
+                    endif
                     
                     currentFieldNo = iff(afterValue$ = "E", ERP_CODE_FIELD_NO, HIDDEN_FIELD_NO)
+        
+                    break
+        
+            case ASC(F3_CTL_OUTPUT_VALUE$)
+                    beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
+                    afterValue = beforeValue 
+                    call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 6, afterValue, tmpReasonDescr$
+
+                    if !(afterValue = beforeValue) then 
+                        attPtsWorkDataMap!.put("changed", TRUE)
+                        attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
+                        attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
+                    endif
         
                     break
         
@@ -410,13 +457,7 @@ handle_input:
                     break
                     
             case 0
-                    gosub validate_input
-                    
-                    if len(errMsg$) > 0 then
-                        gosub display_err_msg
-                    else
-                        input "This is what would run if Enter was pressed", ignoreInput$
-                    endif
+                    gosub validate_and_save
                     
                     break
         swend
@@ -495,6 +536,24 @@ set_field_no_after_back_tabbing:
     
     
     rem ------------------------------------------------------------------------------------------
+    rem  validate_and_save
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_and_save:
+
+    gosub validate_input
+    
+    if len(errMsg$) > 0 then
+        gosub display_err_msg
+    else
+        input "Data would be saved  (press Enter to continue)", ignoreInput$
+    endif
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
     rem  clear_err_msg
     rem ------------------------------------------------------------------------------------------
     
@@ -526,35 +585,54 @@ display_err_msg:
     
 validate_input:
 
-    hasLineErr = FALSE
+REM ERP_CODE_FIELD_NO = 1
+REM ERP_DESCR_FIELD_NO = 2
+REM ERP_PTS_FIELD_NO = 3
+REM ERP_STS_FIELD_NO = 4
+
+
+    if !(attPtsWorkDataMap!.get("disp_cd") = "E") then goto end_validate_input
     
-    if line$ = "A" then goto end_validate_input
-    
-    line = num(line$,err=invalid_line_no_format)
-    
-    if line < 1 or line > displayedCount then
-        hasLineErr = TRUE
+    editReasonId = attPtsWorkDataMap!.get("disp_edt_reas_id") 
+
+    if editReasonId = 0 then
+        errMsg$ = "An edit reason is required.  Use F3 to pick one."
+        goto end_validate_input
     endif
     
-    remainder = mod(line, 1)
-    
-    if remainder <> 0 then
-        hasLineErr = TRUE
+    erpCode$ = attPtsWorkDataMap!.get("erp_cd") 
+
+    if erpCode$ <> "1" and erpCode$ <> "2" then
+        errMsg$ = "Invalid ERP code."
+        currentFieldNo = ERP_CODE_FIELD_NO
+        goto end_validate_input
     endif
     
-    goto skip_line_no_format
-    
-    invalid_line_no_format:
-        hasLineErr = TRUE
-    
-    skip_line_no_format:
-    
-    if hasLineErr then
-        errMsg$ = "Invalid line number."
-        currentFieldNo = LINE_FIELD_NO
+    erpNote$ = cvs( attPtsWorkDataMap!.get("erp_note"), 3 ) 
+
+    if len(erpNote$) = 0 then
+        errMsg$ = "A value is required in the ""Descr"" field."
+        currentFieldNo = ERP_DESCR_FIELD_NO
+        goto end_validate_input
     endif
+
+    erpPts = attPtsWorkDataMap!.get("erp_pts_assessed")
+    
+    if (erpPts <= 0 or erpPts > 3) then
+        errMsg$ = "A non-zero value up to 3 is required in the ""Pts"" field."
+        currentFieldNo = ERP_PTS_FIELD_NO
+        goto end_validate_input
+    endif
+    
+    erpSts$ = attPtsWorkDataMap!.get("erp_sts_cd") 
+
+    if erpSts$ <> "A" and erpSts$ <> "I" then
+        errMsg$ = "Invalid Status code."
+        currentFieldNo = ERP_STS_FIELD_NO
+        goto end_validate_input
+    endif
+ 
     
     end_validate_input:
-  
         
     return

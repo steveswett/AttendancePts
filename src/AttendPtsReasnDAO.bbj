@@ -1,0 +1,87 @@
+REM /**
+REM  * AttendPtsReasnDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap reasonsMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+get_ids_and_descrs:
+
+    enter reasonsMap!
+    
+    gosub setup_constants
+    
+    gosub load_reasons_map
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    attendPtsDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    REASONS_SELECT_STMT$ = "select id, descr from attend_pts_reasn order by id"
+    
+    return
+
+
+REM  ------------------------------
+REM  load_reasons_map
+REM  ------------------------------
+
+load_reasons_map:
+
+    reasonsChannel = sqlunt
+    sqlopen(reasonsChannel) attendPtsDataSource$
+
+    sqlprep(reasonsChannel) REASONS_SELECT_STMT$
+
+    reasonsMap!.clear()
+
+    sqlexec(reasonsChannel) 
+    dim resultRow$:sqltmpl(reasonsChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(reasonsChannel,err=*break)
+        reasonsMap!.put(resultRow.id, cvs(resultRow.descr$, 2) )
+        
+    wend
+    
+    sqlclose(reasonsChannel)
+
+    return
