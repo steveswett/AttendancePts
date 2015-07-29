@@ -242,7 +242,8 @@ display_data:
     print @(0,11), "Disposition: ", dispDescr$, "  (F2=change)"
     
     if dispCode$ = "E" then
-        print @(0,12), "Edit reason: ", cvs( attPtsWorkDataMap!.get("edt_reas_descr"), 2), "  (F3=change)"
+        tmpReasonDescr$ = iff( attPtsWorkDataMap!.get("disp_edt_reas_id") > 0 , cvs( attPtsWorkDataMap!.get("edt_reas_descr"), 2), "") 
+        print @(0,12), "Edit reason: ", tmpReasonDescr$, "  (F3=change)"
         begUnLin$ = 'BU'
         endUnLin$ = 'EU'
     else
@@ -254,7 +255,7 @@ display_data:
     
     if len(workRecdLastModDate$) > 0 then     
         call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", workRecdLastModDate$, fmtWorkRecdLastModDate$
-        print @(17,14), "(modified ", fmtWorkRecdLastModDate$, ")"
+        print @(17,14), "(modified ", fmtWorkRecdLastModDate$, " by ", cvs(attPtsWorkDataMap!.get("last_mod_user"), 2), ")"
     endif
     
     print @(2,15), "WFMR code:"
@@ -389,23 +390,17 @@ handle_input:
                     call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 9, afterValue$
 
                     if !(afterValue$ = beforeValue$) then 
-                        attPtsWorkDataMap!.put("changed", TRUE)
-                        attPtsWorkDataMap!.put("disp_cd", afterValue$)
                         
                         if afterValue$ = "A" or afterValue$ = "N" or afterValue$ = "F" then
-                        
-                            REM  Revert to original values:
-                            
-                            attPtsWorkDataMap!.put("erp_cd", attPtsWorkDataMap!.get("orig_erp_cd"))
-                            attPtsWorkDataMap!.put("erp_note", attPtsWorkDataMap!.get("orig_erp_note"))
-                            attPtsWorkDataMap!.put("erp_pts_assessed", attPtsWorkDataMap!.get("orig_erp_pts_assessed"))
-                            attPtsWorkDataMap!.put("erp_sts_cd", attPtsWorkDataMap!.get("orig_erp_sts_cd"))
-
+                            gosub revert_work_data_to_orig_values
                         endif
                         
                         if afterValue$ = "F" then
                             attPtsWorkDataMap!.put("erp_sts_cd", "I")
                         endif
+
+                        attPtsWorkDataMap!.put("changed", TRUE)
+                        attPtsWorkDataMap!.put("disp_cd", afterValue$)
                         
                     endif
                     
@@ -440,7 +435,11 @@ handle_input:
                     
             case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
                     if canPageDown then
-                        gosub set_current_record_no_for_page_down
+                        gosub handle_pending_change
+                        
+                        if len(errMsg$) = 0 then
+                            gosub set_current_record_no_for_page_down
+                        endif
                     endif
                     
                     break
@@ -476,14 +475,31 @@ handle_input:
         if !(isTabbing) and len(errMsg$) = 0 then
             gosub display_data
             
-            if wasRecordSaved then 
-                print @(0,22), 'CL', "The record has been saved (ID ", attPtsWorkDataMap!.get("id"), ")."
+            if wasRecordSaved then
+                gosub write_saved_message
             endif
             
         endif
         
     wend
     
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  revert_work_data_to_orig_values -- reset editable fields' values to values initially read
+    rem ------------------------------------------------------------------------------------------
+    
+    
+revert_work_data_to_orig_values:
+
+    attPtsWorkDataMap!.put("disp_cd", attPtsWorkDataMap!.get("orig_disp_cd"))
+    attPtsWorkDataMap!.put("disp_edt_reas_id", attPtsWorkDataMap!.get("orig_disp_edt_reas_id"))
+    attPtsWorkDataMap!.put("erp_cd", attPtsWorkDataMap!.get("orig_erp_cd"))
+    attPtsWorkDataMap!.put("erp_note", attPtsWorkDataMap!.get("orig_erp_note"))
+    attPtsWorkDataMap!.put("erp_pts_assessed", attPtsWorkDataMap!.get("orig_erp_pts_assessed"))
+    attPtsWorkDataMap!.put("erp_sts_cd", attPtsWorkDataMap!.get("orig_erp_sts_cd"))
+
     return
 
     
@@ -571,8 +587,51 @@ validate_and_save_record:
 save_record:
 
     call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
+    attPtsWorkDataMap!.remove("changed")
+    
+    REM  TODO: Likely need to add a "saved" flag at the record level so we'll know what to post.
 
     return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  handle_pending_change
+    rem ------------------------------------------------------------------------------------------
+    
+    
+handle_pending_change:
+
+    if !( attPtsWorkDataMap!.get("changed") = null() ) then
+        input @(0,22), 'CL', "Do you want to save changes made to this record? (Y/N) ", saveChanges$
+        
+        if savedChanges$ = "Y" then 
+            gosub validate_and_save_record
+
+            if len(errMsg$) = 0 then
+                gosub write_saved_message
+                wait 1
+            endif
+            
+        else
+            gosub revert_work_data_to_orig_values
+        endif
+        
+    endif    
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  write_saved_message
+    rem ------------------------------------------------------------------------------------------
+
+
+write_saved_message:
+
+    print @(0,22), 'CL', "The record has been saved (ID ", attPtsWorkDataMap!.get("id"), ")."
+    
+    return
+    
     
     
     rem ------------------------------------------------------------------------------------------

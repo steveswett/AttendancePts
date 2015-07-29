@@ -829,6 +829,7 @@ load_work_records_map:
 :       "attend_pts_work.erp_pts_assessed, " +
 :       "attend_pts_work.erp_sts_cd, " +
 :       "attend_pts_work.last_mod, " +
+:       "attend_pts_work.last_mod_user, " +
 :       "attend_pts_work.posted_timestamp, " +
 :       "attend_pts_work.posted_by_user " +
 :       "from attend_pts_work " +
@@ -866,11 +867,14 @@ load_work_records_map:
         attPtsWorkDataMap!.put("erp_pts_assessed", resultRow.erp_pts_assessed)
         attPtsWorkDataMap!.put("erp_sts_cd", resultRow.erp_sts_cd$)
         attPtsWorkDataMap!.put("last_mod", resultRow.last_mod$)
+        attPtsWorkDataMap!.put("last_mod_user", resultRow.last_mod_user$)
         attPtsWorkDataMap!.put("posted_timestamp", resultRow.posted_timestamp$)
         attPtsWorkDataMap!.put("posted_by_user", resultRow.posted_by_user$)
         
         REM  Save original values of editable ERP fields:
 
+        attPtsWorkDataMap!.put("orig_disp_cd", resultRow.disp_cd$)
+        attPtsWorkDataMap!.put("orig_disp_edt_reas_id", resultRow.disp_edt_reas_id)
         attPtsWorkDataMap!.put("orig_erp_cd", resultRow.erp_cd$)
         attPtsWorkDataMap!.put("orig_erp_note", resultRow.erp_note$)
         attPtsWorkDataMap!.put("orig_erp_pts_assessed", resultRow.erp_pts_assessed)
