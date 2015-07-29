@@ -379,6 +379,7 @@ handle_input:
         savedCTL = CTL
         isTabbing = FALSE
         needToBreak = FALSE
+        wasRecordSaved = FALSE
         
         switch savedCTL
         
@@ -457,7 +458,11 @@ handle_input:
                     break
                     
             case 0
-                    gosub validate_and_save
+                    gosub validate_and_save_record
+                    
+                    if len(errMsg$) = 0 then
+                        wasRecordSaved = TRUE
+                    endif
                     
                     break
         swend
@@ -470,6 +475,11 @@ handle_input:
 
         if !(isTabbing) and len(errMsg$) = 0 then
             gosub display_data
+            
+            if wasRecordSaved then 
+                print @(0,22), 'CL', "The record has been saved (ID ", attPtsWorkDataMap!.get("id"), ")."
+            endif
+            
         endif
         
     wend
@@ -536,19 +546,31 @@ set_field_no_after_back_tabbing:
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  validate_and_save
+    rem  validate_and_save_record
     rem ------------------------------------------------------------------------------------------
     
     
-validate_and_save:
+validate_and_save_record:
 
     gosub validate_input
     
     if len(errMsg$) > 0 then
         gosub display_err_msg
     else
-        input "Data would be saved  (press Enter to continue)", ignoreInput$
+        gosub save_record
     endif
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  save_record
+    rem ------------------------------------------------------------------------------------------
+    
+    
+save_record:
+
+    call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
 
     return
     
@@ -584,12 +606,6 @@ display_err_msg:
     
     
 validate_input:
-
-REM ERP_CODE_FIELD_NO = 1
-REM ERP_DESCR_FIELD_NO = 2
-REM ERP_PTS_FIELD_NO = 3
-REM ERP_STS_FIELD_NO = 4
-
 
     if !(attPtsWorkDataMap!.get("disp_cd") = "E") then goto end_validate_input
     

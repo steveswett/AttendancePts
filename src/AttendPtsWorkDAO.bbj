@@ -101,6 +101,17 @@ get_records_by_ids_in_list:
     gosub load_work_records_map
     
     exit
+
+
+save_one_record:
+
+    enter attPtsWorkDataMap!
+    
+    gosub setup_constants
+    
+    gosub save_record_from_map
+    
+    exit
     
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -308,6 +319,12 @@ setup_constants:
 :       "where " + 
 :       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? " +
 :       "order by last_first_mi"
+
+    ATTEND_PTS_WORK_SAVE_ONE_RECORD_STMT$ = 
+:       "update attend_pts_work " +
+:       "set disp_cd = ?, disp_edt_reas_id = ?, erp_cd = ?, erp_note = ?, erp_pts_assessed = ?, " +
+:       "erp_sts_cd = ?, last_mod = ?, last_mod_user = ? " +
+:       "where id = ?"
 
     return
 
@@ -835,6 +852,7 @@ load_work_records_map:
         resultRow$ = sqlfetch(attendPtsWorkDatesChannel,err=*break)
         attPtsWorkDataMap! = new java.util.HashMap()
         
+        attPtsWorkDataMap!.put("id", resultRow.id)
         attPtsWorkDataMap!.put("last_first_mi", resultRow.last_first_mi$)
         attPtsWorkDataMap!.put("job_id", resultRow.job_id)
         attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
@@ -862,6 +880,30 @@ load_work_records_map:
         
     wend        
     
+    sqlclose(attendPtsWorkDatesChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------
+REM  save_record_from_map -- Save a single record's data stored in attPtsWorkDataMap!
+REM  ------------------------------------------------------------
+    
+save_record_from_map:
+
+    attendPtsWorkDatesChannel = sqlunt
+    sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
+    sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_SAVE_ONE_RECORD_STMT$
+    
+    lastModTimeStamp$ = ""
+    call "DateUtilities.bbj::get_current_timestamp", lastModTimeStamp$
+    
+    loginUser$ = info(3,2) 
+
+    sqlexec(attendPtsWorkDatesChannel) attPtsWorkDataMap!.get("disp_cd"), attPtsWorkDataMap!.get("disp_edt_reas_id"),
+:       attPtsWorkDataMap!.get("erp_cd"), attPtsWorkDataMap!.get("erp_note"), attPtsWorkDataMap!.get("erp_pts_assessed"),
+:       attPtsWorkDataMap!.get("erp_sts_cd"), lastModTimeStamp$, loginUser$, attPtsWorkDataMap!.get("id")  
+
     sqlclose(attendPtsWorkDatesChannel)
 
     return

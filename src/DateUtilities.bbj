@@ -10,6 +10,13 @@ rem * - - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 functions:
 
 
+def fnGetCurrentTimestamp$(aDoIt)
+
+    return date(0:"%Y%Mz%Dz%Hz%mz%sz")
+
+fnend
+
+
 def fnGetYYMDasMDYwithDayAbbrev$(aYYYYMMDD$)
     
     tmpJul = jul( num(aYYYYMMDD$(1,4)), num(aYYYYMMDD$(5,2)), num(aYYYYMMDD$(7,2)) )
@@ -66,6 +73,17 @@ get_yymdhms_as_mdy_with_time:
     gosub setup_constants
     
     mdyDayWithTimeOut$ = fnGetYYMDHMSasMDYwithTime$(yyyymmddhhmmssIn$)
+    
+    exit
+    
+    
+get_current_timestamp:
+
+    enter yyyymmddhhmmss$
+    
+    gosub setup_constants
+    
+    yyyymmddhhmmss$ = fnGetCurrentTimestamp$(TRUE)
     
     exit
 
