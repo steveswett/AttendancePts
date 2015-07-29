@@ -59,7 +59,7 @@ F6_CTL_OUTPUT_VALUE$ = $06$
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
 
-BACKTAB_CUSTOM_INPUT_VALUE$ = $3C$
+BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
 BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
 
 PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
@@ -246,6 +246,11 @@ REM     print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
     
     if dispCode$ = "E" then
         print @(0,12), "Edit reason: ", cvs( attPtsWorkDataMap!.get("edt_reas_descr"), 2), "  (F3=change)"
+        begUnLin$ = 'BU'
+        endUnLin$ = 'EU'
+    else
+        begUnLin$ = ""
+        endUnLin$ = ""
     endif
     
     print @(0,14), "OUTGOING to ERP:"
@@ -255,20 +260,20 @@ REM     print @(16,11), "(A=Approve, E=Edit, F=FMLA Pending, N=Not Handled)"
         print @(17,14), "(modified ", fmtWorkRecdLastModDate$, ")"
     endif
     
-    print @(2,15), "WFMR Code:"
+    print @(2,15), "WFMR code:"
     print @(13,15), wfrmExcDefId!
     
-    print @(2,16), "ERP Code:   ", 'BU', attPtsWorkDataMap!.get("erp_cd"), 'EU'
+    print @(2,16), "ERP  code:  ", begUnLin$, attPtsWorkDataMap!.get("erp_cd"), endUnLin$
     print @(17,16), "(1=Late, 2=Absent)"
     
     print @(2, 17), "Descr:"
-    print @(14, 17), 'BU', attPtsWorkDataMap!.get("erp_note"), 'EU'
+    print @(14, 17), begUnLin$, attPtsWorkDataMap!.get("erp_note"), endUnLin$
     
     print @(2, 18), "Pts:"
-    print @(14,18), 'BU', str( attPtsWorkDataMap!.get("erp_pts_assessed"):"#.0" ), 'EU'
+    print @(14,18), begUnLin$, str( attPtsWorkDataMap!.get("erp_pts_assessed"):"#.0" ), endUnLin$
     
     print @(2,19), "Status:"
-    print @(14,19), 'BU', attPtsWorkDataMap!.get("erp_sts_cd"), 'EU'
+    print @(14,19), begUnLin$, attPtsWorkDataMap!.get("erp_sts_cd"), endUnLin$
     
     if len(postedTimestamp$) > 0 then     
         call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", workRecdLastModDate$, fmtWorkRecdLastModDate$
@@ -305,11 +310,55 @@ handle_input:
 
     while TRUE
         
-        if currentFieldNo = HIDDEN_FIELD_NO then
-            REM print @(13, 11), 'BU'
-            inpute 0, 21, 1, "", ignoreInput$
-            REM print @(14, 11), 'EU' 
-        endif
+        switch currentFieldNo
+        
+            case HIDDEN_FIELD_NO
+                inpute 0, 21, 1, "", ignoreInput$
+                
+                break
+        
+            case ERP_CODE_FIELD_NO
+                beforeValue$ = attPtsWorkDataMap!.get("erp_cd")
+                afterValue$ = beforeValue$ 
+                print @(14, 16), 'BU'
+                inpute 14, 16, 1, "", afterValue$
+                print @(15, 16), 'EU' 
+                if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("erp_cd", afterValue$)
+                
+                break
+        
+            case ERP_DESCR_FIELD_NO
+                beforeValue$ = attPtsWorkDataMap!.get("erp_note")
+                afterValue$ = beforeValue$ 
+                print @(14, 17), 'BU'
+                inpute 14, 17, 50, "", afterValue$
+                print @(64, 17), 'EU' 
+                if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("erp_note", afterValue$)
+                
+                break
+        
+            case ERP_PTS_FIELD_NO
+                beforeValue = attPtsWorkDataMap!.get("erp_pts_assessed")
+                afterValue = beforeValue 
+                print @(14, 18), 'BU'
+                inputn 14, 18, "#.0", "#.0", "", 5, afterValue
+                print @(17, 18), 'EU' 
+                if !(afterValue = beforeValue) then attPtsWorkDataMap!.put("erp_pts_assessed", afterValue)
+                
+                break
+        
+            case ERP_STS_FIELD_NO
+                beforeValue$ = attPtsWorkDataMap!.get("erp_sts_cd")
+                afterValue$ = beforeValue$ 
+                print @(14, 19), 'BU'
+                inpute 14, 19, 1, "", afterValue$
+                print @(15, 19), 'EU' 
+                if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("erp_sts_cd", afterValue$)
+                
+                break
+            
+        swend
+
             
         gosub clear_err_msg
 
@@ -318,6 +367,16 @@ handle_input:
         needToBreak = FALSE
         
         switch savedCTL
+        
+            case ASC(F2_CTL_OUTPUT_VALUE$)
+                    beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
+                    afterValue$ = beforeValue$ 
+                    call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 9, afterValue$
+                    if !(afterValue$ = beforeValue$) then attPtsWorkDataMap!.put("disp_cd", afterValue$)
+                    
+                    currentFieldNo = iff(afterValue$ = "E", ERP_CODE_FIELD_NO, HIDDEN_FIELD_NO)
+        
+                    break
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
                     needToBreak = TRUE
@@ -412,9 +471,11 @@ set_current_record_no_for_page_down:
     
 set_field_no_after_tabbing:
 
-    currentFieldNo = currentFieldNo + 1
-    if currentFieldNo > 2 then currentFieldNo = 1
-    
+    if !(currentFieldNo = HIDDEN_FIELD_NO) then
+        currentFieldNo = currentFieldNo + 1
+        if currentFieldNo > ERP_STS_FIELD_NO then currentFieldNo = ERP_CODE_FIELD_NO
+    endif
+        
     return
     
     
@@ -425,8 +486,10 @@ set_field_no_after_tabbing:
     
 set_field_no_after_back_tabbing:
 
-    currentFieldNo = currentFieldNo - 1
-    if currentFieldNo < 1 then currentFieldNo = 2
+    if !(currentFieldNo = HIDDEN_FIELD_NO) then
+        currentFieldNo = currentFieldNo - 1
+        if currentFieldNo < ERP_CODE_FIELD_NO then currentFieldNo = ERP_STS_FIELD_NO
+    endif
     
     return
     

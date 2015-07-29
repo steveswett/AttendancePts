@@ -38,7 +38,7 @@ get_description:
 
 show_popup:
 
-    enter upperLeftColumn, upperLeftRow, shirtSize$
+    enter upperLeftColumn, upperLeftRow, dispCode$
     
     gosub setup_constants
 
@@ -111,10 +111,10 @@ init:
     
     dispCodesMap! = new java.util.LinkedHashMap()
     
+    dispCodesMap!.put("N", "Not Handled")
     dispCodesMap!.put("A", "Approve")
     dispCodesMap!.put("E", "Edit")
     dispCodesMap!.put("F", "FMLA Pending")
-    dispCodesMap!.put("N", "Not Handled")
     
     return
 
@@ -143,23 +143,27 @@ get_descr:
     
 display_popup:
 
-    print 'window' (upperLeftColumn, upperLeftRow, 29, 10, "Choose Shirt Size",'br'),
+    print 'window' (upperLeftColumn, upperLeftRow, 24, 8, "Choose Disposition",'br'),
     
     rem The row and column values used here are relative to inside the window
     
     print 'er',
     
     cursorRow = START_ROW_FOR_LIST
-    paddedShirtSize$ = pad(shirtSize$, 4, "L", " ")
-
-    for x = 1 to 6
+    x = 0
     
-        print @(5, x), sizes$[x]
-        
-        if paddedShirtSize$ = sizes$[x](1,4) then
-:           cursorRow = x
-        
-    next x
+    iter! = dispCodesMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+      tmpDispCode! = iter!.next()
+      x = x + 1
+      
+      print @(5, x),  dispCodesMap!.get(tmpDispCode!)
+      
+      if dispCode$ = tmpDispCode! then cursorRow = x
+      
+    wend
 
     return
 
@@ -200,6 +204,20 @@ handle_input:
     
     done_handling_input:
     
-    shirtSize$ = sizes$[cursorRow](1,4)
+    iter! = dispCodesMap!.keySet().iterator()
+    x = 0
+    
+    while iter!.hasNext()
+    
+      tmpDispCode! = iter!.next()
+      x = x + 1
+      
+      if x = cursorRow then
+          dispCode$ = tmpDispCode!
+          break
+      endif
+      
+    wend
+    
     
     return
