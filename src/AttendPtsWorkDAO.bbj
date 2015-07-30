@@ -817,6 +817,8 @@ load_work_records_map:
 :       "select " +
 :       "attend_pts_work.id, " +
 :       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
+:       "attend_pts_work.emp_badge_no, " +
+:       "attend_pts_work.wfmr_exc_date, " +
 :       "attend_pts_work.job_id, " +
 :       "attend_pts_work.wfmr_exc_def_id, " +
 :       "attend_pts_work.wfmr_pts_assess, " +
@@ -855,6 +857,8 @@ load_work_records_map:
         
         attPtsWorkDataMap!.put("id", resultRow.id)
         attPtsWorkDataMap!.put("last_first_mi", resultRow.last_first_mi$)
+        attPtsWorkDataMap!.put("emp_badge_no", resultRow.emp_badge_no$)
+        attPtsWorkDataMap!.put("wfmr_exc_date", resultRow.wfmr_exc_date$)
         attPtsWorkDataMap!.put("job_id", resultRow.job_id)
         attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
         attPtsWorkDataMap!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)

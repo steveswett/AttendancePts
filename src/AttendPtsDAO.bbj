@@ -1,0 +1,98 @@
+REM /**
+REM  * AttendPtsDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.HashMap
+
+declare java.util.HashMap attPtsWorkRecordsToPostMap!
+declare java.util.HashMap postingStatsMap!
+declare java.util.HashMap qtysInsertedMap!
+declare java.util.HashMap qtysUpdatedMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+post_work_records:
+
+    enter attPtsWorkRecordsToPostMap!, postingStatsMap!
+    
+    gosub setup_constants
+    
+    gosub post_work_records_map
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    attendPtsDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    CHECK_EXIST_STMT$ = "select id, descr from attend_pts_reasn order by id"
+    
+    UPDATE_STMT$ = ""
+    
+    INSERT_STMT$ = ""
+    
+    return
+
+
+REM  ------------------------------
+REM  post_work_records_map
+REM  ------------------------------
+
+post_work_records_map:
+
+    postingStatsMap!.clear()
+    qtysInsertedMap! = new java.util.HashMap() 
+    qtysUpdatedMap! = new java.util.HashMap() 
+
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+
+    sqlprep(attendPtsChannel) CHECK_EXIST_STMT$
+
+    reasonsMap!.clear()
+
+    sqlexec(attendPtsChannel) 
+    dim resultRow$:sqltmpl(attendPtsChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
+        reasonsMap!.put(resultRow.id, cvs(resultRow.descr$, 2) )
+        
+    wend
+    
+    sqlclose(attendPtsChannel)
+
+    return
