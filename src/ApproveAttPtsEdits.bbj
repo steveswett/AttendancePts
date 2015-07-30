@@ -26,6 +26,9 @@ constants:
 TRUE = 1
 FALSE = 0
 
+RGB_WHITE_ON_BLUE$= $033F$
+RGB_YELLOW_ON_BLUE$ = $033C$
+
 RECORDS_PER_PAGE = 1
 COLUMNS_PER_PAGE = 1
 RECORDS_PER_COLUMN = 1
@@ -124,7 +127,7 @@ init:
         rem Set color.  In the following, $03$ is the background (blue) and $3F$ is the foreground (white).
         rem The bits for that were: 0 0 1 1 1 1 1 1  (<-- foreground)   0 0 0 0 0 0 1 1  (<-- background)
         
-    print 'RGB'($033F$);   rem blue background, white foreground
+    print 'RGB'(RGB_WHITE_ON_BLUE$)
     rem print 'RGB'($033C$);   rem blue background, yellow foreground
     rem print 'RGB'($0330$);   rem blue background, red foreground
     
@@ -422,13 +425,21 @@ handle_input:
                     break
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
-                    needToBreak = TRUE
+                    gosub handle_pending_change
+                    
+                    if len(errMsg$) = 0 then
+                        needToBreak = TRUE
+                    endif
         
                     break
         
             case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
                     if canPageUp then
-                        gosub set_current_record_no_for_page_up
+                        gosub handle_pending_change
+                        
+                        if len(errMsg$) = 0 then
+                            gosub set_current_record_no_for_page_up
+                        endif
                     endif
         
                     break
@@ -588,8 +599,7 @@ save_record:
 
     call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
     attPtsWorkDataMap!.remove("changed")
-    
-    REM  TODO: Likely need to add a "saved" flag at the record level so we'll know what to post.
+    attPtsWorkDataMap!.put("saved", TRUE)
 
     return
     
@@ -602,9 +612,15 @@ save_record:
 handle_pending_change:
 
     if !( attPtsWorkDataMap!.get("changed") = null() ) then
-        input @(0,22), 'CL', "Do you want to save changes made to this record? (Y/N) ", saveChanges$
+    
+        saveChanges$ = "Y"
         
-        if savedChanges$ = "Y" then 
+        print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$)
+        print @(14,22), "Do you want to save changes made to this record? ", 'BU'
+        inpute 63, 22, 1, "", saveChanges$
+        print @(64, 22), 'EU', 'RGB'(RGB_WHITE_ON_BLUE$)
+        
+        if saveChanges$ = "Y" then 
             gosub validate_and_save_record
 
             if len(errMsg$) = 0 then
