@@ -1,0 +1,92 @@
+REM /**
+REM  * WFMRPayPeriodDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+get_pay_period_start_date:
+
+    enter payPeriodsBackIn, payPeriodStartDateOut
+    
+    gosub setup_constants
+    
+    gosub query_for_pay_period_start_date
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    wfmrDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+    
+    PAY_PERIODS_SELECT_STMT$ = 
+:       "select distinct convert(varchar(8), start_date, 112) as pay_yyyymmdd from lab_pay_period " +
+:       "where start_date < getdate() " +
+:       "order by pay_yyyymmdd desc"
+    
+    return
+
+
+REM  ------------------------------
+REM  query_for_pay_period_start_date
+REM  ------------------------------
+
+query_for_pay_period_start_date:
+
+    payPeriodsChannel = sqlunt
+    sqlopen(payPeriodsChannel) wfmrDataSource$
+    
+    sqlprep(payPeriodsChannel) PAY_PERIODS_SELECT_STMT$
+
+    sqlexec(payPeriodsChannel) 
+    dim resultRow$:sqltmpl(payPeriodsChannel)
+    
+    REM  Default value (today)
+    payPeriodStartDateOut = num( date(0:"%Y%Mz%Dz") )
+    
+    payPeriods = 0
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(payPeriodsChannel,err=*break)
+        payPeriods = payPeriods + 1
+        payPeriodStartDateOut = num(resultRow.pay_yyyymmdd$)
+        
+        if payPeriods >= payPeriodsBackIn then break
+        
+    wend
+    
+    sqlclose(payPeriodsChannel)
+
+    return

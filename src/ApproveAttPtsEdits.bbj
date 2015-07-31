@@ -15,7 +15,7 @@ declare java.util.Vector attPtsWorkIds!
 
 REM  Pass a 0 for the attPtsWorkId! to show/process ALL records
 
-enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!
+enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!, savedAnyRecordsOut
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -171,7 +171,7 @@ init:
     currentRecordNo = 1
     attPtsWorkRecordsMapSize = attPtsWorkRecordsMap!.size()
     
-    savedAnyRecords = FALSE
+    savedAnyRecordsOut = FALSE
     
     return
 
@@ -431,7 +431,7 @@ handle_input:
                     
                     if len(errMsg$) = 0 then
 
-                        if savedAnyRecords then
+                        if savedAnyRecordsOut then
                             call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
                         endif
                         
@@ -607,8 +607,7 @@ save_record:
     call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
     attPtsWorkDataMap!.remove("changed")
     attPtsWorkDataMap!.put("saved", TRUE)
-    savedAnyRecords = TRUE
-
+    savedAnyRecordsOut = TRUE
 
     return
     
@@ -653,7 +652,9 @@ handle_pending_change:
 
 write_saved_message:
 
-    print @(0,22), 'CL', "The record has been saved (ID ", attPtsWorkDataMap!.get("id"), ")."
+    print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$)
+    print "The record has been saved (ID ", attPtsWorkDataMap!.get("id"), ")."
+    print 'RGB'(RGB_WHITE_ON_BLUE$)
     
     return
     

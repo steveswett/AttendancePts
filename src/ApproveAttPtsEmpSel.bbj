@@ -8,6 +8,7 @@ use java.util.LinkedHashMap
 use java.util.HashMap
 use java.util.Vector
 
+declare java.util.LinkedHashMap workDateRows!
 declare java.util.HashMap dateQtys!
 
 declare java.util.LinkedHashMap employeesMap!
@@ -94,6 +95,8 @@ main_routine:
 
     gosub init
     
+    gosub load_employees_map
+    
     gosub display_data
     
     gosub handle_input
@@ -162,13 +165,40 @@ init:
     exceptionDefsMap! = new java.util.LinkedHashMap()
     call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
     
+    topLeftMapIndex = 1
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  load_employees_map
+    rem ------------------------------------------------------------------------------------------
+
+
+load_employees_map:
+
     employeesMap! = new java.util.LinkedHashMap()
     call "AttendPtsWorkDAO.bbj::get_employees_for_date", shiftIn$, deptIdIn, dateIn!, employeesMap!
-    
-    topLeftMapIndex = 1
     employeesMapSize = employeesMap!.size()
     
     return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  reload_date_qtys
+    rem ------------------------------------------------------------------------------------------
+
+
+reload_date_qtys:
+
+    workDateRows! = new java.util.LinkedHashMap()
+    tmpDate = num(dateIn!)
+    call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, tmpDate, tmpDate, workDateRows!
+    dateQtys! = cast( java.util.HashMap, workDateRows!.get(dateIn!) )
+    
+    return
+    
+    
 
 
     rem ------------------------------------------------------------------------------------------
@@ -378,7 +408,13 @@ handle_input:
                             attPtsWorkIds!.add( idsArray![ num(line$) ] )
                         endif
    
-                        call "ApproveAttPtsEdits.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!
+                        call "ApproveAttPtsEdits.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!, savedAnyRecords
+                        
+                        if savedAnyRecords then
+                            gosub load_employees_map
+                            gosub reload_date_qtys
+                        endif
+                        
                     endif
                     
                     break

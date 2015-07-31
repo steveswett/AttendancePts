@@ -98,8 +98,10 @@ post_work_records_map:
 
     postingCheckExistChannel = sqlunt
     sqlopen(postingCheckExistChannel) attendPtsDataSource$
+    
     postingUpdateChannel = sqlunt
     sqlopen(postingUpdateChannel) attendPtsDataSource$
+    
     postingInsertChannel = sqlunt
     sqlopen(postingInsertChannel) attendPtsDataSource$
 
@@ -107,11 +109,18 @@ post_work_records_map:
     sqlprep(postingUpdateChannel) POSTING_UPDATE_STMT$
     sqlprep(postingInsertChannel) POSTING_INSERT_STMT$
     
+    flagPostingChannel = 0
+    call "AttendPtsWorkDAO.bbj::open_and_prep_channel_to_flag_posting", flagPostingChannel
+    
+    loginUser$ = ""
+    call "TerminalUtilities.bbj::get_login_user", loginUser$ 
+    
     iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
     
     while iter!.hasNext()
     
         idKey! = iter!.next()
+        tmpId = num(idKey!)
         attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
         dataWasSaved! = attPtsWorkDataMap!.get("saved")
         if dataWasSaved! = null() then continue
@@ -146,18 +155,15 @@ post_work_records_map:
 :               attPtsWorkDataMap!.get("wfmr_exc_def_id"), 
 :               dispCode$, 
 :               idKey!
-        
+
+            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$
+            
             qtyPosted! = qtyPosted! + 1  
             qty! = qtysUpdatedMap!.get(dispCode$) + 1
             qtysUpdatedMap!.put(dispCode$, qty!)
             
         else
         
-REM :       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, 
-REM             wfmr_exc_def_id, disp_cd) " +
-REM :       "values " +
-REM :       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
             trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
             paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
 
@@ -177,6 +183,8 @@ REM :       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 :               attPtsWorkDataMap!.get("wfmr_exc_def_id"), 
 :               dispCode$ 
         
+            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$
+            
             qtyPosted! = qtyPosted! + 1  
             qty! = qtysInsertedMap!.get(dispCode$) + 1
             qtysInsertedMap!.put(dispCode$, qty!)
@@ -188,6 +196,8 @@ REM :       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     sqlclose(postingCheckExistChannel)
     sqlclose(postingUpdateChannel)
     sqlclose(postingInsertChannel)
+
+    call "AttendPtsWorkDAO.bbj::close_channel_to_flag_posting", flagPostingChannel
 
     postingStatsMap!.put("qtys_inserted_map", qtysInsertedMap!)
     postingStatsMap!.put("qtys_updated_map", qtysUpdatedMap!)

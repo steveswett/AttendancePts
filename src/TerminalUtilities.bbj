@@ -22,6 +22,15 @@ def fnGetCurrentTime$(aDoIt)
 fnend
 
 
+def fnGetLoginUser$(aDoIt)
+
+    tmpUser$ = info(3, 2)
+    if len(tmpUser$) > 10 then tmpUser$ = tmpUser$(1,10)
+    return tmpUser$
+    
+fnend
+
+
 def fnGetUnqualifiedProgramName$(aProgramName$)
 
     programNameSlashTrim$ = fnTrimProgramName$(aProgramName$, "/") 
@@ -63,7 +72,18 @@ get_current_time:
     
     gosub setup_constants
     
-    formattedTime$ = fnGetCurrentTime$(1)
+    formattedTime$ = fnGetCurrentTime$(TRUE)
+    
+    exit
+
+
+get_login_user:
+
+    enter loginUser$
+    
+    gosub setup_constants
+    
+    loginUser$ = fnGetLoginUser$(TRUE)
     
     exit
 

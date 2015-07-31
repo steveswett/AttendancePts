@@ -72,7 +72,7 @@ mass_load_wfmr_data:
 
 get_dates_with_totals:
 
-    enter shiftIn$, deptIdIn, payPeriodsBackIn, datesMapOut!
+    enter shiftIn$, deptIdIn, fromDateIn, toDateIn, datesMapOut!
     
     gosub setup_constants
     
@@ -110,6 +110,39 @@ save_one_record:
     gosub setup_constants
     
     gosub save_record_from_map
+    
+    exit
+    
+    
+open_and_prep_channel_to_flag_posting:
+
+    enter flagPostingChannelOut
+    
+    gosub setup_constants
+
+    flagPostingChannelOut = sqlunt
+    sqlopen(flagPostingChannelOut) attendPtsDataSource$
+    sqlprep(flagPostingChannelOut) ATTEND_PTS_WORK_UPDATE_POSTED_FLAG_STMT$
+    
+    exit
+
+    
+flag_posting:
+
+    enter flagPostingChannelIn, recordIdIn, userIdIn$
+    
+    gosub setup_constants
+    
+    gosub update_posted_flag_on_record
+    
+    exit
+    
+    
+close_channel_to_flag_posting:
+
+    enter flagPostingChannelIn
+    
+    sqlclose(flagPostingChannelIn)
     
     exit
     
@@ -278,28 +311,23 @@ setup_constants:
 :        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
 :        "and wfmr_exc_lastmod < ?"
 
-    PAY_PERIODS_SELECT_STMT$ = 
-:       "select distinct convert(varchar(8), start_date, 112) as pay_yyyymmdd from lab_pay_period " +
-:       "where start_date < getdate() " +
-:       "order by pay_yyyymmdd desc"
-
     ATTEND_PTS_WORK_GET_TOTALS_STMT$ = 
 :       "select wfmr_exc_date, count(*) as total " +
 :       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? " +
 :       "group by wfmr_exc_date " +
 :       "order by wfmr_exc_date desc"
 
     ATTEND_PTS_WORK_GET_POSTED_STMT$ = 
 :       "select wfmr_exc_date, posted_timestamp, count(*) as posted_count " +
 :       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? " +
 :       "group by wfmr_exc_date, posted_timestamp"
 
     ATTEND_PTS_WORK_GET_DISPOSITION_STMT$ = 
 :       "select wfmr_exc_date, disp_cd, count(*) as disp_count " +
 :       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and shift = ? " +
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? " +
 :       "group by wfmr_exc_date, disp_cd"
 
     ATTEND_PTS_WORK_GET_EMPLOYEES_STMT$ = 
@@ -324,6 +352,11 @@ setup_constants:
 :       "update attend_pts_work " +
 :       "set disp_cd = ?, disp_edt_reas_id = ?, erp_cd = ?, erp_note = ?, erp_pts_assessed = ?, " +
 :       "erp_sts_cd = ?, last_mod = ?, last_mod_user = ? " +
+:       "where id = ?"
+
+    ATTEND_PTS_WORK_UPDATE_POSTED_FLAG_STMT$ = 
+:       "update attend_pts_work " +
+:       "set posted_timestamp = ?, posted_by_user = ? " +
 :       "where id = ?"
 
     return
@@ -648,41 +681,14 @@ load_dates_map:
     
     datesMapOut!.clear()
     
-    REM  Step 1.  Calculate the "from date" to be used to query the ATTEND_PTS_WORK file. The default will be today.
-
-    payPeriodsChannel = sqlunt
-    sqlopen(payPeriodsChannel) wfmrDataSource$
-    
-    sqlprep(payPeriodsChannel) PAY_PERIODS_SELECT_STMT$
-
-    sqlexec(payPeriodsChannel) 
-    dim resultRow$:sqltmpl(payPeriodsChannel)
-    
-    fromDate = num( date(0:"%Y%Mz%Dz") )
-    
-    payPeriods = 0
-    
-    while TRUE
-    
-        resultRow$ = sqlfetch(payPeriodsChannel,err=*break)
-        payPeriods = payPeriods + 1
-        fromDate = num(resultRow.pay_yyyymmdd$)
-        
-        if payPeriods >= payPeriodsBackIn then break
-        
-    wend
-    
-    sqlclose(payPeriodsChannel)
-    
-    
-    REM  Step 2. Query the ATTEND_PTS_WORK file: populate totals
+    REM  Step 1. Query the ATTEND_PTS_WORK file: populate totals
     
     attendPtsWorkDatesChannel = sqlunt
     sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
     
     sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_TOTALS_STMT$
 
-    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDateIn, toDateIn, shiftIn$ 
     dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
     
     while TRUE
@@ -703,11 +709,11 @@ load_dates_map:
     wend
 
     
-    REM  Step 3. Query the ATTEND_PTS_WORK file: populate posted/not posted
+    REM  Step 2. Query the ATTEND_PTS_WORK file: populate posted/not posted
     
     sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_POSTED_STMT$
 
-    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDateIn, toDateIn, shiftIn$ 
     dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
     
     while TRUE
@@ -725,11 +731,11 @@ load_dates_map:
     wend
 
     
-    REM  Step 4. Query the ATTEND_PTS_WORK file: populate disposition status
+    REM  Step 3. Query the ATTEND_PTS_WORK file: populate disposition status
     
     sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_GET_DISPOSITION_STMT$
 
-    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDate, shiftIn$ 
+    sqlexec(attendPtsWorkDatesChannel) deptIdIn, fromDateIn, toDateIn, shiftIn$ 
     dim resultRow$:sqltmpl(attendPtsWorkDatesChannel)
     
     while TRUE
@@ -903,9 +909,7 @@ save_record_from_map:
     sqlopen(attendPtsWorkDatesChannel) attendPtsDataSource$
     sqlprep(attendPtsWorkDatesChannel) ATTEND_PTS_WORK_SAVE_ONE_RECORD_STMT$
     
-    lastModTimeStamp$ = ""
     call "DateUtilities.bbj::get_current_timestamp", lastModTimeStamp$
-    
     loginUser$ = info(3,2) 
 
     sqlexec(attendPtsWorkDatesChannel) attPtsWorkDataMap!.get("disp_cd"), attPtsWorkDataMap!.get("disp_edt_reas_id"),
@@ -913,5 +917,17 @@ save_record_from_map:
 :       attPtsWorkDataMap!.get("erp_sts_cd"), lastModTimeStamp$, loginUser$, attPtsWorkDataMap!.get("id")  
 
     sqlclose(attendPtsWorkDatesChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------
+REM  update_posted_flag_on_record -- Update posted timestamp and by user
+REM  ------------------------------------------------------------
+    
+update_posted_flag_on_record:
+
+        call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
+        sqlexec(flagPostingChannelIn) currentTimestamp$, userIdIn$, recordIdIn
 
     return
