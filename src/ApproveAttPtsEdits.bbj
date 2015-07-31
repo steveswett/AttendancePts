@@ -171,6 +171,8 @@ init:
     currentRecordNo = 1
     attPtsWorkRecordsMapSize = attPtsWorkRecordsMap!.size()
     
+    savedAnyRecords = FALSE
+    
     return
 
 
@@ -428,6 +430,11 @@ handle_input:
                     gosub handle_pending_change
                     
                     if len(errMsg$) = 0 then
+
+                        if savedAnyRecords then
+                            call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
+                        endif
+                        
                         needToBreak = TRUE
                     endif
         
@@ -600,6 +607,8 @@ save_record:
     call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
     attPtsWorkDataMap!.remove("changed")
     attPtsWorkDataMap!.put("saved", TRUE)
+    savedAnyRecords = TRUE
+
 
     return
     

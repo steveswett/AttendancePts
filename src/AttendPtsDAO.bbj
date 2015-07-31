@@ -5,9 +5,11 @@ REM  *
 REM  */
 
 
+use java.util.LinkedHashMap
 use java.util.HashMap
 
-declare java.util.HashMap attPtsWorkRecordsToPostMap!
+declare java.util.LinkedHashMap attPtsWorkRecordsToPostMap!
+declare java.util.HashMap attPtsWorkDataMap!
 declare java.util.HashMap postingStatsMap!
 declare java.util.HashMap qtysInsertedMap!
 declare java.util.HashMap qtysUpdatedMap!
@@ -57,11 +59,20 @@ setup_constants:
     attendPtsDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
     
-    CHECK_EXIST_STMT$ = "select id, descr from attend_pts_reasn order by id"
+    POSTING_CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where work_file_id = ?"
     
-    UPDATE_STMT$ = ""
+    POSTING_UPDATE_STMT$ = 
+:       "update atnd " +
+:       "set pts = ?, cd = ?, stat = ?, text = ?, chgdt = ?, chgby = ?, " +
+:       "wfmr_exc_def_id = ?, disp_cd = ? " +
+:       "where work_file_id = ?"
     
-    INSERT_STMT$ = ""
+    POSTING_INSERT_STMT$ = 
+:       "insert into atnd " +
+:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, disp_cd) " +
+:       "values " +
+:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
     
     return
 
@@ -74,25 +85,113 @@ post_work_records_map:
 
     postingStatsMap!.clear()
     qtysInsertedMap! = new java.util.HashMap() 
-    qtysUpdatedMap! = new java.util.HashMap() 
-
-    attendPtsChannel = sqlunt
-    sqlopen(attendPtsChannel) attendPtsDataSource$
-
-    sqlprep(attendPtsChannel) CHECK_EXIST_STMT$
-
-    reasonsMap!.clear()
-
-    sqlexec(attendPtsChannel) 
-    dim resultRow$:sqltmpl(attendPtsChannel)
+    qtysUpdatedMap! = new java.util.HashMap()
     
-    while TRUE
+    qtysInsertedMap!.put("A", 0)
+    qtysInsertedMap!.put("E", 0)
+    qtysInsertedMap!.put("F", 0)
+    qtysUpdatedMap!.put("A", 0)
+    qtysUpdatedMap!.put("E", 0)
+    qtysUpdatedMap!.put("F", 0)
+    qtySaved! = 0
+    qtyPosted! = 0 
+
+    postingCheckExistChannel = sqlunt
+    sqlopen(postingCheckExistChannel) attendPtsDataSource$
+    postingUpdateChannel = sqlunt
+    sqlopen(postingUpdateChannel) attendPtsDataSource$
+    postingInsertChannel = sqlunt
+    sqlopen(postingInsertChannel) attendPtsDataSource$
+
+    sqlprep(postingCheckExistChannel) POSTING_CHECK_EXIST_STMT$
+    sqlprep(postingUpdateChannel) POSTING_UPDATE_STMT$
+    sqlprep(postingInsertChannel) POSTING_INSERT_STMT$
     
-        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
-        reasonsMap!.put(resultRow.id, cvs(resultRow.descr$, 2) )
+    iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
+        dataWasSaved! = attPtsWorkDataMap!.get("saved")
+        if dataWasSaved! = null() then continue
+        
+        qtySaved! = qtySaved! + 1  
+
+        REM  Determine whether to do insert or update
+        
+        doUpdate = FALSE
+    
+        sqlexec(postingCheckExistChannel) idKey!
+        dim resultRow$:sqltmpl(postingCheckExistChannel)
+        resultRow$ = sqlfetch(postingCheckExistChannel,err=end_check_exist)
+        if resultRow.hit_count > 0 then doUpdate = TRUE
+        
+        end_check_exist:
+        
+        lastModTimestamp$ = attPtsWorkDataMap!.get("last_mod")
+        lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
+        lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
+        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
+             
+        if doUpdate then
+        
+            sqlexec(postingUpdateChannel) 
+:               attPtsWorkDataMap!.get("erp_pts_assessed"), 
+:               attPtsWorkDataMap!.get("erp_cd"),
+:               attPtsWorkDataMap!.get("erp_sts_cd"),
+:               attPtsWorkDataMap!.get("erp_note"), 
+:               lastModDateMDY$, 
+:               lastModByUserUC$,
+:               attPtsWorkDataMap!.get("wfmr_exc_def_id"), 
+:               dispCode$, 
+:               idKey!
+        
+            qtyPosted! = qtyPosted! + 1  
+            qty! = qtysUpdatedMap!.get(dispCode$) + 1
+            qtysUpdatedMap!.put(dispCode$, qty!)
+            
+        else
+        
+REM :       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, 
+REM             wfmr_exc_def_id, disp_cd) " +
+REM :       "values " +
+REM :       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+            trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
+            paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
+
+            sqlexec(postingInsertChannel)
+:               paddedBadge$,
+:               attPtsWorkDataMap!.get("wfmr_exc_date"),
+:               attPtsWorkDataMap!.get("erp_pts_assessed"), 
+:               attPtsWorkDataMap!.get("erp_cd"),
+:               attPtsWorkDataMap!.get("erp_sts_cd"),
+:               attPtsWorkDataMap!.get("erp_note"), 
+:               lastModDateMDY$, 
+:               "",        
+:               lastModByUserUC$,
+:               "",
+:               "",
+:               idKey!,        
+:               attPtsWorkDataMap!.get("wfmr_exc_def_id"), 
+:               dispCode$ 
+        
+            qtyPosted! = qtyPosted! + 1  
+            qty! = qtysInsertedMap!.get(dispCode$) + 1
+            qtysInsertedMap!.put(dispCode$, qty!)
+
+        endif
         
     wend
     
-    sqlclose(attendPtsChannel)
+    sqlclose(postingCheckExistChannel)
+    sqlclose(postingUpdateChannel)
+    sqlclose(postingInsertChannel)
 
+    postingStatsMap!.put("qtys_inserted_map", qtysInsertedMap!)
+    postingStatsMap!.put("qtys_updated_map", qtysUpdatedMap!)
+    postingStatsMap!.put("qty_saved", qtySaved!)
+    postingStatsMap!.put("qty_posted", qtyPosted!)
+    
     return
