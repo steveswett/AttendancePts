@@ -1,5 +1,5 @@
 REM /**
-REM  * ApproveAttendPts02.bbj
+REM  * ApproveAttPtsEmpSel.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -19,7 +19,7 @@ declare java.util.LinkedHashMap exceptionDefsMap!
 declare java.util.Vector attPtsWorkIds!
 
 
-enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, dateQtys!
+enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, dateQtys!, overallSavedAnyRecordsOut
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -167,6 +167,8 @@ init:
     
     topLeftMapIndex = 1
     
+    overallSavedAnyRecordsOut = FALSE
+    
     return
 
 
@@ -282,6 +284,9 @@ display_data:
       wfmrExceptionDescr$ = exceptionDefsMap!.get(wfmrExceptionId!)
       if len(wfmrExceptionDescr$) > 17 then wfmrExceptionDescr$ = wfmrExceptionDescr$(1, 17)
       
+      erpNote$ = employeeDataMap!.get("erp_note")
+      if len(erpNote$) > 17 then erpNote$ = erpNote$(1, 17)
+      
       trimmedWFMRLastMod$ = cvs(employeeDataMap!.get("wfmr_exc_lastmod"), 3)
       trimmedPostedTimestamp$ = cvs(employeeDataMap!.get("posted_timestamp"), 3)
       wasPosted = len(trimmedPostedTimestamp$) > 0
@@ -308,7 +313,7 @@ display_data:
       print @(38, row + 1), "ERP"
       print @(47, row + 1), employeeDataMap!.get("erp_cd")
       print @(52, row + 1), str( employeeDataMap!.get("erp_pts_assessed"):"#.0" )
-      print @(57, row + 1), employeeDataMap!.get("erp_note")
+      print @(57, row + 1), erpNote$
       
     wend
 
@@ -411,6 +416,7 @@ handle_input:
                         call "ApproveAttPtsEdits.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!, savedAnyRecords
                         
                         if savedAnyRecords then
+                            overallSavedAnyRecordsOut = TRUE
                             gosub load_employees_map
                             gosub reload_date_qtys
                         endif

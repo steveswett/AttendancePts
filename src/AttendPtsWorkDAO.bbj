@@ -129,7 +129,7 @@ open_and_prep_channel_to_flag_posting:
     
 flag_posting:
 
-    enter flagPostingChannelIn, recordIdIn, userIdIn$
+    enter flagPostingChannelIn, recordIdIn, userIdIn$, wfmrExceptionDefIdIn
     
     gosub setup_constants
     
@@ -153,7 +153,7 @@ subroutines:
 
 
 REM  ------------------------------------------------------------
-REM  run_mass_load
+REM  Mass load WFMR exception and missed shift data
 REM  ------------------------------------------------------------
 
 run_mass_load:
@@ -168,7 +168,7 @@ run_mass_load:
 
 
 REM  ------------------------------------------------------------
-REM  setup_constants
+REM  Define constants
 REM  ------------------------------------------------------------
 
 setup_constants:
@@ -213,7 +213,7 @@ setup_constants:
 :        "dept_id, shift, emp_id, emp_badge_no, job_id, " +
 :        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
 :        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
-:        "last_mod, last_mod_user, posted_timestamp, posted_by_user) " +
+:        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid) " +
 :        "values "
 
 
@@ -356,13 +356,13 @@ setup_constants:
 
     ATTEND_PTS_WORK_UPDATE_POSTED_FLAG_STMT$ = 
 :       "update attend_pts_work " +
-:       "set posted_timestamp = ?, posted_by_user = ? " +
+:       "set posted_timestamp = ?, posted_by_user = ?, posted_exc_defid = ? " +
 :       "where id = ?"
 
     return
 
 REM  ------------------------------------------------------------
-REM  ml_init -- Mass Load Init
+REM  Mass Load Init
 REM  ------------------------------------------------------------
 
 ml_init:
@@ -389,7 +389,7 @@ ml_init:
 
 
 REM  ------------------------------------------------------------
-REM  ml_open_sql_channels -- Mass Load Open SQL Channels
+REM  Mass Load Open SQL Channels
 REM  ------------------------------------------------------------
 
 ml_open_sql_channels:
@@ -410,7 +410,7 @@ ml_open_sql_channels:
 
 
 REM  ------------------------------------------------------------
-REM  ml_prepare_sql_stmts -- Mass Load Prepare SQL Statements
+REM  Mass Load Prepare SQL Statements
 REM  ------------------------------------------------------------
 
 ml_prepare_sql_stmts:
@@ -423,7 +423,7 @@ ml_prepare_sql_stmts:
 
 
 REM  ------------------------------------------------------------
-REM  ml_process_wfmr_data -- Mass Load Process WFMR Data
+REM  Mass Load Process WFMR Data
 REM  ------------------------------------------------------------
 
 ml_process_wfmr_data:
@@ -512,7 +512,7 @@ ml_process_wfmr_data:
     
 
 REM  ------------------------------------------------------------
-REM  ml_update_row -- Mass Load Update a Row
+REM  Mass Load Update a Row
 REM  ------------------------------------------------------------
 
 ml_update_row:
@@ -555,7 +555,7 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
     
 
 REM  ------------------------------------------------------------
-REM  ml_add_to_insert_batch -- Mass Load Add a values phrase to an Insert Statement
+REM  Mass Load: Add a values phrase to an Insert Statement
 REM  ------------------------------------------------------------
 
 ml_add_to_insert_batch:
@@ -593,7 +593,8 @@ ml_add_to_insert_batch:
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
-:          "'" + DEFAULT_POSTED_USER$ + "')"
+:          "'" + DEFAULT_POSTED_USER$ + "', " + 
+:          "0)"
 
     else
     
@@ -624,7 +625,8 @@ ml_add_to_insert_batch:
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
-:          "'" + DEFAULT_POSTED_USER$ + "')"
+:          "'" + DEFAULT_POSTED_USER$ + "', " + 
+:          "0)"
     endif
     
     attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + valuesClause$ 
@@ -635,7 +637,7 @@ ml_add_to_insert_batch:
 
 
 REM  ------------------------------------------------------------
-REM  ml_write_batch -- Mass Load Write the Insert Batch
+REM  Mass Load: Write the Insert Batch
 REM  ------------------------------------------------------------
 
 ml_write_batch:
@@ -657,7 +659,7 @@ ml_write_batch:
 
 
 REM  ------------------------------------------------------------
-REM  ml_close_sql_channels -- Mass Load Close SQL Channels
+REM  Mass Load: Close SQL Channels
 REM  ------------------------------------------------------------
 
 ml_close_sql_channels:
@@ -674,7 +676,7 @@ ml_close_sql_channels:
 
 
 REM  ------------------------------------------------------------
-REM  load_dates_map -- Load one set of info per work file date into the datesMapOut!
+REM  Load one set of info per work file date into the datesMapOut!
 REM  ------------------------------------------------------------
     
 load_dates_map:
@@ -758,7 +760,7 @@ load_dates_map:
 
 
 REM  ------------------------------------------------------------
-REM  load_employees_map -- For one date, Load a set of info per employee into the employeesMapOut!
+REM  For one date, Load a set of info per employee into the employeesMapOut!
 REM  ------------------------------------------------------------
     
 load_employees_map:
@@ -797,7 +799,7 @@ load_employees_map:
 
 
 REM  ------------------------------------------------------------
-REM  load_work_records_map -- For each id in list, load a set of info into the attPtsRecordsMapOut!
+REM  For each id in list, load a set of info into the attPtsRecordsMapOut!
 REM  ------------------------------------------------------------
     
 load_work_records_map:
@@ -839,7 +841,8 @@ load_work_records_map:
 :       "attend_pts_work.last_mod, " +
 :       "attend_pts_work.last_mod_user, " +
 :       "attend_pts_work.posted_timestamp, " +
-:       "attend_pts_work.posted_by_user " +
+:       "attend_pts_work.posted_by_user, " +
+:       "attend_pts_work.posted_exc_defid " +
 :       "from attend_pts_work " +
 :       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
 :       "left join attend_pts_reasn on attend_pts_reasn.id = attend_pts_work.disp_edt_reas_id " +
@@ -880,6 +883,7 @@ load_work_records_map:
         attPtsWorkDataMap!.put("last_mod_user", resultRow.last_mod_user$)
         attPtsWorkDataMap!.put("posted_timestamp", resultRow.posted_timestamp$)
         attPtsWorkDataMap!.put("posted_by_user", resultRow.posted_by_user$)
+        attPtsWorkDataMap!.put("posted_exc_defid", resultRow.posted_exc_defid)
         
         REM  Save original values of editable ERP fields:
 
@@ -900,7 +904,7 @@ load_work_records_map:
 
 
 REM  ------------------------------------------------------------
-REM  save_record_from_map -- Save a single record's data stored in attPtsWorkDataMap!
+REM  Save a single record's data stored in attPtsWorkDataMap!
 REM  ------------------------------------------------------------
     
 save_record_from_map:
@@ -922,12 +926,12 @@ save_record_from_map:
     
     
 REM  ------------------------------------------------------------
-REM  update_posted_flag_on_record -- Update posted timestamp and by user
+REM  Update posted fields: timestamp, by user, WFMR exception def id
 REM  ------------------------------------------------------------
     
 update_posted_flag_on_record:
 
         call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
-        sqlexec(flagPostingChannelIn) currentTimestamp$, userIdIn$, recordIdIn
+        sqlexec(flagPostingChannelIn) currentTimestamp$, userIdIn$, wfmrExceptionDefIdIn, recordIdIn
 
     return

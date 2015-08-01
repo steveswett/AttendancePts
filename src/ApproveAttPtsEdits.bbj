@@ -206,7 +206,8 @@ display_data:
     unformattedDate$ = dateIn!
     call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", unformattedDate$, formattedExcDate$
 
-    call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", attPtsWorkDataMap!.get("wfmr_exc_lastmod"), fmtWFMRLastModDate$
+    wfmrExcLastModTimestamp$ = cvs( attPtsWorkDataMap!.get("wfmr_exc_lastmod"), 3 )
+    call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", wfmrExcLastModTimestamp$, fmtWFMRLastModDate$
 
     workRecdLastModDate$ = cvs( attPtsWorkDataMap!.get("last_mod"), 3 )
 
@@ -219,13 +220,36 @@ display_data:
     call "WFMRJobDAO.bbj::get_name", attPtsWorkDataMap!.get("job_id"), jobName$
     if len(jobName$) > 29 then jobName$ = jobName$(1,29)
     
-    wfrmExcDefId! = attPtsWorkDataMap!.get("wfmr_exc_def_id")
-    wfmrExcDefDescr$ = exceptionDefsMap!.get(wfrmExcDefId!)
+    wfmrExcDefId! = attPtsWorkDataMap!.get("wfmr_exc_def_id")
+    wfmrExcDefDescr$ = exceptionDefsMap!.get(wfmrExcDefId!)
     if len(wfmrExcDefDescr$) > 75 then wfmrExcDefDescr$ = wfmrExcDefDescr$(1,75)
     
     dispCode$ = attPtsWorkDataMap!.get("disp_cd") 
     dispDescr$ = ""
     call "ApproveAttPtsDispPopup.bbj::get_description", dispCode$, dispDescr$
+    
+    postedWfmrExcDefId! = attPtsWorkDataMap!.get("posted_exc_defid")
+    postedWfmrExcDefId = num(postedWfmrExcDefId!)
+    
+    isRecordEditable = FALSE
+    
+    if postedWfmrExcDefId = 0 then
+        isRecordEditable = TRUE
+    else
+        if wfmrExcLastModTimestamp$ > postedTimestamp$ and !(wfmrExcDefId! = postedWfmrExcDefId!) then
+            isRecordEditable = TRUE
+        endif
+    endif
+    
+    if isRecordEditable then
+        f2Descr$ = "  (F2=change)"
+        f3Descr$ = "  (F3=change)"
+        enterDescr$ = "Enter=Save"
+    else
+        f2Descr$ = ""
+        f3Descr$ = ""
+        enterDescr$ = ""
+    endif
     
     print @(0,3), "Dept: ", deptNameIn$
     print @(71,3), "Shift: ", shiftIn$
@@ -238,19 +262,25 @@ display_data:
     print @(72,7), currentRecordNo, " of ", attPtsWorkRecordsMapSize
     
     print @(2,8), "Code:"
-    print @(10,8), wfrmExcDefId!
+    print @(10,8), wfmrExcDefId!
     print @(15,8), wfmrExcDefDescr$
     
     print @(2,9), "Pts:"
     print @(10,9), str( attPtsWorkDataMap!.get("wfmr_pts_assess"):"#.0" )
     
-    print @(0,11), "Disposition: ", dispDescr$, "  (F2=change)"
+    print @(0,11), "Disposition: ", dispDescr$, f2Descr$
     
     if dispCode$ = "E" then
         tmpReasonDescr$ = iff( attPtsWorkDataMap!.get("disp_edt_reas_id") > 0 , cvs( attPtsWorkDataMap!.get("edt_reas_descr"), 2), "") 
-        print @(0,12), "Edit reason: ", tmpReasonDescr$, "  (F3=change)"
-        begUnLin$ = 'BU'
-        endUnLin$ = 'EU'
+        print @(0,12), "Edit reason: ", tmpReasonDescr$, f3Descr$
+        
+        if isRecordEditable then
+            begUnLin$ = 'BU'
+            endUnLin$ = 'EU'
+        else
+            begUnLin$ = ""
+            endUnLin$ = ""
+        endif
     else
         begUnLin$ = ""
         endUnLin$ = ""
@@ -263,8 +293,10 @@ display_data:
         print @(17,14), "(modified ", fmtWorkRecdLastModDate$, " by ", cvs(attPtsWorkDataMap!.get("last_mod_user"), 2), ")"
     endif
     
+    REM  If a posted WFMR code is present in the work file, show it; otherwise show the incoming value
+    
     print @(2,15), "WFMR code:"
-    print @(13,15), wfrmExcDefId!
+    print @(13,15), iff(postedWfmrExcDefId > 0, postedWfmrExcDefId!, wfmrExcDefId!)
     
     print @(2,16), "ERP  code:  ", begUnLin$, attPtsWorkDataMap!.get("erp_cd"), endUnLin$
     print @(17,16), "(1=Late, 2=Absent)"
@@ -281,8 +313,8 @@ display_data:
     
     if len(postedTimestamp$) > 0 then     
         call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", workRecdLastModDate$, fmtWorkRecdLastModDate$
-        print @(37,19), "Posted: ", fmtWorkRecdLastModDate$
-        print @(66,19), "By: ", attPtsWorkDataMap!.get("posted_by_user")
+        print @(51,18), "Posted: ", fmtWorkRecdLastModDate$
+        print @(55,19), "By: ", attPtsWorkDataMap!.get("posted_by_user")
     endif
     
     
@@ -294,7 +326,7 @@ display_data:
     if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Employee   " 
     if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Employee   "
     
-    actionLabel$ = actionLabel$ + "Enter=Save"
+    actionLabel$ = actionLabel$ + enterDescr$
     
     print @(2,21), actionLabel$ 
     
@@ -390,51 +422,59 @@ handle_input:
         switch savedCTL
         
             case ASC(F2_CTL_OUTPUT_VALUE$)
-                    beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
-                    afterValue$ = beforeValue$ 
-                    call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 9, afterValue$
-
-                    if !(afterValue$ = beforeValue$) then 
-                        
-                        if afterValue$ = "A" or afterValue$ = "N" or afterValue$ = "F" then
-                            gosub revert_work_data_to_orig_values
+                    if isRecordEditable then
+                        beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
+                        afterValue$ = beforeValue$ 
+                        call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 9, afterValue$
+    
+                        if !(afterValue$ = beforeValue$) then 
+                            
+                            if afterValue$ = "A" or afterValue$ = "N" or afterValue$ = "F" then
+                                gosub revert_work_data_to_orig_values
+                            endif
+                            
+                            if afterValue$ = "F" then
+                                attPtsWorkDataMap!.put("erp_sts_cd", "I")
+                            endif
+    
+                            attPtsWorkDataMap!.put("changed", TRUE)
+                            attPtsWorkDataMap!.put("disp_cd", afterValue$)
+                            
                         endif
                         
-                        if afterValue$ = "F" then
-                            attPtsWorkDataMap!.put("erp_sts_cd", "I")
-                        endif
-
-                        attPtsWorkDataMap!.put("changed", TRUE)
-                        attPtsWorkDataMap!.put("disp_cd", afterValue$)
-                        
+                        currentFieldNo = iff(afterValue$ = "E", ERP_CODE_FIELD_NO, HIDDEN_FIELD_NO)
                     endif
-                    
-                    currentFieldNo = iff(afterValue$ = "E", ERP_CODE_FIELD_NO, HIDDEN_FIELD_NO)
         
                     break
         
             case ASC(F3_CTL_OUTPUT_VALUE$)
-                    beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
-                    afterValue = beforeValue 
-                    call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 6, afterValue, tmpReasonDescr$
-
-                    if !(afterValue = beforeValue) then 
-                        attPtsWorkDataMap!.put("changed", TRUE)
-                        attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
-                        attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
+                    if isRecordEditable then
+                        beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
+                        afterValue = beforeValue 
+                        call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 6, afterValue, tmpReasonDescr$
+    
+                        if !(afterValue = beforeValue) then 
+                            attPtsWorkDataMap!.put("changed", TRUE)
+                            attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
+                            attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
+                        endif
                     endif
         
                     break
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
-                    gosub handle_pending_change
-                    
-                    if len(errMsg$) = 0 then
-
-                        if savedAnyRecordsOut then
-                            call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
-                        endif
+                    if isRecordEditable then
+                        gosub handle_pending_change
                         
+                        if len(errMsg$) = 0 then
+    
+                            if savedAnyRecordsOut then
+                                call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
+                            endif
+                            
+                            needToBreak = TRUE
+                        endif
+                    else
                         needToBreak = TRUE
                     endif
         
@@ -442,9 +482,13 @@ handle_input:
         
             case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
                     if canPageUp then
-                        gosub handle_pending_change
-                        
-                        if len(errMsg$) = 0 then
+                        if isRecordEditable then
+                            gosub handle_pending_change
+                            
+                            if len(errMsg$) = 0 then
+                                gosub set_current_record_no_for_page_up
+                            endif
+                        else
                             gosub set_current_record_no_for_page_up
                         endif
                     endif
@@ -453,9 +497,13 @@ handle_input:
                     
             case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
                     if canPageDown then
-                        gosub handle_pending_change
-                        
-                        if len(errMsg$) = 0 then
+                        if isRecordEditable then
+                            gosub handle_pending_change
+                            
+                            if len(errMsg$) = 0 then
+                                gosub set_current_record_no_for_page_down
+                            endif
+                        else
                             gosub set_current_record_no_for_page_down
                         endif
                     endif
@@ -475,10 +523,12 @@ handle_input:
                     break
                     
             case 0
-                    gosub validate_and_save_record
-                    
-                    if len(errMsg$) = 0 then
-                        wasRecordSaved = TRUE
+                    if isRecordEditable then
+                        gosub validate_and_save_record
+                        
+                        if len(errMsg$) = 0 then
+                            wasRecordSaved = TRUE
+                        endif
                     endif
                     
                     break
@@ -652,9 +702,8 @@ handle_pending_change:
 
 write_saved_message:
 
-    print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$)
-    print "The record has been saved (ID ", attPtsWorkDataMap!.get("id"), ")."
-    print 'RGB'(RGB_WHITE_ON_BLUE$)
+    tmpMsg$ = "The record has been saved (ID " + str(attPtsWorkDataMap!.get("id")) + ")."
+    print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$), tmpMsg$, 'RGB'(RGB_WHITE_ON_BLUE$)  
     
     return
     

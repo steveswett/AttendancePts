@@ -154,6 +154,20 @@ init:
     resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
+    gosub load_dates_map
+    
+    topLeftMapIndex = 1
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Load the datesMap! -- which holds a row of data per date
+    rem ------------------------------------------------------------------------------------------
+
+
+load_dates_map:
+
     datesMap! = new java.util.LinkedHashMap()
     
     tmpFromDate = num( date(0:"%Y%Mz%Dz") )
@@ -162,9 +176,8 @@ init:
     tmpToDate = num( date(0:"%Y%Mz%Dz") )  
     call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, tmpFromDate, tmpToDate, datesMap!
     
-    topLeftMapIndex = 1
     datesMapSize = datesMap!.size()
-    
+
     return
 
 
@@ -331,7 +344,12 @@ handle_input:
                     else
                         tmpDate! = datesArray![ num(line$) ]
                         dateQtys! = cast( java.util.HashMap, datesMap!.get(tmpDate!) )
-                        call "ApproveAttPtsEmpSel.bbj", shiftIn$, deptIdIn, deptNameIn$, tmpDate!, dateQtys!
+                        call "ApproveAttPtsEmpSel.bbj", shiftIn$, deptIdIn, deptNameIn$, tmpDate!, dateQtys!, overallSavedAnyRecordsOut
+                        
+                        if overallSavedAnyRecordsOut then
+                            gosub load_dates_map
+                        endif 
+                        
                     endif
                     
                     break

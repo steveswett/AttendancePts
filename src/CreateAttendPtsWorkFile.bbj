@@ -51,7 +51,8 @@ TEMPLATE$ =
 : "LAST_MOD:C(14):DESCRIPTION=Record_Last_Manually_Modified_Timestamp:," +
 : "LAST_MOD_USER:C(10):DESCRIPTION=Record_Last_Manually_Modified_By_User:," +
 : "POSTED_TIMESTAMP:C(14):DESCRIPTION=Posted_When:," +
-: "POSTED_BY_USER:C(10):DESCRIPTION=Posted_By_User:"
+: "POSTED_BY_USER:C(10):DESCRIPTION=Posted_By_User:,"+
+: "POSTED_EXC_DEFID:I:DESCRIPTION=Posted_WFMR_Exception_Definition_ID:"
 
 
 gosub create_empty_file

@@ -124,6 +124,8 @@ post_work_records_map:
         attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
         dataWasSaved! = attPtsWorkDataMap!.get("saved")
         if dataWasSaved! = null() then continue
+        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
+        if dispCode$ = "N" then continue
         
         qtySaved! = qtySaved! + 1  
 
@@ -141,7 +143,7 @@ post_work_records_map:
         lastModTimestamp$ = attPtsWorkDataMap!.get("last_mod")
         lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
         lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
-        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
+        wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
              
         if doUpdate then
         
@@ -152,11 +154,11 @@ post_work_records_map:
 :               attPtsWorkDataMap!.get("erp_note"), 
 :               lastModDateMDY$, 
 :               lastModByUserUC$,
-:               attPtsWorkDataMap!.get("wfmr_exc_def_id"), 
+:               wfmrExceptionDefId, 
 :               dispCode$, 
 :               idKey!
 
-            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$
+            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
             
             qtyPosted! = qtyPosted! + 1  
             qty! = qtysUpdatedMap!.get(dispCode$) + 1
@@ -180,10 +182,10 @@ post_work_records_map:
 :               "",
 :               "",
 :               idKey!,        
-:               attPtsWorkDataMap!.get("wfmr_exc_def_id"), 
+:               wfmrExceptionDefId, 
 :               dispCode$ 
         
-            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$
+            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
             
             qtyPosted! = qtyPosted! + 1  
             qty! = qtysInsertedMap!.get(dispCode$) + 1
