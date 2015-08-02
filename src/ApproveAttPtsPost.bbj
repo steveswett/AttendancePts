@@ -152,7 +152,7 @@ init:
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  run_posting - Run the posting process
+    rem  Run the posting process
     rem ------------------------------------------------------------------------------------------
 
 
@@ -195,6 +195,8 @@ display_data:
     qtySaved = postingStatsMap!.get("qty_saved")
     qtyPosted = postingStatsMap!.get("qty_posted")
     qtyNotPosted = qtySaved - qtyPosted
+    qtyChangedWarningLevels = postingStatsMap!.get("qty_changed_warning_levels")
+    
     
     print @(0,3), "Dept: ", deptNameIn$
     print @(71,3), "Shift: ", shiftIn$
@@ -202,16 +204,21 @@ display_data:
     print @(0,5), formattedExcDate$ 
 
     print @(0,7), "POSTING SUMMARY:"
-    print @(18, 8), str(qtySaved:"##0"), " work file records changed"
-    print @(18, 9), str(qtysInsertedMap!.get("A"):"##0"), " records posted as approved (new)"
-    print @(18, 10), str(qtysUpdatedMap!.get("A"):"##0"), " records posted as approved (updated)"
-    print @(18, 11), str(qtysInsertedMap!.get("E"):"##0"), " records posted as edited (new)"
-    print @(18, 12), str(qtysUpdatedMap!.get("E"):"##0"), " records posted as edited (updated)"
-    print @(18, 13), str(qtysInsertedMap!.get("F"):"##0"), " records posted as FMLA pending (new)"
-    print @(18, 14), str(qtysUpdatedMap!.get("F"):"##0"), " records posted as FMLA pending (updated)"
-    print @(18, 15), str(qtyNotPosted:"##0"), " records not posted"
+    print @(18, 8), str(qtySaved:"##0"), " work file record(s) changed"
+    print @(18, 9), str(qtysInsertedMap!.get("A"):"##0"), " record(s) posted as approved (new)"
+    print @(18, 10), str(qtysUpdatedMap!.get("A"):"##0"), " record(s) posted as approved (updated)"
+    print @(18, 11), str(qtysInsertedMap!.get("E"):"##0"), " record(s) posted as edited (new)"
+    print @(18, 12), str(qtysUpdatedMap!.get("E"):"##0"), " record(s) posted as edited (updated)"
+    print @(18, 13), str(qtysInsertedMap!.get("F"):"##0"), " record(s) posted as FMLA pending (new)"
+    print @(18, 14), str(qtysUpdatedMap!.get("F"):"##0"), " record(s) posted as FMLA pending (updated)"
+    print @(18, 15), str(qtyNotPosted:"##0"), " record(s) not posted"
 
     print @(0,17), "WARNING THRESHOLDS:"
+    print @(18, 18), str(qtyChangedWarningLevels:"##0"), " employee(s) reached a new warning level just now"
+    
+    if qtyChangedWarningLevels > 0 then
+        print @(20, 20), "An e-mail containing details has been sent to you."
+    endif
     
     actionLabel$ = "F4=Exit   "
     

@@ -352,7 +352,11 @@ display_data:
     
 handle_input:
 
-    currentFieldNo = HIDDEN_FIELD_NO
+    if isRecordEditable and dispCode$ = "E" then
+        currentFieldNo = ERP_CODE_FIELD_NO
+    else
+        currentFieldNo = HIDDEN_FIELD_NO
+    endif
 
     while TRUE
         

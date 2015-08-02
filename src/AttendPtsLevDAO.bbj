@@ -1,0 +1,90 @@
+REM /**
+REM  * AttendPtsLevDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap levelsMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+get_thresholds_and_descrs:
+
+    enter levelsMap!
+    
+    gosub setup_constants
+    
+    gosub load_levels_map
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    attendPtsDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    attendPtsPolicyCode$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
+    
+    LEVELS_SELECT_STMT$ = "select threshold, descr from attend_pts_lev where policy_cd = ? order by threshold"
+    
+    return
+
+
+REM  ------------------------------
+REM  load_levels_map
+REM  ------------------------------
+
+load_levels_map:
+
+    levelsChannel = sqlunt
+    sqlopen(levelsChannel) attendPtsDataSource$
+
+    sqlprep(levelsChannel) LEVELS_SELECT_STMT$
+
+    levelsMap!.clear()
+
+    sqlexec(levelsChannel) attendPtsPolicyCode$
+    dim resultRow$:sqltmpl(levelsChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(levelsChannel,err=*break)
+        levelsMap!.put(resultRow.threshold, cvs(resultRow.descr$, 2) )
+        
+    wend
+    
+    sqlclose(levelsChannel)
+
+    return

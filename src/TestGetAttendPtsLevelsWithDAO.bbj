@@ -1,0 +1,25 @@
+REM /**
+REM  * TestGetAttendPtsLevelsWithDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap levelDefsMap!
+ 
+levelDefsMap! = new java.util.LinkedHashMap()
+call "AttendPtsLevDAO.bbj::get_thresholds_and_descrs", levelDefsMap!
+
+print "size of levelDefsMap! = ", levelDefsMap!.size()
+
+iter! = levelDefsMap!.keySet().iterator()
+
+while iter!.hasNext()
+
+    thresholdKey! = iter!.next()
+    thresholdValue = thresholdKey!
+    
+    print "key, value = ", thresholdKey!, thresholdValue 
+  
+wend
