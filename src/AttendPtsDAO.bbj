@@ -16,9 +16,10 @@ declare java.util.HashMap qtysUpdatedMap!
 
 declare java.util.LinkedHashMap levelDefsMap!
 
-declare java.util.LinkedHashMap employeeThresholds!
-declare java.util.LinkedHashMap employeeThresholdsBefore!
-declare java.util.LinkedHashMap employeeThresholdsAfter!
+declare java.util.LinkedHashMap employeeThresholdRecords!
+declare java.util.LinkedHashMap employeeThresholdRecordsBefore!
+declare java.util.LinkedHashMap employeeThresholdRecordsAfter!
+declare java.util.HashMap thresholdDataMap!
 
 declare java.util.LinkedHashMap thresholdChangesMap!
 declare java.util.HashMap thresholdChangeDetailsMap!
@@ -55,7 +56,7 @@ post_work_records:
 
 get_current_pts_level_for_employees:
 
-    enter employeeThresholds!
+    enter employeeThresholdRecords!
     
     gosub setup_constants
     
@@ -119,11 +120,8 @@ post_work_records_map:
     qtyPosted! = 0
     
     gosub get_current_point_levels 
-    employeeThresholdsBefore! = new java.util.LinkedHashMap(employeeThresholds!)
+    employeeThresholdRecordsBefore! = new java.util.LinkedHashMap(employeeThresholdRecords!)
     
-    print @(0,22), 'CL', "before threshold = ", employeeThresholdsBefore!.get("032942")
-    input @(70,22), "(hit enter)", ignoreInput$ 
-
     postingCheckExistChannel = sqlunt
     sqlopen(postingCheckExistChannel) attendPtsDataSource$
     
@@ -231,29 +229,31 @@ post_work_records_map:
     
     
     gosub get_current_point_levels 
-    employeeThresholdsAfter! = new java.util.LinkedHashMap(employeeThresholds!) 
-    
-    print @(0,22), 'CL', "after threshold = ", employeeThresholdsAfter!.get("032942")
-    input @(70,22), "(hit enter)", ignoreInput$ 
+    employeeThresholdRecordsAfter! = new java.util.LinkedHashMap(employeeThresholdRecords!) 
     
     REM  Prepare threshold changes data to send back in stats:
     
     thresholdChangesMap! = new java.util.LinkedHashMap()
     
     qtyChangedWarningLevels! = 0
-    iter! = employeeThresholdsBefore!.keySet().iterator()
+    iter! = employeeThresholdRecordsBefore!.keySet().iterator()
     
     while iter!.hasNext()
     
         badgeKey! = iter!.next()
-        beforeThreshold = num(employeeThresholdsBefore!.get(badgeKey!))
-        afterThreshold = num(employeeThresholdsAfter!.get(badgeKey!))
+        beforeThresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecordsBefore!.get(badgeKey!) )
+        afterThresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecordsAfter!.get(badgeKey!) )
+
+        beforeThreshold = num(beforeThresholdDataMap!.get("threshold"))
+        afterThreshold = num(afterThresholdDataMap!.get("threshold"))
 
         if afterThreshold > beforeThreshold then
             qtyChangedWarningLevels! = qtyChangedWarningLevels! + 1
             thresholdChangeDetailsMap! = new java.util.HashMap()
             thresholdChangeDetailsMap!.put("prev_threshold", beforeThreshold)
             thresholdChangeDetailsMap!.put("new_threshold", afterThreshold)
+            thresholdChangeDetailsMap!.put("last_first_mi", afterThresholdDataMap!.get("last_first_mi"))
+            thresholdChangeDetailsMap!.put("total_pts", afterThresholdDataMap!.get("total_pts"))
             thresholdChangesMap!.put(badgeKey!, thresholdChangeDetailsMap!)
         endif
 
@@ -269,6 +269,52 @@ post_work_records_map:
     REM  TODO: This is where a process should be called to send an e-mail about threshold changes.
     REM        Keep the e-mail process as simple as possible.
     
+    REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
+    REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
+    
+    if qtyChangedWarningLevels! > 0 then
+    
+        recipients$ = "steve.swett@notionsmarketing.com"
+        subject$ = "Employee(s) reached a new attendance pts warning level just now"
+
+        rem lineFeed$ = $0A$
+        lineFeed$ = "<br/>"
+
+        REM  Start formatting the e-mail body.
+        
+        body$ = ""
+        
+        iter! = thresholdChangesMap!.keySet().iterator()
+    
+        while iter!.hasNext()
+        
+            badgeKey! = iter!.next()
+            thresholdChangeDetailsMap! = cast( java.util.HashMap, thresholdChangesMap!.get(badgeKey!) )
+            
+            body$ = body$ + thresholdChangeDetailsMap!.get("last_first_mi") + " reached level " +
+:               str( thresholdChangeDetailsMap!.get("new_threshold") ) + ".  Previously at level " +
+:               str( thresholdChangeDetailsMap!.get("prev_threshold") ) + ".  Total current points is " +
+:               str( thresholdChangeDetailsMap!.get("total_pts") ) + "." + lineFeed$ + lineFeed$
+            
+        wend
+        
+        body$ = body$ + lineFeed$ + "Generated from Attendance Points Supervisor Approval program (" +
+:           pgm(-2) + ") by user " + loginUser$ + "."
+
+        REM  Finish formatting the e-mail body.
+    
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + recipients$ + " "+
+:                   "-f steven.m.swett@gmail.com -ssl -port 465 -auth -smtp smtp.gmail.com "+
+:                   "-sub """ + subject$ + """ -M """ + body$ + """ "+
+:                   "-user steven.m.swett@gmail.com -pass g2@mail4$"
+    
+        returnCode = scall(emailCmd$)
+        
+        print @(0,22), 'CL', "emailCmd returnCode = ", returnCode
+        input @(70,22), "(hit enter)", ignoreInput$ 
+    
+    endif
+    
     return
 
 
@@ -279,7 +325,7 @@ post_work_records_map:
 
 get_current_point_levels:
 
-    employeeThresholds! = new java.util.LinkedHashMap()
+    employeeThresholdRecords! = new java.util.LinkedHashMap()
     iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
     
     while iter!.hasNext()
@@ -295,7 +341,12 @@ get_current_point_levels:
         trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
         paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
         
-        employeeThresholds!.put(paddedBadge$, 0)
+        thresholdDataMap! = new java.util.HashMap()
+        thresholdDataMap!.put("threshold", 0)
+        thresholdDataMap!.put("total_pts", 0)
+        thresholdDataMap!.put("last_first_mi", cvs(attPtsWorkDataMap!.get("last_first_mi"), 2) )
+        
+        employeeThresholdRecords!.put(paddedBadge$, thresholdDataMap!)
         
     wend
 
@@ -305,7 +356,7 @@ get_current_point_levels:
 
     
 REM  ------------------------------------------------------------
-REM  Load each employee's current points level (threshold) into employeeThresholds!
+REM  Load each employee's current points level (threshold) into employeeThresholdRecords!
 REM  ------------------------------------------------------------
 
 load_thresholds_map:
@@ -314,7 +365,7 @@ load_thresholds_map:
     
     inClause$ = ""
     count = 0
-    iter! = employeeThresholds!.keySet().iterator()
+    iter! = employeeThresholdRecords!.keySet().iterator()
     
     while iter!.hasNext()
     
@@ -372,7 +423,11 @@ load_thresholds_map:
         currentBadge$ = resultRow.badg$
         
         if !(currentBadge$ = prevBadge$) then
-            employeeThresholds!.put(currentBadge$, resultRow.threshold)
+
+            thresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecords!.get(currentBadge$) )
+            thresholdDataMap!.put("threshold", resultRow.threshold)
+            thresholdDataMap!.put("total_pts", resultRow.total_pts)
+
         endif
         
         prevBadge$ = currentBadge$
