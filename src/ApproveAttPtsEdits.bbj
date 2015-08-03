@@ -13,6 +13,10 @@ declare java.util.HashMap attPtsWorkDataMap!
 
 declare java.util.Vector attPtsWorkIds!
 
+declare java.util.LinkedHashMap exceptionDefsMap!
+declare java.util.LinkedHashMap wfmrReasonsMap!
+
+
 REM  Pass a 0 for the attPtsWorkId! to show/process ALL records
 
 enter shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkIds!, savedAnyRecordsOut
@@ -167,6 +171,9 @@ init:
     exceptionDefsMap! = new java.util.LinkedHashMap()
     call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
     
+    wfmrReasonsMap! = new java.util.LinkedHashMap()
+    call "WFMRReasonDAO.bbj::get_ids_and_names", wfmrReasonsMap!
+    
     attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
     call "AttendPtsWorkDAO.bbj::get_records_by_ids_in_list", attPtsWorkIds!, attPtsWorkRecordsMap!
     
@@ -225,6 +232,16 @@ display_data:
     wfmrExcDefId! = attPtsWorkDataMap!.get("wfmr_exc_def_id")
     wfmrExcDefDescr$ = exceptionDefsMap!.get(wfmrExcDefId!)
     if len(wfmrExcDefDescr$) > 75 then wfmrExcDefDescr$ = wfmrExcDefDescr$(1,75)
+
+    wfmrReasonId! = attPtsWorkDataMap!.get("wfmr_reason_id")
+    
+    if wfmrReasonId! = 0
+        wfmrReasonDescr$ = ""
+    else
+        wfmrReasonDescr$ = wfmrReasonsMap!.get(wfmrReasonId!)
+        if len(wfmrReasonDescr$) > 20 then wfmrReasonDescr$ = wfmrReasonDescr$(1,20)
+        if len(wfmrExcDefDescr$) > 35 then wfmrExcDefDescr$ = wfmrExcDefDescr$(1,35)
+    endif
     
     dispCode$ = attPtsWorkDataMap!.get("disp_cd") 
     dispDescr$ = ""
@@ -282,6 +299,10 @@ display_data:
     print @(2,8), "Code:"
     print @(10,8), wfmrExcDefId!
     print @(15,8), wfmrExcDefDescr$
+    
+    if wfmrReasonId! > 0 then
+        print @(52,8), "Reason: ", wfmrReasonDescr$
+    endif
     
     print @(2,9), "Pts:"
     print @(10,9), str( attPtsWorkDataMap!.get("wfmr_pts_assess"):"#.0" )

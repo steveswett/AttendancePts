@@ -213,7 +213,7 @@ setup_constants:
 :        "dept_id, shift, emp_id, emp_badge_no, job_id, " +
 :        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
 :        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
-:        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid) " +
+:        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid, wfmr_reason_id) " +
 :        "values "
 
 
@@ -282,13 +282,16 @@ setup_constants:
 :        "Lab_Employee_Missed_Shifts.type_code, " +
 :        "convert(varchar(19), Lab_Employee_Missed_Shifts.last_modified_timestamp, 120) as missed_shift_last_mod, " +
 :        "Rad_Sys_User.last_name, " + 
-:        "Rad_Sys_User.first_name " +
+:        "Rad_Sys_User.first_name, " +
+:        "case when Lab_Employee_Missed_Shifts.reason_id is null then 0 else Lab_Employee_Missed_Shifts.reason_id end as reason_id, " +
+:        "case when Reason.name is null then '' else Reason.name end as reason_name " +
 :        "from Lab_Employee_Missed_Shifts " +
 :        "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
 :        "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
 :        "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id " + 
 :        "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
 :        "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:        "left join Reason on Lab_Employee_Missed_Shifts.reason_id = Reason.reason_id " +
 :        "where " + 
 :        "Lab_Employee_Missed_Shifts.business_date between '" + 
 :        businessDateFromIn$ +
@@ -307,7 +310,7 @@ setup_constants:
     ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
 :        "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
-:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ?, wfmr_reason_id = ? " +
 :        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
 :        "and wfmr_exc_lastmod < ?"
 
@@ -546,7 +549,7 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
     
         sqlexec(attendPtsUpdateRowChannel) 
 :           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2),
-:           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$,
+:           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$, wfmrResultRow.reason_id,
 :           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
 :           tempLastModDate$  
     endif
@@ -594,12 +597,21 @@ ml_add_to_insert_batch:
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_POSTED_USER$ + "', " + 
+:          "0, " +
 :          "0)"
 
     else
     
         call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
 :           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+
+        REM  If a reason code has been entered on the missed shift record, tack a description onto the erpNote$
+        
+        reasonName$ = cvs(wfmrResultRow.reason_name$, 2)
+        
+        if len(reasonName$) > 0 then
+            erpNote$ = cvs(erpNote$, 2) + " - " + reasonName$
+        endif
     
         valuesClause$ =
 :          "(ATTEND_PTS_WORK_SEQ.nextval, " +
@@ -626,7 +638,9 @@ ml_add_to_insert_batch:
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_POSTED_USER$ + "', " + 
-:          "0)"
+:          "0, " +
+:          str(wfmrResultRow.reason_id) + 
+:          ")"
     endif
     
     attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + valuesClause$ 
@@ -829,6 +843,7 @@ load_work_records_map:
 :       "attend_pts_work.wfmr_exc_date, " +
 :       "attend_pts_work.job_id, " +
 :       "attend_pts_work.wfmr_exc_def_id, " +
+:       "attend_pts_work.wfmr_reason_id, " +
 :       "attend_pts_work.wfmr_pts_assess, " +
 :       "attend_pts_work.wfmr_exc_lastmod, " +
 :       "attend_pts_work.disp_cd, " +
@@ -870,6 +885,7 @@ load_work_records_map:
         attPtsWorkDataMap!.put("wfmr_exc_date", resultRow.wfmr_exc_date$)
         attPtsWorkDataMap!.put("job_id", resultRow.job_id)
         attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        attPtsWorkDataMap!.put("wfmr_reason_id", resultRow.wfmr_reason_id)
         attPtsWorkDataMap!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)
         attPtsWorkDataMap!.put("wfmr_exc_lastmod", resultRow.wfmr_exc_lastmod$)
         attPtsWorkDataMap!.put("disp_cd", resultRow.disp_cd$)

@@ -40,6 +40,7 @@ TEMPLATE$ =
 : "JOB_ID:I:DESCRIPTION=Job_ID:," +
 : "WFMR_EXC_DATE:C(8):DESCRIPTION=WFMR_Exception_Date:," +
 : "WFMR_EXC_DEF_ID:I:DESCRIPTION=WFMR_Exception_Def_ID:," +
+: "WFMR_REASON_ID:I:DESCRIPTION=WFMR_Reason_ID_for_Missed_Shift:," +
 : "WFMR_PTS_ASSESS:N(4):DESCRIPTION=WFMR_Points_Assessed:," +
 : "WFMR_EXC_LASTMOD:C(14):DESCRIPTION=WFMR_Exception_Last_Modified:," +
 : "DISP_CD:C(1):DESCRIPTION=Disposition_Code:," +
@@ -71,7 +72,7 @@ create_empty_file:
     REM                  never using variable-length fields with delimiters -- and never specifying the "field" segment
     REM                  (first segment) in key definition list.
     
-    mkeyed FILE_NAME$, [1:4], 0, 200,err=*next
+    mkeyed FILE_NAME$, [1:4], 0, 204,err=*next
     
     REM  in below "1:1:4" the first "1" is the "field" segment
     REM mkeyed FILE_NAME$, [1:1:4], 0, 200,err=*next
