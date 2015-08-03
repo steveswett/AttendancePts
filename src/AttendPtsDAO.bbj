@@ -79,8 +79,13 @@ setup_constants:
     TRUE = 1
     FALSE = 0
 
-    attendPtsDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "mail.recipients.attend.pts.warning.levels", configVarFound, configVarDataType$, warningLevelsRecipients$
+    
+    call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
+    useWindowsMailSend = num(useWindowsMailSend$)
+
     
     POSTING_CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where work_file_id = ?"
     
@@ -266,19 +271,11 @@ post_work_records_map:
     postingStatsMap!.put("qty_changed_warning_levels", qtyChangedWarningLevels!)
     postingStatsMap!.put("threshold_changes_map", thresholdChangesMap!)
     
-    REM  TODO: This is where a process should be called to send an e-mail about threshold changes.
-    REM        Keep the e-mail process as simple as possible.
-    
-    REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
-    REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
-    
     if qtyChangedWarningLevels! > 0 then
     
-        recipients$ = "steve.swett@notionsmarketing.com"
         subject$ = "Employee(s) reached a new attendance pts warning level just now"
 
-        rem lineFeed$ = $0A$
-        lineFeed$ = "<br/>"
+        lineFeed$ = iff(useWindowsMailSend, "<br/>", $0A$)
 
         REM  Start formatting the e-mail body.
         
@@ -303,15 +300,7 @@ post_work_records_map:
 
         REM  Finish formatting the e-mail body.
     
-        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + recipients$ + " "+
-:                   "-f steven.m.swett@gmail.com -ssl -port 465 -auth -smtp smtp.gmail.com "+
-:                   "-sub """ + subject$ + """ -M """ + body$ + """ "+
-:                   "-user steven.m.swett@gmail.com -pass g2@mail4$"
-    
-        returnCode = scall(emailCmd$)
-        
-        print @(0,22), 'CL', "emailCmd returnCode = ", returnCode
-        input @(70,22), "(hit enter)", ignoreInput$ 
+        call "MailUtilities.bbj::send_simple_email_msg", warningLevelsRecipients$, subject$, body$
     
     endif
     

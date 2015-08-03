@@ -1,0 +1,43 @@
+REM /**
+REM  * StringUtilities.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem * - - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+
+entry_points:
+
+
+replace_all_in_string:
+
+    enter stringIn$, findChars$, replaceWithChars$, stringOut$ 
+
+    gosub setup_constants
+    
+    stringOut$ = stringIn$
+    
+    call BBEXT$ + "_repl.utl", stringOut$, findChars$, replaceWithChars$
+    
+    exit
+
+
+rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    return

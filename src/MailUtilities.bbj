@@ -1,0 +1,91 @@
+REM /**
+REM  * MailUtilities.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem * - - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+
+entry_points:
+
+
+send_simple_email_msg:
+
+    enter recipients$, subject$, body$
+    
+    gosub init
+    
+    gosub send_simple_email
+    
+    exit
+
+
+
+rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+init:
+
+    TRUE = 1
+    FALSE = 0
+    
+    call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
+    useWindowsMailSend = num(useWindowsMailSend$)
+
+    call "ConfigVarsDAO.bbj::get_value", "windows.mailsend.sender", configVarFound, configVarDataType$, windowsMailSendSender$
+
+    call "ConfigVarsDAO.bbj::get_value", "windows.mailsend.smtp.server", configVarFound, configVarDataType$, windowsMailSendSMTPServer$
+
+    call "ConfigVarsDAO.bbj::get_value", "windows.mailsend.smtp.port", configVarFound, configVarDataType$, windowsMailSendSMTPPort$
+
+    call "ConfigVarsDAO.bbj::get_value", "windows.mailsend.smtp.user", configVarFound, configVarDataType$, windowsMailSendSMTPUser$
+
+    call "ConfigVarsDAO.bbj::get_value", "windows.mailsend.smtp.pwd", configVarFound, configVarDataType$, windowsMailSendSMTPPwd$
+
+    return
+    
+
+REM  ------------------------------------------------------------
+REM  Send simple email (no attachments)
+REM  ------------------------------------------------------------
+
+    
+send_simple_email:
+
+    if useWindowsMailSend then
+    
+        REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
+        REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
+    
+        tweakedBody$ = body$
+        
+        REM  Following is not working
+        
+        REM  call "StringUtilities.bbj::replace_all_in_string", stringIn$, $0A$, "<br/>", tweakedBody$
+    
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + recipients$ + " "+
+:                   "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth "+
+:                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + tweakedBody$ + """ "+
+:                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$
+    else
+        emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ " + recipients$
+    endif
+
+    returnCode = scall(emailCmd$)
+    
+    REM  TODO: likely need logging added here -- if email fails, for example
+    
+    rem print @(0,22), 'CL', "emailCmd returnCode = ", returnCode
+    rem input @(70,22), "(hit enter)", ignoreInput$ 
+
+    return

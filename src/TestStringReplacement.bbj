@@ -1,0 +1,10 @@
+REM /**
+REM  * TestStringReplacement.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+STR$="THE QUICK RED FOX"
+CALL BBEXT$+"_repl.utl",STR$,"RED","BROWN"
+PRINT STR$
