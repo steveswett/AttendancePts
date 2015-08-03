@@ -207,12 +207,11 @@ display_data:
     print @(0,3), "Dept: ", deptNameIn$
     print @(71,3), "Shift: ", shiftIn$
     
-    print @(34,5), "NOT"
-    print @(62, 5), "FLMA     NOT"
+    print @(19,5), "       NOT                        FMLA             NOT"
     
+    print @(19,6), "TOTAL  HANDLED  APPROVED  EDITED  PENDING  POSTED  POSTED"
     print @(0,6), "LINE"
     print @(6,6), "DATE"
-    print @(18,6), "TOTAL  POSTED   POSTED  APPROVED   EDITED   PENDING  HANDLED"
     
     count = 0
     displayedCount = 0
@@ -251,13 +250,13 @@ display_data:
       
       print @(0, row), pad( str(displayedCount), 2, "R"), "." 
       print @(4, row), formattedDate$
-      print @(19,row), str(qtyTotal:"##0") 
-      print @(26,row), str(qtyPosted:"##0") 
-      print @(35,row), str(qtyNotPosted:"##0") 
-      print @(44,row), str(qtyApproved:"##0") 
-      print @(54,row), str(qtyEdited:"##0") 
-      print @(64,row), str(qtyFMLAPending:"##0") 
-      print @(73,row), str(qtyNotHandled:"##0") 
+      print @(19,row), str(qtyTotal:"##0")
+      print @(26,row), str(qtyNotHandled:"##0") 
+      print @(35,row), str(qtyApproved:"##0") 
+      print @(45,row), str(qtyEdited:"##0") 
+      print @(53,row), str(qtyFMLAPending:"##0") 
+      print @(62,row), str(qtyPosted:"##0") 
+      print @(70,row), str(qtyNotPosted:"##0") 
       
     wend
 

@@ -87,7 +87,7 @@ setup_constants:
     useWindowsMailSend = num(useWindowsMailSend$)
 
     
-    POSTING_CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where work_file_id = ?"
+    POSTING_CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
     
     POSTING_UPDATE_STMT$ = 
 :       "update atnd " +
@@ -164,7 +164,11 @@ post_work_records_map:
         
         doUpdate = FALSE
     
-        sqlexec(postingCheckExistChannel) idKey!
+        trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
+        paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
+        pointsDate$ = attPtsWorkDataMap!.get("wfmr_exc_date")
+
+        sqlexec(postingCheckExistChannel) paddedBadge$, pointsDate$
         dim resultRow$:sqltmpl(postingCheckExistChannel)
         resultRow$ = sqlfetch(postingCheckExistChannel,err=end_check_exist)
         if resultRow.hit_count > 0 then doUpdate = TRUE
@@ -197,12 +201,9 @@ post_work_records_map:
             
         else
         
-            trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
-            paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
-
             sqlexec(postingInsertChannel)
 :               paddedBadge$,
-:               attPtsWorkDataMap!.get("wfmr_exc_date"),
+:               pointsDate$,
 :               attPtsWorkDataMap!.get("erp_pts_assessed"), 
 :               attPtsWorkDataMap!.get("erp_cd"),
 :               attPtsWorkDataMap!.get("erp_sts_cd"),
