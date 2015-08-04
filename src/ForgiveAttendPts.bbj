@@ -13,48 +13,62 @@ REM  */
 
 REM ATND20 - ATTENDANCE REPORT FOR HR
 REM ORG 07/11 TCH
-REM REV 02/12 TCH
-
-BEGIN
-SETERR handle_error
+REM REV 08/15 SMS
 
 REM REVISIONS
 REM 07/11...SHOW RECORDS WE WOULD INACTIVATE
 REM 02/12...CHANGE TRANSACTIONS TO INACTIVE (6250)
-REM FUNCTIONS
+REM 08/15...CREATED ForgiveAttendPts based on ATND20
+
+
+BEGIN
+
+SETERR handle_error
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+TRUE = 1
+FALSE = 0
+
+REM  EMAIL_RECIPIENTS$ = "rshoemaker annm terry stevett"
+
+rem  Temporarily send only to Steve (for testing)
+EMAIL_RECIPIENTS$ = "stevett"    
+
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
 functions:
 
-DEF FNQ$(X$)="20"+X$(7,2)+X$(1,2)+X$(4,2)
+    DEF FNQ$(X$)="20"+X$(7,2)+X$(1,2)+X$(4,2)
 
 
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
-gosub init
-
-gosub open_files
-
-gosub process_employees
-
-gosub send_results_email
-
-GOTO eoj
-
-
-handle_error:
-
-CALL "LOGERR",P$,ERR,TCB(5)
-
-
-eoj:
-RELEASE
-
-END
+    gosub init
+    
+    gosub open_files
+    
+    gosub process_employees
+    
+    gosub send_results_email
+    
+    GOTO eoj
+    
+    handle_error:
+    CALL "LOGERR",P$,ERR,TCB(5)
+    
+    eoj:
+    RELEASE
+    
+    END
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -72,22 +86,23 @@ init:
     LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
     
     LET P$=PGM(-2)
-LET TODY$=FNQ$(DAY)
-LET X$=DAY;
-:    LET M$=X$(1,2);
-:    CALL "DAYPOM",X$,1;
-:    IF X$(1,2)<>M$
-:       THEN
-:          LET LASTD=1;
-:          REM IF TODAY IS THE LAST DAY OF THE MONTH, SET THE LASTD FLAG TO 1
+    P = 5
+    LET TODY$=FNQ$(DAY)
+    LET X$=DAY
+    LET M$=X$(1,2)
+    CALL "DAYPOM",X$,1
+    
+    REM IF TODAY IS THE LAST DAY OF THE MONTH, SET THE LASTD FLAG TO 1
+    
+    IF X$(1,2)<>M$ THEN LET LASTD=1
+          
 
-REM file
+    REM  Erase and re-create output file 
 
-LET OUTP$="/usr/tmpfiles/"+P$+"-"+FID(0)+".csv";
-:    ERASE OUTP$,ERR=*next
+    LET outputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+".csv"
+    ERASE outputFileName$,ERR=*next
 
-STRING OUTP$
-
+    STRING outputFileName$
 
     return
     
@@ -99,10 +114,9 @@ STRING OUTP$
 
 open_files:
 
-    OPEN (1)"EMPLOY"
-    OPEN (2)"ATND"
-    OPEN (7)OUTP$
-
+    OPEN (employChannel)"EMPLOY"
+    OPEN (atndChannel)"ATND"
+    OPEN (outputFileChannel)outputFileName$
 
     return
     
@@ -114,91 +128,99 @@ open_files:
 
 process_employees:
 
-PRINT (7)"employee,name,total points,total entries,last point date,"
-read_another_employ_record:
-:    REM LOOP
-READ (1,END=eof_on_employ_file)K$,NM$,AD1$,CSZ$,BDATE$,EDATE$,JD$,*,*,*,*,*,*,*,*,*,*,
-:    WI$,CL$,ADP$,PH$,TDATE$,COMNT$,AD2$,LV$
-IF CVS(TDATE$,3)>""
-:       THEN
-:          GOTO read_another_employ_record
-IF CSZ$(17,2)<>"MI"
-:       THEN
-:          GOTO read_another_employ_record;
-:          REM ONLY MICHIGAN
-GOSUB sr_read_attend_transactions_for_employee;
-:    IF OK$<>"OK"
-:       THEN
-:          GOTO read_another_employ_record
+    PRINT (outputFileChannel)"employee,name,total points,total entries,last point date,"
+    
+    REM  Loop through all employees
+    
+    read_another_employ_record:
 
-READ (2,KEY="0"+K$,ERR=*next)
+    READ (employChannel,END=eof_on_employ_file)K$,NM$,AD1$,CSZ$,BDATE$,EDATE$,JD$,*,*,*,*,*,*,*,*,*,*,WI$,CL$,ADP$,PH$,TDATE$,COMNT$,AD2$,LV$
 
-LET XX$="",ZX$="",TP=0,CNTR=0
-read_attend_pts_record_main:
-:    READ (2,ERR=finished_reading_pts_for_employee_main)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$;
-:    IF EM$<>"0"+K$
-:       THEN
-:          GOTO finished_reading_pts_for_employee_main
-IF STATUS$<>"A"
-:       THEN
-:          GOTO read_attend_pts_record_main
-LET XX$=DT$+XX$,TP=TP+PTS,CNTR=CNTR+1,ZX$=ZX$+STR(9-PTS:"0.0")+DT$;
-:    REM XX$ HAS NEWEST DATES FIRST; ZX$ WILL BE SORTED BY POINTS AND DATES 
-:    FIRST
-GOTO read_attend_pts_record_main
-finished_reading_pts_for_employee_main:
-:    REM ANYTHING?
-IF XX$=""
-:       THEN
-:          GOTO read_another_employ_record
-LET X$=XX$(5,2)+"/"+XX$(7,2)+"/"+XX$(3,2)
+    IF CVS(TDATE$,3)>"" THEN GOTO read_another_employ_record
+    
+    REM ONLY MICHIGAN  (interesting tidbit)
+    
+    IF CSZ$(17,2)<>"MI" THEN GOTO read_another_employ_record
 
-REM Replace commas in name with blanks
+    GOSUB sr_read_attend_transactions_for_employee
+    
+    IF OK$<>"OK" THEN GOTO read_another_employ_record
+    
+    READ (atndChannel,KEY="0"+K$,ERR=*next)
+    
+    LET XX$="",ZX$="",TP=0,CNTR=0
+    
+    read_attend_pts_record_main:
+    
+    READ (atndChannel,ERR=finished_reading_pts_for_employee_main)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    IF EM$<>"0"+K$ THEN GOTO finished_reading_pts_for_employee_main
+    
+    IF STATUS$<>"A" THEN GOTO read_attend_pts_record_main
+    
+    REM XX$ HAS NEWEST DATES FIRST; ZX$ WILL BE SORTED BY POINTS AND DATES FIRST
 
-CALL "_repl.utl", STR$, ",", ""
+    LET XX$=DT$+XX$,TP=TP+PTS,CNTR=CNTR+1,ZX$=ZX$+STR(9-PTS:"0.0")+DT$
 
+    GOTO read_attend_pts_record_main
+    
+    finished_reading_pts_for_employee_main:
+    
+    REM ANYTHING?
+    
+    IF XX$="" THEN GOTO read_another_employ_record
+    
+    LET X$=XX$(5,2)+"/"+XX$(7,2)+"/"+XX$(3,2)
+    
+    REM Replace commas in name with blanks
+    CALL "_repl.utl", STR$, ",", ""
+    
+    LET R$=K$+","+NM$+","+STR(TP)+","+STR(CNTR)+","+X$+","
+    PRINT (outputFileChannel)R$
+    LET WFL=WFL+1
+    LET RC=0,XT=0
+    CALL "BINSRT",ZX$,11
+    
+    try_next_zx_entry:
+    
+    REM PRINT TRANSACTIONS THAT WE'D REMOVE
+    
+    IF ZX$="" THEN GOTO finished_with_this_employee
+    LET XD$=ZX$(4,8),ZX$=ZX$(12),RC=RC+1
+    LET XEM$="0"+K$
+    FIND (atndChannel,KEY=XEM$+XD$)*,*,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    LET GT1FL=0
 
-LET R$=K$+","+NM$+","+STR(TP)+","+STR(CNTR)+","+X$+","
-PRINT (7)R$
-LET WFL=WFL+1
-LET RC=0,XT=0
-CALL "BINSRT",ZX$,11
-try_next_zx_entry:
-:    REM PRINT TRANSACTIONS THAT WE'D REMOVE
-IF ZX$="" THEN GOTO finished_with_this_employee
-LET XD$=ZX$(4,8),ZX$=ZX$(12),RC=RC+1
-LET XEM$="0"+K$;
-:    FIND (2,KEY=XEM$+XD$)*,*,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
-LET GT1FL=0;
-:    IF XT<1
-:       THEN
-:          IF PTS>(1-XT)
-:             THEN
-:                LET PTS=1-XT;
-:                LET GT1FL=PTS;
-:                REM IF THIS TRANSACTION HAS MORE POINTS THAN WE HAVE LEFT TO 
-:                INACTIVATE, DO A PARTIAL TRANSACTION
-IF PTS+XT>1
-:       THEN
-:          GOTO try_next_zx_entry
-PRINT (7)",inactivated,"+STR(PTS)+",,"+XD$(5,2)+"/"+XD$(7,2)+"/"+XD$(3,2)
-:    +","
-LET JR=PTS;
-:    REM JUST REMOVED THIS MANY POINTS
-GOSUB sr_inactivate_this_record;
-:    REM INACTIVATE THIS ONE
-IF PTS=0
-:       THEN
-:          GOTO finished_with_this_employee
-LET XT=XT+JR
-IF XT<1
-:       THEN
-:          GOTO try_next_zx_entry
-finished_with_this_employee:
-:    PRINT (7)""
-GOTO read_another_employ_record
-eof_on_employ_file:
-:    REM done
+    REM IF THIS TRANSACTION HAS MORE POINTS THAN WE HAVE LEFT TO INACTIVATE, DO A PARTIAL TRANSACTION
+    
+    IF XT<1 and PTS>(1-XT) THEN
+        LET PTS=1-XT
+        LET GT1FL=PTS
+    endif
+
+    IF PTS+XT>1 THEN GOTO try_next_zx_entry
+
+    PRINT (outputFileChannel)",inactivated,"+STR(PTS)+",,"+XD$(5,2)+"/"+XD$(7,2)+"/"+XD$(3,2)+","
+    
+    REM JUST REMOVED THIS MANY POINTS
+    LET JR=PTS
+    
+    REM INACTIVATE THIS ONE
+    GOSUB sr_inactivate_this_record
+
+    IF PTS=0 THEN GOTO finished_with_this_employee
+
+    LET XT=XT+JR
+    
+    IF XT<1 THEN GOTO try_next_zx_entry
+    
+    finished_with_this_employee:
+    
+    PRINT (outputFileChannel)""
+    GOTO read_another_employ_record
+    
+    eof_on_employ_file:
 
     return
     
@@ -210,40 +232,39 @@ eof_on_employ_file:
 
 sr_read_attend_transactions_for_employee:
 
-LET OK$="",LD$="",AC=0;
-:    READ (2,KEY="0"+K$,ERR=*next)
+    LET OK$="",LD$="",AC=0
+    READ (atndChannel,KEY="0"+K$,ERR=*next)
+    
+    read_another_attend_pts_record:
+    
+    READ (atndChannel,ERR=finished_reading_pts_for_employee)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$  
 
-read_another_attend_pts_record:
-:    READ (2,ERR=finished_reading_pts_for_employee)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$;  
-:    IF EM$<>"0"+K$
-:       THEN
-:          GOTO finished_reading_pts_for_employee
-LET LD$=DT$;
-:    IF STATUS$="A"
-:       THEN
-:          LET AC=AC+1
-GOTO read_another_attend_pts_record
-finished_reading_pts_for_employee:
-:    IF AC=0 OR LD$=""
-:       THEN
-:          GOTO done_reading_attend_trans
-IF LD$(1,6)=TODY$(1,6)
-:       THEN
-:          GOTO done_reading_attend_trans
-IF LD$(7,2)=TODY$(7,2)
-:       THEN
-:          LET OK$="OK";
-:          REM TIME TO PRINT
-IF LD$(7,2)>TODY$(7,2)
-:       THEN
-:          IF LASTD=1
-:             THEN
-:                LET OK$="OK";
-:                REM IF THE DAY NUMBER OF THEIR INFRACTION IS GREATER THAN 
-:                THE LAST OF THIS MONTH, THEN PRETEND IT'S TODAY AND PRINT IT 
-:                ANYWAY
-done_reading_attend_trans:
-:    RETURN
+    IF EM$<>"0"+K$ THEN GOTO finished_reading_pts_for_employee
+
+
+    LET LD$=DT$
+
+    IF STATUS$="A" THEN LET AC=AC+1
+
+    GOTO read_another_attend_pts_record
+    
+    finished_reading_pts_for_employee:
+
+    IF AC=0 OR LD$="" THEN GOTO done_reading_attend_trans
+
+    IF LD$(1,6)=TODY$(1,6) THEN GOTO done_reading_attend_trans
+
+
+
+    IF LD$(7,2)=TODY$(7,2) THEN LET OK$="OK"
+    REM TIME TO PRINT
+
+    REM IF THE DAY NUMBER OF THEIR INFRACTION IS GREATER THAN THE LAST OF THIS MONTH, THEN PRETEND IT'S TODAY AND PRINT IT ANYWAY
+    IF LD$(7,2)>TODY$(7,2) and LASTD=1 THEN LET OK$="OK"
+
+    done_reading_attend_trans:
+    
+    RETURN
 
 
     rem ------------------------------------------------------------------------------------------
@@ -253,53 +274,59 @@ done_reading_attend_trans:
 
 sr_inactivate_this_record:
 
-EXTRACT (2,KEY=XEM$+XD$)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
-LET STATUS$="I";
-:    IF GT1FL>0
-:       THEN
-:          LET STATUS$="A"
+    EXTRACT (atndChannel,KEY=XEM$+XD$)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    LET STATUS$="I"
 
-IF LEN(COMNT$)<150 THEN COMNT$ = pad(COMNT$, 150, "L", " ")
+    IF GT1FL>0 THEN LET STATUS$="A"
+    
+    IF LEN(COMNT$)<150 THEN COMNT$ = pad(COMNT$, 150, "L", " ")
+    
+    IF LEN(ACDT$)<16 THEN ACDT$ = pad(ACDT$, 16, "L", " ")
+    
+    IF LEN(WH$)<20 THEN WH$ = pad(WH$, 20, "L", " ")
+    
+    LET X$="PT REMOVED "+DAY
+    
+    IF PTS=0 THEN LET X$="ZERO "+X$
 
-IF LEN(ACDT$)<16 THEN ACDT$ = pad(ACDT$, 16, "L", " ")
+    IF GT1FL>0 THEN
+        LET X$=STR(GT1FL)+" "+X$
+        GOTO bypass_pts_less_than_1_check
+    endif
 
-IF LEN(WH$)<20 THEN WH$ = pad(WH$, 20, "L", " ")
+    IF PTS<1 THEN LET X$=STR(PTS)+" "+X$
+    
+    bypass_pts_less_than_1_check:
+    
+    IF LEN(X$)<50 THEN X$ = pad(X$, 50, "L", " ")
+    
+    IF CVS(COMNT$(1,50),3)="" THEN
+        LET COMNT$(1,50)=X$
+        GOTO update_attend_pts_record
+    endif
 
-LET X$="PT REMOVED "+DAY;
-:    IF PTS=0
-:       THEN
-:          LET X$="ZERO "+X$
-IF GT1FL>0
-:       THEN
-:          LET X$=STR(GT1FL)+" "+X$;
-:          GOTO bypass_pts_less_than_1_check
-IF PTS<1
-:       THEN
-:          LET X$=STR(PTS)+" "+X$
+    IF CVS(COMNT$(51,50),3)="" THEN
+        LET COMNT$(51,50)=X$
+        GOTO update_attend_pts_record
+    endif
 
-bypass_pts_less_than_1_check:
-IF LEN(X$)<50 THEN X$ = pad(X$, 50, "L", " ")
+    IF CVS(COMNT$(101,50),3)="" THEN
+        LET COMNT$(101,50)=X$
+        GOTO update_attend_pts_record
+    endif
 
-IF CVS(COMNT$(1,50),3)=""
-:       THEN
-:          LET COMNT$(1,50)=X$;
-:          GOTO update_attend_pts_record
-IF CVS(COMNT$(51,50),3)=""
-:       THEN
-:          LET COMNT$(51,50)=X$;
-:          GOTO update_attend_pts_record
-IF CVS(COMNT$(101,50),3)=""
-:       THEN
-:          LET COMNT$(101,50)=X$;
-:          GOTO update_attend_pts_record
-GOSUB sr_append_to_comment_field;
-:    REM ALL 3 COMMENT FIELDS HAVE SOMETHING IN THEM
-update_attend_pts_record:
-:    LET COMNT$=CVS(COMNT$,3),ACDT$(9,8)=DAY,WH$(11,10)="cpu       "
-LET PTS=PTS-GT1FL
-WRITE (2)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    REM ALL 3 COMMENT FIELDS HAVE SOMETHING IN THEM
+    
+    GOSUB sr_append_to_comment_field
 
-RETURN
+    update_attend_pts_record:
+    
+    LET COMNT$=CVS(COMNT$,3),ACDT$(9,8)=DAY,WH$(11,10)="cpu       "
+    LET PTS=PTS-GT1FL
+    WRITE (atndChannel)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    RETURN
 
 
     rem ------------------------------------------------------------------------------------------
@@ -309,33 +336,40 @@ RETURN
 
 sr_append_to_comment_field:
 
-LET Y$=CVS(COMNT$(1,50),3)+", "+CVS(X$,3)
+    LET Y$=CVS(COMNT$(1,50),3)+", "+CVS(X$,3)
+    
+    IF LEN(Y$)<=50 THEN
+        LET SX=1
+        GOTO use_comment_portion
+    endif
 
-IF LEN(Y$)<=50
-:       THEN
-:          LET SX=1;
-:          GOTO use_comment_portion
-LET Y$=CVS(COMNT$(51,50),3)+", "+CVS(X$,3)
-IF LEN(Y$)<=50
-:       THEN
-:          LET SX=51;
-:          GOTO use_comment_portion
-LET Y$=CVS(COMNT$(101,50),3)+", "+CVS(X$,3)
-IF LEN(Y$)<=50
-:       THEN
-:          LET SX=101;
-:          GOTO use_comment_portion
-GOTO done_append_to_comment;
-:    REM WON'T FIT IN ANY COMMENT FIELD...SKIP IT
+    LET Y$=CVS(COMNT$(51,50),3)+", "+CVS(X$,3)
+    
+    IF LEN(Y$)<=50 THEN
+        LET SX=51
+        GOTO use_comment_portion
+    endif
 
-use_comment_portion:
-
-IF LEN(Y$)<50 THEN Y$ = pad(Y$, 50, "L", " ")
-
-LET COMNT$(SX,50)=Y$
-
-done_append_to_comment:
-:    RETURN
+    LET Y$=CVS(COMNT$(101,50),3)+", "+CVS(X$,3)
+    
+    IF LEN(Y$)<=50 THEN
+        LET SX=101
+        GOTO use_comment_portion
+    endif
+    
+    REM WON'T FIT IN ANY COMMENT FIELD...SKIP IT
+    
+    GOTO done_append_to_comment
+    
+    use_comment_portion:
+    
+    IF LEN(Y$)<50 THEN Y$ = pad(Y$, 50, "L", " ")
+    
+    LET COMNT$(SX,50)=Y$
+    
+    done_append_to_comment:
+    
+    RETURN
 
 
     rem ------------------------------------------------------------------------------------------
@@ -345,9 +379,9 @@ done_append_to_comment:
 
 close_files:
 
-    CLOSE (1)
-    CLOSE (2)
-    CLOSE (7)
+    CLOSE (employChannel)
+    CLOSE (atndChannel)
+    CLOSE (outputFileChannel)
 
     return
     
@@ -359,19 +393,20 @@ close_files:
 
 send_results_email:
 
-IF WFL<1
-:       THEN
-:          GOTO notify_no_attend_pts_file_to_send
-WAIT 2
-LET S=SCALL("/usr/bin/mpack -s "+$22$+"attendance points file"+$22$+" "+
-:    OUTP$+" rshoemaker annm terry stevett")
-GOTO done_send_results
-notify_no_attend_pts_file_to_send:
-:    REM NO FILE...LET THEM KNOW
-LET S=SCALL("echo "+$22$+"No Attendance Points file today - nothing to 
-:    report."+$22$+"|mail -s "+$22$+"No Attendance Points file today"+$22$+" 
-:    rshoemaker annm terry stevett")
+    IF WFL<1 THEN GOTO notify_no_attend_pts_file_to_send
 
-done_send_results:
+    WAIT 2
+    LET S=SCALL("/usr/bin/mpack -s "+$22$+"attendance points file"+$22$+" "+outputFileName$+" " + EMAIL_RECIPIENTS$)
+    GOTO done_send_results
+    
+    notify_no_attend_pts_file_to_send:
+    
+    REM NO FILE...LET THEM KNOW
+    
+    emailSubject$ = "No Attendance Points file today"
+    emailBody$ = "No Attendance Points file today - nothing to report."
+    LET S=SCALL("echo "+$22$+emailBody$+$22$+"|mail -s "+$22$+emailSubject$+$22$+" " + EMAIL_RECIPIENTS$)
+    
+    done_send_results:
 
     return
