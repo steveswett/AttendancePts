@@ -23,17 +23,55 @@ REM 07/11...SHOW RECORDS WE WOULD INACTIVATE
 REM 02/12...CHANGE TRANSACTIONS TO INACTIVE (6250)
 REM FUNCTIONS
 
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
 DEF FNQ$(X$)="20"+X$(7,2)+X$(1,2)+X$(4,2)
-LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
 
-REM OPEN
 
-OPEN (1)"EMPLOY"
-OPEN (2)"ATND"
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
-REM INIT
+main_routine:
 
-LET P$=PGM(-2)
+gosub init
+
+gosub open_files
+
+gosub process_employees
+
+gosub send_results_email
+
+GOTO eoj
+
+
+handle_error:
+
+CALL "LOGERR",P$,ERR,TCB(5)
+
+
+eoj:
+RELEASE
+
+END
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Initialize
+    rem ------------------------------------------------------------------------------------------
+
+
+init:
+
+    LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
+    
+    LET P$=PGM(-2)
 LET TODY$=FNQ$(DAY)
 LET X$=DAY;
 :    LET M$=X$(1,2);
@@ -49,7 +87,33 @@ LET OUTP$="/usr/tmpfiles/"+P$+"-"+FID(0)+".csv";
 :    ERASE OUTP$,ERR=*next
 
 STRING OUTP$
-OPEN (7)OUTP$
+
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Open files
+    rem ------------------------------------------------------------------------------------------
+
+
+open_files:
+
+    OPEN (1)"EMPLOY"
+    OPEN (2)"ATND"
+    OPEN (7)OUTP$
+
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Process all employees
+    rem ------------------------------------------------------------------------------------------
+
+
+process_employees:
+
 PRINT (7)"employee,name,total points,total entries,last point date,"
 read_another_employ_record:
 :    REM LOOP
@@ -135,26 +199,9 @@ finished_with_this_employee:
 GOTO read_another_employ_record
 eof_on_employ_file:
 :    REM done
-IF WFL<1
-:       THEN
-:          GOTO notify_no_attend_pts_file_to_send
-CLOSE (7)
-WAIT 2
-LET S=SCALL("/usr/bin/mpack -s "+$22$+"attendance points file"+$22$+" "+
-:    OUTP$+" rshoemaker annm terry stevett")
-GOTO eoj
-notify_no_attend_pts_file_to_send:
-:    REM NO FILE...LET THEM KNOW
-LET S=SCALL("echo "+$22$+"No Attendance Points file today - nothing to 
-:    report."+$22$+"|mail -s "+$22$+"No Attendance Points file today"+$22$+" 
-:    rshoemaker annm terry stevett")
-GOTO eoj
 
-
-rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
-
-subroutines:
-
+    return
+    
 
     rem ------------------------------------------------------------------------------------------
     rem  READ THROUGH ATTENDANCE TRANSACTIONS FOR THIS EMPLOYEE
@@ -291,15 +338,40 @@ done_append_to_comment:
 :    RETURN
 
 
-
-handle_error:
-:    REM ERRORS
-CALL "LOGERR",P$,ERR,TCB(5)
-
-
-eoj:
-:    REM EOJ
-RELEASE
+    rem ------------------------------------------------------------------------------------------
+    rem  Close files
+    rem ------------------------------------------------------------------------------------------
 
 
-END
+close_files:
+
+    CLOSE (1)
+    CLOSE (2)
+    CLOSE (7)
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Send an e-mail of results (either a file or a message there isn't one)
+    rem ------------------------------------------------------------------------------------------
+
+
+send_results_email:
+
+IF WFL<1
+:       THEN
+:          GOTO notify_no_attend_pts_file_to_send
+WAIT 2
+LET S=SCALL("/usr/bin/mpack -s "+$22$+"attendance points file"+$22$+" "+
+:    OUTP$+" rshoemaker annm terry stevett")
+GOTO done_send_results
+notify_no_attend_pts_file_to_send:
+:    REM NO FILE...LET THEM KNOW
+LET S=SCALL("echo "+$22$+"No Attendance Points file today - nothing to 
+:    report."+$22$+"|mail -s "+$22$+"No Attendance Points file today"+$22$+" 
+:    rshoemaker annm terry stevett")
+
+done_send_results:
+
+    return
