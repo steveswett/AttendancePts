@@ -28,6 +28,17 @@ send_simple_email_msg:
     exit
 
 
+send_email_msg_with_attachment:
+
+    enter recipients$, subject$, body$, attachmentFileName$, attachmentMimeType$
+    
+    gosub init
+    
+    gosub send_email_with_attachment
+    
+    exit
+
+
 
 rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
@@ -79,6 +90,46 @@ send_simple_email:
 :                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$
     else
         emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ " + recipients$
+    endif
+
+    returnCode = scall(emailCmd$)
+    
+    REM  TODO: likely need logging added here -- if email fails, for example
+    
+    rem print @(0,22), 'CL', "emailCmd returnCode = ", returnCode
+    rem input @(70,22), "(hit enter)", ignoreInput$ 
+
+    return
+    
+
+REM  ------------------------------------------------------------
+REM  Send email with attachment
+REM  ------------------------------------------------------------
+
+    
+send_email_with_attachment:
+
+    if useWindowsMailSend then
+    
+        REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
+        REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
+    
+        tweakedBody$ = body$
+        
+        REM  Following is not working
+        
+        REM  call "StringUtilities.bbj::replace_all_in_string", stringIn$, $0A$, "<br/>", tweakedBody$
+    
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + recipients$ + " "+
+:                   "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth "+
+:                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + tweakedBody$ + """ "+
+:                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$ + " " +
+:                   "-attach """ + attachmentFileName$ + """,""" + attachmentMimeType$ + """,a"   
+    else
+        bodyFileName$ = "/usr/tmpfiles/" + pgm(-2) + "-" + FID(0) + ".txt"
+        setupCmd$ = "echo """ + body$ + """ > " + bodyFileName$
+        returnCode = scall(setupCmd$)
+        emailCmd$ = "/usr/bin/mpack -s """ + subject$ + """ -d " + bodyFileName$ + " """ + attachmentFileName$ + """ " + recipients$
     endif
 
     returnCode = scall(emailCmd$)

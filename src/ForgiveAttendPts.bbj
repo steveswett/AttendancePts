@@ -34,11 +34,12 @@ constants:
 TRUE = 1
 FALSE = 0
 
+rem  Temporarily send only to Steve (for testing)
+
+EMAIL_RECIPIENTS$ = "steve.swett@notionsmarketing.com"    
 REM  EMAIL_RECIPIENTS$ = "rshoemaker annm terry stevett"
 
-rem  Temporarily send only to Steve (for testing)
-EMAIL_RECIPIENTS$ = "stevett"    
-
+OUTPUT_FILE_MIME_TYPE$ = "text/csv"
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
@@ -52,13 +53,24 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
-    gosub init
+    call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
     
-    gosub open_files
+    trimmedPolicyCode$ = cvs(attendPtsPolicyCode$, 2)
     
-    gosub process_employees
+    if trimmedPolicyCode$ = "2015 Aug Before" then
+        gosub old_policy_init
+        gosub old_policy_open_files
+        gosub old_policy_process_employees
+        gosub old_policy_send_results_email
+    endif
     
-    gosub send_results_email
+    if trimmedPolicyCode$ = "2015 Aug After" then
+        gosub old_policy_init
+        gosub old_policy_open_files
+        gosub old_policy_process_employees
+        gosub old_policy_send_results_email
+    endif
+
     
     GOTO eoj
     
@@ -77,16 +89,15 @@ subroutines:
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  Initialize
+    rem  old_policy_initialize
     rem ------------------------------------------------------------------------------------------
 
 
-init:
+old_policy_init:
 
     LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
     
     LET P$=PGM(-2)
-    P = 5
     LET TODY$=FNQ$(DAY)
     LET X$=DAY
     LET M$=X$(1,2)
@@ -112,7 +123,7 @@ init:
     rem ------------------------------------------------------------------------------------------
 
 
-open_files:
+old_policy_open_files:
 
     OPEN (employChannel)"EMPLOY"
     OPEN (atndChannel)"ATND"
@@ -126,7 +137,7 @@ open_files:
     rem ------------------------------------------------------------------------------------------
 
 
-process_employees:
+old_policy_process_employees:
 
     PRINT (outputFileChannel)"employee,name,total points,total entries,last point date,"
     
@@ -391,22 +402,17 @@ close_files:
     rem ------------------------------------------------------------------------------------------
 
 
-send_results_email:
+old_policy_send_results_email:
 
-    IF WFL<1 THEN GOTO notify_no_attend_pts_file_to_send
-
-    WAIT 2
-    LET S=SCALL("/usr/bin/mpack -s "+$22$+"attendance points file"+$22$+" "+outputFileName$+" " + EMAIL_RECIPIENTS$)
-    GOTO done_send_results
-    
-    notify_no_attend_pts_file_to_send:
-    
-    REM NO FILE...LET THEM KNOW
-    
-    emailSubject$ = "No Attendance Points file today"
-    emailBody$ = "No Attendance Points file today - nothing to report."
-    LET S=SCALL("echo "+$22$+emailBody$+$22$+"|mail -s "+$22$+emailSubject$+$22$+" " + EMAIL_RECIPIENTS$)
-    
-    done_send_results:
+    IF WFL<1 THEN 
+        subject$ = "No Attendance Points file today"
+        body$ = "No Attendance Points file today - nothing to report."
+        call "MailUtilities::send_simple_email_msg", EMAIL_RECIPIENTS$, subject$, body$
+    ELSE
+        WAIT 2
+        subject$ = "attendance points file"
+        body$ = "The attached file contains a list of employees and dropped attendance points due to perfect attendance."
+        call "MailUtilities::send_email_msg_with_attachment", EMAIL_RECIPIENTS$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
+    endif
 
     return

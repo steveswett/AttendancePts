@@ -1,0 +1,12 @@
+REM /**
+REM  * TestCallingPro5FromBBj.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+LET X$=DAY
+CALL "DAYPOM",X$,1
+    
+print "X$ = ", X$
+
+REM  This works!  All I had to do was put the path to the Pro 5 tokenized programs into my bbj-config.txt file.    

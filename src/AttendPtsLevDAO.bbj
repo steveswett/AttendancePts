@@ -51,10 +51,8 @@ setup_constants:
     TRUE = 1
     FALSE = 0
 
-    attendPtsDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
     
-    attendPtsPolicyCode$ = ""
     call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
     
     LEVELS_SELECT_STMT$ = "select threshold, descr from attend_pts_lev where policy_cd = ? order by threshold"
