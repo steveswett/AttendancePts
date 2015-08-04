@@ -6,5 +6,5 @@ REM  */
 
 
 STR$="THE QUICK RED FOX"
-CALL BBEXT$+"_repl.utl",STR$,"RED","BROWN"
+CALL "_repl.utl",STR$,"RED","BROWN"
 PRINT STR$
