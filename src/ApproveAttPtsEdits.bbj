@@ -718,7 +718,7 @@ handle_pending_change:
 
             if len(errMsg$) = 0 then
                 gosub write_saved_message
-                wait 1
+                wait .5
             endif
             
         else
