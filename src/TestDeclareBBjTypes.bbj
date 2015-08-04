@@ -1,0 +1,17 @@
+REM /**
+REM  * TestDeclareBBjTypes.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+declare BBjString myString!
+declare BBjAPI myBBjAPI!
+
+myString! = "steve"
+
+REM  This is like a Java String
+print myString!.contains("k")
+
+myBBjAPI! = BBJAPI()
+REM print myBBjAPI!.getxxxx
+

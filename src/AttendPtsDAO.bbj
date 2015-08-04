@@ -92,14 +92,14 @@ setup_constants:
     POSTING_UPDATE_STMT$ = 
 :       "update atnd " +
 :       "set pts = ?, cd = ?, stat = ?, text = ?, chgdt = ?, chgby = ?, " +
-:       "wfmr_exc_def_id = ?, disp_cd = ? " +
-:       "where work_file_id = ?"
+:       "work_file_id = ?, wfmr_exc_def_id = ?, wfmr_reason_id = ?, disp_cd = ? " +
+:       "where badg = ? and ptdt = ?"
     
     POSTING_INSERT_STMT$ = 
 :       "insert into atnd " +
-:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, disp_cd) " +
+:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
 :       "values " +
-:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
     
     return
@@ -179,6 +179,7 @@ post_work_records_map:
         lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
         lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
         wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
+        wfmrReasonId = attPtsWorkDataMap!.get("wfmr_reason_id")
              
         if doUpdate then
         
@@ -189,9 +190,12 @@ post_work_records_map:
 :               attPtsWorkDataMap!.get("erp_note"), 
 :               lastModDateMDY$, 
 :               lastModByUserUC$,
+:               tmpId, 
 :               wfmrExceptionDefId, 
+:               wfmrReasonId, 
 :               dispCode$, 
-:               idKey!
+:               paddedBadge$,
+:               pointsDate$
 
             call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
             
@@ -215,6 +219,7 @@ post_work_records_map:
 :               "",
 :               idKey!,        
 :               wfmrExceptionDefId, 
+:               wfmrReasonId, 
 :               dispCode$ 
         
             call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
