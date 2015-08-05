@@ -83,6 +83,10 @@ main_routine:
     eoj:
     RELEASE
     
+    if trimmedPolicyCode$ = "2015 Aug Before" then
+        gosub old_policy_close_files
+    endif
+    
     END
 
 
@@ -102,7 +106,7 @@ old_policy_init:
         LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
     endif
     
-    LET P$=PGM(-2)
+    call "TerminalUtilities.bbj::get_unqualified_program_name", pgm(-2), P$
     LET TODY$=FNQ$(DAY)
     LET X$=DAY
     LET M$=X$(1,2)
@@ -130,11 +134,14 @@ old_policy_init:
 
 old_policy_open_files:
 
-    OPEN (employChannel)"EMPLOY"
+    REM  Currently not using employTemplate$ -- but using OPEN90 to get a reliable channel
+
+    call "OPEN90", employChannel, "EMPLOY", employTemplate$
     call "OPEN90", atndChannel, "ATND", atndTemplate$
 
     dim atndRecord$ : atndTemplate$
     
+    outputFileChannel = unt
     OPEN (outputFileChannel)outputFileName$
 
     return
@@ -475,7 +482,7 @@ sr_append_to_comment_field:
     rem ------------------------------------------------------------------------------------------
 
 
-close_files:
+old_policy_close_files:
 
     CLOSE (employChannel)
     CLOSE (atndChannel)
@@ -494,12 +501,12 @@ old_policy_send_results_email:
     IF WFL<1 THEN 
         subject$ = "No Attendance Points file today"
         body$ = "No Attendance Points file today - nothing to report."
-        call "MailUtilities::send_simple_email_msg", EMAIL_RECIPIENTS$, subject$, body$
+        call "MailUtilities.bbj::send_simple_email_msg", EMAIL_RECIPIENTS$, subject$, body$
     ELSE
         WAIT 2
         subject$ = "attendance points file"
         body$ = "The attached file contains a list of employees and dropped attendance points due to perfect attendance."
-        call "MailUtilities::send_email_msg_with_attachment", EMAIL_RECIPIENTS$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
+        call "MailUtilities.bbj::send_email_msg_with_attachment", EMAIL_RECIPIENTS$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
     endif
 
     return

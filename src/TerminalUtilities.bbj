@@ -77,6 +77,17 @@ get_current_time:
     exit
 
 
+get_unqualified_program_name:
+
+    enter programNameIn$, unqualifiedProgramNameOut$
+    
+    gosub setup_constants
+    
+    unqualifiedProgramNameOut$ = fnGetUnqualifiedProgramName$(programNameIn$)
+    
+    exit
+
+
 get_login_user:
 
     enter loginUser$
