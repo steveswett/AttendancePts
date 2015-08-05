@@ -54,6 +54,9 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 main_routine:
 
     call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
+
+    call "ConfigVarsDAO.bbj::get_value", "is.windows.environment", configVarFound, configVarDataType$, isWindowsEnv$
+    isWindowsEnv = num(isWindowsEnv$)
     
     trimmedPolicyCode$ = cvs(attendPtsPolicyCode$, 2)
     
@@ -95,7 +98,9 @@ subroutines:
 
 old_policy_init:
 
-    LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
+    if !(isWindowsEnv) then
+        LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
+    endif
     
     LET P$=PGM(-2)
     LET TODY$=FNQ$(DAY)
@@ -126,7 +131,10 @@ old_policy_init:
 old_policy_open_files:
 
     OPEN (employChannel)"EMPLOY"
-    OPEN (atndChannel)"ATND"
+    call "OPEN90", atndChannel, "ATND", atndTemplate$
+
+    dim atndRecord$ : atndTemplate$
+    
     OPEN (outputFileChannel)outputFileName$
 
     return
@@ -163,7 +171,21 @@ old_policy_process_employees:
     
     read_attend_pts_record_main:
     
-    READ (atndChannel,ERR=finished_reading_pts_for_employee_main)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    rem READ (atndChannel,ERR=finished_reading_pts_for_employee_main)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    read record(atndChannel,ERR=finished_reading_pts_for_employee_main) atndRecord$
+    
+    REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
+    REM  original variables except for actual read/write I/O -- for which the string template is used.
+    
+    EM$ = atndRecord.BADG$
+    DT$ = atndRecord.PTDT$
+    PTS = atndRecord.PTS
+    CD$ = atndRecord.CD$
+    STATUS$ = atndRecord.STAT$
+    COMNT$ = atndRecord.TEXT$
+    ACDT$ = atndRecord.ADDDT$ + atndRecord.CHGDT$
+    WH$ = atndRecord.ADDBY$ + atndRecord.CHGBY$
+    XLV$ = atndRecord.LVAR$
     
     IF EM$<>"0"+K$ THEN GOTO finished_reading_pts_for_employee_main
     
@@ -199,7 +221,20 @@ old_policy_process_employees:
     IF ZX$="" THEN GOTO finished_with_this_employee
     LET XD$=ZX$(4,8),ZX$=ZX$(12),RC=RC+1
     LET XEM$="0"+K$
-    FIND (atndChannel,KEY=XEM$+XD$)*,*,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    rem FIND (atndChannel,KEY=XEM$+XD$)*,*,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    find record (atndChannel,KEY=XEM$+XD$) atndRecord$
+
+    REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
+    REM  original variables except for actual read/write I/O -- for which the string template is used.
+    
+    PTS = atndRecord.PTS
+    CD$ = atndRecord.CD$
+    STATUS$ = atndRecord.STAT$
+    COMNT$ = atndRecord.TEXT$
+    ACDT$ = atndRecord.ADDDT$ + atndRecord.CHGDT$
+    WH$ = atndRecord.ADDBY$ + atndRecord.CHGBY$
+    XLV$ = atndRecord.LVAR$
     
     LET GT1FL=0
 
@@ -244,11 +279,27 @@ old_policy_process_employees:
 sr_read_attend_transactions_for_employee:
 
     LET OK$="",LD$="",AC=0
-    READ (atndChannel,KEY="0"+K$,ERR=*next)
+
+    rem READ (atndChannel,KEY="0"+K$,ERR=*next)
+    read record (atndChannel,KEY="0"+K$,ERR=*next) atndRecord$
     
     read_another_attend_pts_record:
     
-    READ (atndChannel,ERR=finished_reading_pts_for_employee)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$  
+    rem READ (atndChannel,ERR=finished_reading_pts_for_employee)EM$,DT$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    read record (atndChannel,ERR=finished_reading_pts_for_employee) atndRecord$
+    
+    REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
+    REM  original variables except for actual read/write I/O -- for which the string template is used.
+    
+    EM$ = atndRecord.BADG$
+    DT$ = atndRecord.PTDT$
+    PTS = atndRecord.PTS
+    CD$ = atndRecord.CD$
+    STATUS$ = atndRecord.STAT$
+    COMNT$ = atndRecord.TEXT$
+    ACDT$ = atndRecord.ADDDT$ + atndRecord.CHGDT$
+    WH$ = atndRecord.ADDBY$ + atndRecord.CHGBY$
+    XLV$ = atndRecord.LVAR$
 
     IF EM$<>"0"+K$ THEN GOTO finished_reading_pts_for_employee
 
@@ -285,7 +336,21 @@ sr_read_attend_transactions_for_employee:
 
 sr_inactivate_this_record:
 
-    EXTRACT (atndChannel,KEY=XEM$+XD$)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    rem EXTRACT (atndChannel,KEY=XEM$+XD$)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    extract record (atndChannel,KEY=XEM$+XD$) atndRecord$
+
+    REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
+    REM  original variables except for actual read/write I/O -- for which the string template is used.
+    
+    XEM$ = atndRecord.BADG$
+    XD$ = atndRecord.PTDT$
+    PTS = atndRecord.PTS
+    CD$ = atndRecord.CD$
+    STATUS$ = atndRecord.STAT$
+    COMNT$ = atndRecord.TEXT$
+    ACDT$ = atndRecord.ADDDT$ + atndRecord.CHGDT$
+    WH$ = atndRecord.ADDBY$ + atndRecord.CHGBY$
+    XLV$ = atndRecord.LVAR$
     
     LET STATUS$="I"
 
@@ -335,7 +400,29 @@ sr_inactivate_this_record:
     
     LET COMNT$=CVS(COMNT$,3),ACDT$(9,8)=DAY,WH$(11,10)="cpu       "
     LET PTS=PTS-GT1FL
-    WRITE (atndChannel)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
+    REM  original variables except for actual read/write I/O -- for which the string template is used.
+    
+    atndRecord.BADG$ = XEM$
+    atndRecord.PTDT$ = XD$
+    atndRecord.PTS = PTS
+    atndRecord.CD$ = CD$
+    atndRecord.STAT$ = STATUS$
+    atndRecord.TEXT$ = COMNT$
+    atndRecord.ADDDT$ = ACDT$(1,8)
+    atndRecord.CHGDT$ = ACDT$(9)
+    atndRecord.ADDBY$  = WH$(1,10)
+    atndRecord.CHGBY$ = WH$(11)
+    atndRecord.LVAR$ = XLV$
+    
+    rem WRITE (atndChannel)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
+    
+    atndRecord$ = FIELD(atndRecord$)
+    
+    REM  TODO: May have to add default values for the 4 new fields: work_file_id, wfmr_exc_def_in, wfmr_reason_id, disp_cd
+    
+    write record (atndChannel) atndRecord$
     
     RETURN
 

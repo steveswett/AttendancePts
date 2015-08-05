@@ -93,11 +93,8 @@ send_simple_email:
     endif
 
     returnCode = scall(emailCmd$)
-    
-    REM  TODO: likely need logging added here -- if email fails, for example
-    
-    rem print @(0,22), 'CL', "emailCmd returnCode = ", returnCode
-    rem input @(70,22), "(hit enter)", ignoreInput$ 
+
+    if returnCode > 0 then gosub log_error
 
     return
     
@@ -133,10 +130,20 @@ send_email_with_attachment:
     endif
 
     returnCode = scall(emailCmd$)
-    
-    REM  TODO: likely need logging added here -- if email fails, for example
-    
-    rem print @(0,22), 'CL', "emailCmd returnCode = ", returnCode
-    rem input @(70,22), "(hit enter)", ignoreInput$ 
 
+    if returnCode > 0 then gosub log_error
+
+    return
+    
+
+REM  ------------------------------------------------------------
+REM  Log error
+REM  ------------------------------------------------------------
+
+log_error:    
+
+    REM  TODO: In future, perhaps do more robust error logging that would include more details
+    
+    call "LOGERR", pgm(-2), returnCode, TCB(5)
+    
     return

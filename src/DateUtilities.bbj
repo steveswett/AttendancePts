@@ -20,7 +20,7 @@ fnend
 def fnGetYYMDasMDYwithDayAbbrev$(aYYYYMMDD$)
     
     tmpJul = jul( num(aYYYYMMDD$(1,4)), num(aYYYYMMDD$(5,2)), num(aYYYYMMDD$(7,2)) )
-    tmpDate$ = date(tmpJul:"%Mz/%D/%Yz %Ds")
+    tmpDate$ = date(tmpJul:"%Mz/%Dz/%Yz %Ds")
     if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
     return tmpDate$
       
