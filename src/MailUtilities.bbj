@@ -89,7 +89,10 @@ send_simple_email:
 :                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + tweakedBody$ + """ "+
 :                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$
     else
-        emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ " + recipients$
+        spaceDelimitedRecipients$ = recipients$
+        CALL "_repl.utl", spaceDelimitedRecipients$,","," "
+
+        emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ " + spaceDelimitedRecipients$
     endif
 
     returnCode = scall(emailCmd$)
@@ -123,10 +126,13 @@ send_email_with_attachment:
 :                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$ + " " +
 :                   "-attach """ + attachmentFileName$ + """,""" + attachmentMimeType$ + """,a"   
     else
+        spaceDelimitedRecipients$ = recipients$
+        CALL "_repl.utl", spaceDelimitedRecipients$,","," "
+
         bodyFileName$ = "/usr/tmpfiles/" + pgm(-2) + "-" + FID(0) + ".txt"
         setupCmd$ = "echo """ + body$ + """ > " + bodyFileName$
         returnCode = scall(setupCmd$)
-        emailCmd$ = "/usr/bin/mpack -s """ + subject$ + """ -d " + bodyFileName$ + " """ + attachmentFileName$ + """ " + recipients$
+        emailCmd$ = "/usr/bin/mpack -s """ + subject$ + """ -d " + bodyFileName$ + " """ + attachmentFileName$ + """ " + spaceDelimitedRecipients$
     endif
 
     returnCode = scall(emailCmd$)

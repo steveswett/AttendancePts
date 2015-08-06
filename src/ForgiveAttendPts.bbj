@@ -28,8 +28,6 @@ declare java.util.Vector inactivatedPtsRecordsList!
 BEGIN
 
 
-
-
 SETERR handle_error
 
 
@@ -37,14 +35,8 @@ rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 constants:
 
-
 TRUE = 1
 FALSE = 0
-
-rem  Temporarily send only to Steve (for testing)
-
-EMAIL_RECIPIENTS$ = "steve.swett@notionsmarketing.com"    
-REM  EMAIL_RECIPIENTS$ = "rshoemaker annm terry stevett"
 
 OUTPUT_FILE_MIME_TYPE$ = "text/csv"
 
@@ -60,23 +52,17 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
-    call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
 
-    call "ConfigVarsDAO.bbj::get_value", "is.windows.environment", configVarFound, configVarDataType$, isWindowsEnv$
-    isWindowsEnv = num(isWindowsEnv$)
+    gosub common_init
     
-    trimmedPolicyCode$ = cvs(attendPtsPolicyCode$, 2)
-    
-    if trimmedPolicyCode$ = "2015 Aug Before" then
-        gosub common_init
+    if trimmedAttendPolicyCode$ = "2015 Aug Before" then
         gosub old_policy_init
         gosub old_policy_open_files
         gosub old_policy_process_employees
         gosub common_send_results_email
     endif
     
-    if trimmedPolicyCode$ = "2015 Aug After" then
-        gosub common_init
+    if trimmedAttendPolicyCode$ = "2015 Aug After" then
         gosub new_policy_process_employees
         gosub common_send_results_email
     endif
@@ -90,7 +76,7 @@ main_routine:
     eoj:
     RELEASE
     
-    if trimmedPolicyCode$ = "2015 Aug Before" then
+    if trimmedAttendPolicyCode$ = "2015 Aug Before" then
         gosub old_policy_close_files
     endif
     
@@ -108,6 +94,14 @@ subroutines:
 
 
 common_init:
+
+    call "ConfigVarsDAO.bbj::get_value", "mail.recipients.forgive.attend.pts", configVarFound, configVarDataType$, mailRecipients$
+
+    call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
+    trimmedAttendPolicyCode$ = cvs(attendPtsPolicyCode$, 2)
+
+    call "ConfigVarsDAO.bbj::get_value", "is.windows.environment", configVarFound, configVarDataType$, isWindowsEnv$
+    isWindowsEnv = num(isWindowsEnv$)
 
     if !(isWindowsEnv) then
         LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
@@ -518,12 +512,12 @@ common_send_results_email:
     IF workFileLines < 1 THEN 
         subject$ = "No Attendance Points file today"
         body$ = "No Attendance Points file today - nothing to report."
-        call "MailUtilities.bbj::send_simple_email_msg", EMAIL_RECIPIENTS$, subject$, body$
+        call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$
     ELSE
         WAIT 2
         subject$ = "attendance points file"
         body$ = "The attached file contains a list of employees and inactivated attendance points."
-        call "MailUtilities.bbj::send_email_msg_with_attachment", EMAIL_RECIPIENTS$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
+        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
     endif
 
     return
