@@ -73,24 +73,23 @@ REM  ------------------------------------------------------------
     
 send_simple_email:
 
+    REM  resolve keyword *user (current user)
+    
+    resolvedRecipients$ = recipients$
+    call "_repl.utl", resolvedRecipients$, "*user", cvs( info(3, 2), 3 ) + "@notionsmarketing.com"
+
     if useWindowsMailSend then
     
         REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
         REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
     
-        tweakedBody$ = body$
-        
-        REM  Following is not working
-        
-        REM  call "StringUtilities.bbj::replace_all_in_string", stringIn$, $0A$, "<br/>", tweakedBody$
-    
-        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + recipients$ + " "+
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + resolvedRecipients$ + " "+
 :                   "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth "+
-:                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + tweakedBody$ + """ "+
+:                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + body$ + """ "+
 :                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$
     else
-        spaceDelimitedRecipients$ = recipients$
-        CALL "_repl.utl", spaceDelimitedRecipients$,","," "
+        spaceDelimitedRecipients$ = resolvedRecipients$
+        call "_repl.utl", spaceDelimitedRecipients$,","," "
 
         emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ " + spaceDelimitedRecipients$
     endif
@@ -109,25 +108,24 @@ REM  ------------------------------------------------------------
     
 send_email_with_attachment:
 
+    REM  resolve keyword *user (current user)
+    
+    resolvedRecipients$ = recipients$
+    call "_repl.utl", resolvedRecipients$, "*user", cvs( info(3, 2), 3 ) + "@notionsmarketing.com"
+
     if useWindowsMailSend then
     
         REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
         REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
     
-        tweakedBody$ = body$
-        
-        REM  Following is not working
-        
-        REM  call "StringUtilities.bbj::replace_all_in_string", stringIn$, $0A$, "<br/>", tweakedBody$
-    
-        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + recipients$ + " "+
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + resolvedRecipients$ + " "+
 :                   "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth "+
-:                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + tweakedBody$ + """ "+
+:                   "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + body$ + """ "+
 :                   "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$ + " " +
 :                   "-attach """ + attachmentFileName$ + """,""" + attachmentMimeType$ + """,a"   
     else
-        spaceDelimitedRecipients$ = recipients$
-        CALL "_repl.utl", spaceDelimitedRecipients$,","," "
+        spaceDelimitedRecipients$ = resolvedRecipients$
+        call "_repl.utl", spaceDelimitedRecipients$,","," "
 
         bodyFileName$ = "/usr/tmpfiles/" + pgm(-2) + "-" + FID(0) + ".txt"
         setupCmd$ = "echo """ + body$ + """ > " + bodyFileName$
