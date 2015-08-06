@@ -25,3 +25,6 @@ print "formatted timestamp = ", fmtTimestamp$
 
 call "DateUtilities.bbj::get_current_timestamp", timeStamp$
 print "current timestamp = ", timeStamp$
+
+
+print "current date using day var = ", day

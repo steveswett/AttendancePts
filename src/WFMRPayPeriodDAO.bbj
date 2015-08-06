@@ -47,7 +47,6 @@ setup_constants:
     TRUE = 1
     FALSE = 0
 
-    wfmrDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
     
     PAY_PERIODS_SELECT_STMT$ = 

@@ -1,0 +1,26 @@
+REM /**
+REM  * TestInactivatePtsOlderThan12Months.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.Vector
+
+declare java.util.Vector inactivatedPtsRecordsList!
+
+inactivatedPtsRecordsList! = new java.util.Vector()
+
+doActualUpdate = FALSE
+call "AttendPtsDAO.bbj::inactivate_pts_older_than_12_months", doActualUpdate, inactivatedPtsRecordsList!
+
+workFileLines = inactivatedPtsRecordsList!.size()
+
+if workFileLines > 0 then
+
+    for x = 0 to workFileLines -1
+        print inactivatedPtsRecordsList!.get(x) + $0A$
+    next x
+
+endif
+
+print "workFileLines = ", workFileLines

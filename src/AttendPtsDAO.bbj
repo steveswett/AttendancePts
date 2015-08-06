@@ -7,6 +7,7 @@ REM  */
 
 use java.util.LinkedHashMap
 use java.util.HashMap
+use java.util.Vector
 
 declare java.util.LinkedHashMap attPtsWorkRecordsToPostMap!
 declare java.util.HashMap attPtsWorkDataMap!
@@ -23,6 +24,8 @@ declare java.util.HashMap thresholdDataMap!
 
 declare java.util.LinkedHashMap thresholdChangesMap!
 declare java.util.HashMap thresholdChangeDetailsMap!
+
+declare java.util.Vector inactivatedPtsRecordsList!
 
 
 
@@ -63,6 +66,17 @@ get_current_pts_level_for_employees:
     gosub load_thresholds_map
     
     exit
+    
+    
+inactivate_pts_older_than_12_months:
+
+    enter doActualUpdateIn, inactivatedPtsRecordsList!
+    
+    gosub setup_constants
+    
+    gosub inactivate_old_points
+    
+    exit
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -80,6 +94,8 @@ setup_constants:
     FALSE = 0
 
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     call "ConfigVarsDAO.bbj::get_value", "mail.recipients.attend.pts.warning.levels", configVarFound, configVarDataType$, warningLevelsRecipients$
     
@@ -100,6 +116,24 @@ setup_constants:
 :       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
 :       "values " +
 :       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+    GET_DATE_12_MONTHS_AGO_STMT$ = "select convert(varchar(10), dateadd(month, -12, getdate()), 120) as year_ago_date"
+    
+    PTS_TO_BE_INACTIVATED_STMT$ = 
+:       "select employ.badg, employ.name, ptdt, pts " +
+:       "from atnd " +
+:       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
+:       "where atnd.PTDT <= ? and atnd.STAT = 'A' and employ.termdt = '' " +
+:       "order by employ.name, ptdt"
+
+    SET_TO_INACTIVATED_STMT$ =
+:       "update atnd " +
+:       "set " +
+:       "stat = 'I', " +
+:       "text = trim(text) + ' - auto inactivated', " +
+:       "chgdt = ?, " +
+:       "chgby = 'cpu       ' " +
+:       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
 
     
     return
@@ -430,6 +464,63 @@ load_thresholds_map:
     wend
     
     sqlclose(thresholdsChannel)
+    
+    return
+
+    
+REM  ------------------------------------------------------------
+REM  Inactivate points older than 12 months (from today)
+REM  ------------------------------------------------------------
+    
+    
+inactivate_old_points:
+
+    inactivatedPtsRecordsList!.clear()
+
+    REM  Step 1. Compute date 12 months ago (using SQL Server for leap year handling)
+    
+    sqlServerChannel = sqlunt
+    sqlopen(sqlServerChannel) wfmrDataSource$
+    
+    sqlprep(sqlServerChannel) GET_DATE_12_MONTHS_AGO_STMT$
+    sqlexec(sqlServerChannel)
+     
+    dim resultRow$:sqltmpl(sqlServerChannel)
+    resultRow$ = sqlfetch(sqlServerChannel,err=failed_year_ago_fetch)
+    yearAgoDate$ = resultRow.year_ago_date$
+    
+    REM  Step 2. Query to get list of employees who qualify to have pts inactivated
+    
+    cutOffDate$ = yearAgoDate$(1,4) + yearAgoDate$(6,2) + yearAgoDate$(9,2)
+     
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsChannel) PTS_TO_BE_INACTIVATED_STMT$
+    sqlexec(attendPtsChannel) cutOffDate$
+
+    dim resultRow$:sqltmpl(attendPtsChannel)
+
+    while TRUE
+        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
+        call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", resultRow.ptdt$, TRUE, fmtPtsDate$ 
+        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts)
+        inactivatedPtsRecordsList!.add(outputRecord$) 
+    wend
+    
+    
+    REM  Step 3. Run the update query to inactivate the points
+    
+    if doActualUpdateIn then
+        sqlprep(attendPtsChannel) SET_TO_INACTIVATED_STMT$
+        sqlexec(attendPtsChannel) day, cutOffDate$
+    endif
+    
+    sqlclose(attendPtsChannel)
+    
+    failed_year_ago_fetch:
+    
+    sqlclose(sqlServerChannel)
     
     return
     

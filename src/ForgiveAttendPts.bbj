@@ -20,8 +20,15 @@ REM 07/11...SHOW RECORDS WE WOULD INACTIVATE
 REM 02/12...CHANGE TRANSACTIONS TO INACTIVE (6250)
 REM 08/15...CREATED ForgiveAttendPts based on ATND20
 
+use java.util.Vector
+
+declare java.util.Vector inactivatedPtsRecordsList!
+
 
 BEGIN
+
+
+
 
 SETERR handle_error
 
@@ -61,17 +68,17 @@ main_routine:
     trimmedPolicyCode$ = cvs(attendPtsPolicyCode$, 2)
     
     if trimmedPolicyCode$ = "2015 Aug Before" then
+        gosub common_init
         gosub old_policy_init
         gosub old_policy_open_files
         gosub old_policy_process_employees
-        gosub old_policy_send_results_email
+        gosub common_send_results_email
     endif
     
     if trimmedPolicyCode$ = "2015 Aug After" then
-        gosub old_policy_init
-        gosub old_policy_open_files
-        gosub old_policy_process_employees
-        gosub old_policy_send_results_email
+        gosub common_init
+        gosub new_policy_process_employees
+        gosub common_send_results_email
     endif
 
     
@@ -96,17 +103,35 @@ subroutines:
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  old_policy_initialize
+    rem  Init routine used by both policies
     rem ------------------------------------------------------------------------------------------
 
 
-old_policy_init:
+common_init:
 
     if !(isWindowsEnv) then
         LET S=SCALL("cp /usr/notfil/ATND /usr/old 2>/dev/null")
     endif
     
     call "TerminalUtilities.bbj::get_unqualified_program_name", pgm(-2), P$
+
+    REM  Erase and re-create output file 
+
+    LET outputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+".csv"
+    ERASE outputFileName$,ERR=*next
+
+    STRING outputFileName$
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  old_policy_initialize
+    rem ------------------------------------------------------------------------------------------
+
+
+old_policy_init:
+
     LET TODY$=FNQ$(DAY)
     LET X$=DAY
     LET M$=X$(1,2)
@@ -116,14 +141,6 @@ old_policy_init:
     
     IF X$(1,2)<>M$ THEN LET LASTD=1
           
-
-    REM  Erase and re-create output file 
-
-    LET outputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+".csv"
-    ERASE outputFileName$,ERR=*next
-
-    STRING outputFileName$
-
     return
     
 
@@ -217,7 +234,7 @@ old_policy_process_employees:
     
     LET R$=K$+","+NM$+","+STR(TP)+","+STR(CNTR)+","+X$+","
     PRINT (outputFileChannel)R$
-    LET WFL=WFL+1
+    LET workFileLines=workFileLines+1
     LET RC=0,XT=0
     CALL "BINSRT",ZX$,11
     
@@ -478,7 +495,7 @@ sr_append_to_comment_field:
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  Close files
+    rem  Old policy: Close files
     rem ------------------------------------------------------------------------------------------
 
 
@@ -496,17 +513,50 @@ old_policy_close_files:
     rem ------------------------------------------------------------------------------------------
 
 
-old_policy_send_results_email:
+common_send_results_email:
 
-    IF WFL<1 THEN 
+    IF workFileLines < 1 THEN 
         subject$ = "No Attendance Points file today"
         body$ = "No Attendance Points file today - nothing to report."
         call "MailUtilities.bbj::send_simple_email_msg", EMAIL_RECIPIENTS$, subject$, body$
     ELSE
         WAIT 2
         subject$ = "attendance points file"
-        body$ = "The attached file contains a list of employees and dropped attendance points due to perfect attendance."
+        body$ = "The attached file contains a list of employees and inactivated attendance points."
         call "MailUtilities.bbj::send_email_msg_with_attachment", EMAIL_RECIPIENTS$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
     endif
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  New policy: process employees
+    rem ------------------------------------------------------------------------------------------
+    
+    
+new_policy_process_employees:
+
+    inactivatedPtsRecordsList! = new java.util.Vector()
+    
+    doActualUpdate = TRUE
+    call "AttendPtsDAO.bbj::inactivate_pts_older_than_12_months", doActualUpdate, inactivatedPtsRecordsList!
+    
+    workFileLines = inactivatedPtsRecordsList!.size()
+    
+    if workFileLines > 0 then
+
+        outputFileChannel = unt
+        OPEN (outputFileChannel)outputFileName$
+        
+        print(outputFileChannel) "Employee,Name,Pts Date,Pts Inactivated"
+        
+        for x = 0 to workFileLines -1
+            print(outputFileChannel) inactivatedPtsRecordsList!.get(x)
+        next x
+
+        CLOSE (outputFileChannel)
+
+    endif
+    
 
     return

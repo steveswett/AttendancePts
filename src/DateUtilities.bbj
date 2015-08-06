@@ -64,6 +64,19 @@ get_yymd_as_mdy_with_day_name:
     mdyDayAbbrevOut$ = fnGetYYMDasMDYwithDayAbbrev$(yyyymmddIn$)
     
     exit
+    
+    
+get_yymd_as_mdyy_with_slashes:
+
+    enter yyyymmddIn$, trimLeadingZeroIn, mdyyWithSlashesOut$
+    
+    mdyyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(1,4)
+    
+    if trimLeadingZeroIn and mdyyWithSlashesOut$(1,1) = "0" then
+        mdyyWithSlashesOut$ = mdyyWithSlashesOut$(2)
+    endif
+    
+    exit
 
 
 get_yymdhms_as_mdy_with_time:
