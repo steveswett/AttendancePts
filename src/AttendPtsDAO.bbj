@@ -365,7 +365,6 @@ get_current_point_levels:
         dataWasSaved! = attPtsWorkDataMap!.get("saved")
         if dataWasSaved! = null() then continue
         dispCode$ = attPtsWorkDataMap!.get("disp_cd")
-        if dispCode$ = "N" then continue
         
         trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
         paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
