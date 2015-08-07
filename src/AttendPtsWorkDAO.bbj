@@ -251,6 +251,7 @@ setup_constants:
 :        "and Lab_Exception.exception_definition_id in("+
 :        exceptionIdsAsCSV$ +
 :        ") " +
+:        "and Lab_Job.name not like '%Supervisor%' " +
 :        "order by exception_date, shift, last_name, first_name "
     
     
@@ -300,7 +301,8 @@ setup_constants:
 :        "' and Lab_Employee_Attribute_List.end_date is null " +
 :        "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
 :        "and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
-:       "order by missed_shift_date, shift, last_name, first_name"
+:        "and Lab_Job.name not like '%Supervisor%' " +
+:        "order by missed_shift_date, shift, last_name, first_name"
 
 
     ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = 
