@@ -803,8 +803,8 @@ validate_input:
 
     erpPts = attPtsWorkDataMap!.get("erp_pts_assessed")
     
-    if (erpPts <= 0 or erpPts > 3) then
-        errMsg$ = "A non-zero value up to 3 is required in the ""Pts"" field."
+    if (erpPts < 0 or erpPts > 3) then
+        errMsg$ = "A value between 0 and 3 is required in the ""Pts"" field."
         currentFieldNo = ERP_PTS_FIELD_NO
         goto end_validate_input
     endif
