@@ -53,8 +53,18 @@ setup_constants:
 
     TRUE = 1
     FALSE = 0
+    
+    REM  The Data Source Name for the Config Var info is stored in the VZ file record with the "CV" key
+    VZ_KEY_CONFIG_VAR_DATA_SOURCE$ = "CV"
 
-    CONFIG_VARS_DATA_SOURCE$ = "Steve-Local"
+    REM  Default value:
+    configVarsDataSource$ = "Steve-Local"
+
+    call "OPEN90", vzChannel, "VZ", noTemplate$
+    read(vzChannel, key=VZ_KEY_CONFIG_VAR_DATA_SOURCE$, err=vz_read_fail) dataSourceName$
+    configVarsDataSource$ = cvs(dataSourceName$, 2)
+    vz_read_fail:
+    close(vzChannel)
     
     GET_CONFIG_VAR_SELECT_STMT$ = "select cv_value, value_type from config_vars where cv_key = ?"
     
@@ -68,7 +78,7 @@ REM  ------------------------------
 open_sql_channels:
 
     getConfigVarChannel = sqlunt
-    sqlopen(getConfigVarChannel) CONFIG_VARS_DATA_SOURCE$
+    sqlopen(getConfigVarChannel) configVarsDataSource$
     
     return
 
