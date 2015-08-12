@@ -27,6 +27,9 @@ declare java.util.HashMap thresholdChangeDetailsMap!
 
 declare java.util.Vector inactivatedPtsRecordsList!
 
+declare java.util.LinkedHashMap pointRecordsMap!
+declare java.util.HashMap pointDataMap!
+
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -77,6 +80,29 @@ inactivate_pts_older_than_12_months:
     gosub inactivate_old_points
     
     exit
+    
+    
+get_pts_records_for_employee:
+
+    enter badge5In$, showZeroPtRecordsIn, pointRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub load_point_records_map
+    
+    exit
+    
+    
+get_pts_total_for_employee:
+
+    enter badge5In$, ptsTotal
+    
+    gosub setup_constants
+    
+    gosub get_points_total
+    
+    exit
+    
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -135,6 +161,22 @@ setup_constants:
 :       "chgby = 'cpu       ' " +
 :       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
 
+    GET_NON_ZERO_PT_RECORDS_STMT$ =
+:       "select badg, ptdt, pts, stat, cd " +
+:       "from atnd " +
+:       "where badg = ? and stat = 'A' and pts > 0 " +
+:       "order by ptdt"
+
+    GET_ALL_PT_RECORDS_STMT$ =
+:       "select badg, ptdt, pts, stat, cd " +
+:       "from atnd " +
+:       "where badg = ?" +
+:       "order by ptdt"
+
+    GET_PTS_TOTAL_STMT$ =
+:       "select sum(pts) as pts_total " +
+:       "from atnd " +
+:       "where badg = ? and stat = 'A'"
     
     return
 
@@ -523,3 +565,70 @@ inactivate_old_points:
     
     return
     
+    
+REM  ------------------------------------------------------------
+REM  Load point records for a single employee
+REM  ------------------------------------------------------------
+    
+    
+load_point_records_map:
+
+    pointRecordsMap!.clear()
+    
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+    
+    if showZeroPtRecordsIn then
+        sqlprep(attendPtsChannel) GET_ALL_PT_RECORDS_STMT$
+    else
+        sqlprep(attendPtsChannel) GET_NON_ZERO_PT_RECORDS_STMT$
+    endif
+
+    badge6$ = "0" + badge5In$
+    sqlexec(attendPtsChannel) badge6$ 
+    dim resultRow$:sqltmpl(attendPtsChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
+        pointDataMap! = new java.util.HashMap()
+        pointDataMap!.put("pts", resultRow.pts)
+        pointDataMap!.put("stat", resultRow.stat$)
+        pointDataMap!.put("cd", resultRow.cd$)
+
+        pointRecordsMap!.put(resultRow.ptdt$, pointDataMap!)
+        
+    wend
+    
+    sqlclose(attendPtsChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------
+REM  Get total active points for a single employee
+REM  ------------------------------------------------------------
+    
+    
+get_points_total:
+
+    ptsTotal = 0
+    
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsChannel) GET_PTS_TOTAL_STMT$
+
+    badge6$ = "0" + badge5In$
+    sqlexec(attendPtsChannel) badge6$ 
+    dim resultRow$:sqltmpl(attendPtsChannel)
+    
+    resultRow$ = sqlfetch(attendPtsChannel,err=total_not_found)
+    
+    ptsTotal = resultRow.pts_total
+    
+    total_not_found:
+    
+    sqlclose(attendPtsChannel)
+
+    return

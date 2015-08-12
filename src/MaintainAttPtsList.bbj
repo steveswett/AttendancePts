@@ -1,0 +1,481 @@
+REM /**
+REM  * MaintainAttPtsList.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.LinkedHashMap pointRecordsMap!
+declare java.util.HashMap pointDataMap!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+TRUE = 1
+FALSE = 0
+
+RECORDS_PER_PAGE = 7
+COLUMNS_PER_PAGE = 1
+RECORDS_PER_COLUMN = 7
+START_ROW_FOR_LIST = 6
+END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
+SHOW_FIELD_TERMINATOR_PRESSED = FALSE
+
+LINE_FIELD_NO = 1
+
+
+
+REM     Note about INPUTE:
+REM     
+REM     Any value less than 63 will cause the input function to exit setting the CTL value to the function value. 
+REM     The "help" function causes an exit with CTL=-1.
+
+
+F2_CUSTOM_INPUT_VALUE$ = $81$
+F2_CTL_OUTPUT_VALUE$ = $02$
+
+F4_CUSTOM_INPUT_VALUE$ = $82$
+F4_CTL_OUTPUT_VALUE$ = $04$
+
+F6_CUSTOM_INPUT_VALUE$ = $83$
+F6_CTL_OUTPUT_VALUE$ = $06$
+
+TAB_CUSTOM_INPUT_VALUE$ = $09$
+TAB_CTL_OUTPUT_VALUE$ = $19$
+
+BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
+BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
+
+PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
+
+PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+def fnHasRecordsBefore%(aDoIt)
+
+    return topLeftMapIndex > 1
+
+fnend
+
+
+def fnHasRecordsAfter%(aDoIt)
+
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < pointRecordsMapSize
+
+fnend
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub init
+    
+    gosub display_screen_headings
+    
+    gosub display_data
+    
+    REM  gosub handle_input
+    input @(0,22), 'CL', "Hit any key", ignoreInput$
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    release
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+
+    badge5In$ = argv(1)
+    
+    call "EmployeeMasterDAO.bbj::get_name_last_first_mi", badge5In$, employeeName$
+    
+    showZeroPtRecords = FALSE
+
+        rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
+        rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
+
+    print 'UC', 'CS', 'ET'
+    
+        rem Set color.  In the following, $03$ is the background (blue) and $3F$ is the foreground (white).
+        rem The bits for that were: 0 0 1 1 1 1 1 1  (<-- foreground)   0 0 0 0 0 0 1 1  (<-- background)
+        
+    print 'RGB'($033F$);   rem blue background, white foreground
+    rem print 'RGB'($033C$);   rem blue background, yellow foreground
+    rem print 'RGB'($0330$);   rem blue background, red foreground
+    
+    print 'CURSOR'("rep_block");   rem This only works in BBj -- not Pro/5
+
+
+        rem For info on function key programming, see this article: http://www.basis.com/kb00025
+        rem Also see Basis help: PRO/5 > User's Ref > Character Devices > Terminals > Function and Edit Keys
+    
+        rem Below is how the 'FL' (function keys) and 'EL' (edit keys) mnemonics are used to assign a key a value
+        
+        rem "2" - load only one key
+        rem $01$ - means the F2 key (0-based)
+        rem chr(1) - means the custom value of the function key is 1 byte long
+        rem F2_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
+        
+    print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
+    print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
+    
+    f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
+    f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
+    f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
+    pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
+    pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
+    tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
+    backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
+    
+    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    
+    gosub load_point_records_map
+    
+    topLeftMapIndex = 1
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Load the pointRecordsMap! -- which holds a row of data per date
+    rem ------------------------------------------------------------------------------------------
+
+
+load_point_records_map:
+
+    pointRecordsMap! = new java.util.LinkedHashMap()
+
+    call "AttendPtsDAO.bbj::get_pts_records_for_employee", badge5In$, showZeroPtRecords, pointRecordsMap!
+    
+    pointRecordsMapSize = pointRecordsMap!.size()
+    
+    call "AttendPtsDAO.bbj::get_pts_total_for_employee", badge5In$, ptsTotal
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the screen headings
+    rem ------------------------------------------------------------------------------------------
+
+
+display_screen_headings:
+
+    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "ATTENDANCE POINTS" 
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display data on page, besides page headings
+    rem ------------------------------------------------------------------------------------------
+
+    
+display_data:
+
+    print @(0,0), 'CE', 'UC'
+    
+    gosub display_screen_headings
+    
+    print @(0,3), badge5In$
+    print @(7,3), employeeName$
+    print @(48,3), "TOTAL ATTENDANCE POINTS: ", ptsTotal
+
+    print @(0,5), "LINE  DATE    PTS  STATUS  CODE  WFMR  DISP  PTS RMVD  RMV DATE  SYSTEM   RUN"
+    
+    count = 0
+    displayedCount = 0
+    
+    dim datesArray![1:RECORDS_PER_PAGE]
+
+
+    iter! = pointRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+      dateKey! = iter!.next()
+      count = count + 1
+      
+      if count < topLeftMapIndex then continue
+      if count > topLeftMapIndex + RECORDS_PER_PAGE - 1 then break
+      
+      displayedCount = displayedCount + 1
+      
+      datesArray![displayedCount] = dateKey!
+      
+      unformattedDate$ = dateKey!
+
+      call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, formattedDate$ 
+
+      pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(dateKey!) )
+      
+      row = START_ROW_FOR_LIST + displayedCount - 1
+      
+      print @(1, row), str(displayedCount), "." 
+      print @(5, row), formattedDate$
+      print @(14,row), pointDataMap!.get("pts")
+      print @(21,row), pointDataMap!.get("stat")
+      print @(29,row), pointDataMap!.get("cd")
+      
+    wend
+
+    print @(0, 21), "Line: ", 'BU', " ", 'EU'
+    
+    canPageUp = fnHasRecordsBefore%(TRUE)
+    canPageDown = fnHasRecordsAfter%(TRUE)
+    
+    actionLabel$ = "F6=Jump To  "
+
+    if showZeroPtRecords then
+        actionLabel$ = actionLabel$ + "F8=Hide Zero Pt Rows   "
+    else
+        actionLabel$ = actionLabel$ + "F8=Show Zero Pt Rows   "
+    endif
+    
+    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
+    if canPageDown then actionLabel$ = actionLabel$ + "Page Dn=Next Page   "
+    
+    print @(14,21), actionLabel$ 
+    
+    if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Handle input, which will be F4 or Page Up or Page Down
+    rem ------------------------------------------------------------------------------------------
+
+    
+handle_input:
+
+    currentFieldNo = LINE_FIELD_NO
+
+    while TRUE
+        
+        if currentFieldNo = LINE_FIELD_NO then
+            print @(6, 21), 'BU'
+            inpute 6, 21, 2, "", line$ 
+            print @(8, 21), 'EU' 
+        endif
+            
+        gosub clear_err_msg
+
+        savedCTL = CTL
+        isTabbing = FALSE
+        needToBreak = FALSE
+        
+        switch savedCTL
+        
+            case ASC(F4_CTL_OUTPUT_VALUE$)
+                    needToBreak = TRUE
+        
+                    break
+        
+            case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
+                    if canPageUp then
+                        gosub set_top_left_map_index_for_page_up
+                    endif
+        
+                    break
+                    
+            case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
+                    if canPageDown then
+                        gosub set_top_left_map_index_for_page_down
+                    endif
+                    
+                    break
+                    
+            case ASC(TAB_CTL_OUTPUT_VALUE$)
+                    isTabbing = TRUE
+                    gosub set_field_no_after_tabbing
+                    
+                    break
+                    
+            case ASC(BACKTAB_CTL_OUTPUT_VALUE$)
+                    isTabbing = TRUE
+                    gosub set_field_no_after_back_tabbing
+                    
+                    break
+                    
+            case 0
+                    gosub validate_input
+                    
+                    if len(errMsg$) > 0 then
+                        gosub display_err_msg
+                    else
+                        tmpDate! = datesArray![ num(line$) ]
+                        pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
+                        call "ApproveAttPtsEmpSel.bbj", shiftIn$, deptIdIn, deptNameIn$, tmpDate!, pointDataMap!, overallSavedAnyRecordsOut
+                        
+                        if overallSavedAnyRecordsOut then
+                            gosub load_point_records_map
+                        endif 
+                        
+                    endif
+                    
+                    break
+        swend
+
+        if needToBreak then break
+
+        if isTabbing and SHOW_FIELD_TERMINATOR_PRESSED then
+            print @(55,21), 'CL', "CTL, savedCTL: ", CTL, ", ", savedCTL
+        endif
+
+        if !(isTabbing) and len(errMsg$) = 0 then
+            gosub display_data
+        endif
+        
+    wend
+    
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Up is pressed, calculate a new topLeftMapIndex
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_top_left_map_index_for_page_up:
+
+    topLeftMapIndex = topLeftMapIndex - RECORDS_PER_PAGE
+    
+    if topLeftMapIndex < 1 then topLeftMapIndex = 1
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Down is pressed, calculate a new topLeftMapIndex
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_top_left_map_index_for_page_down:
+
+    topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
+    
+    if topLeftMapIndex > pointRecordsMapSize then topLeftMapIndex = pointRecordsMapSize
+
+    return    
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  set_field_no_after_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_field_no_after_tabbing:
+
+    currentFieldNo = currentFieldNo + 1
+    if currentFieldNo > 2 then currentFieldNo = 1
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  set_field_no_after_back_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_field_no_after_back_tabbing:
+
+    currentFieldNo = currentFieldNo - 1
+    if currentFieldNo < 1 then currentFieldNo = 2
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  clear_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+clear_err_msg:
+
+    print @(0,22), 'CL'
+    errMsg$ = ""
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  display_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+display_err_msg:
+
+    print @(0,22), 'CL', 'BR', pad(errMsg$, 80, "L", " "), 'ER'
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  validate_input
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_input:
+
+    hasLineErr = FALSE
+    
+    line = num(line$,err=invalid_line_no_format)
+    
+    if line < 1 or line > displayedCount then
+        hasLineErr = TRUE
+    endif
+    
+    remainder = mod(line, 1)
+    
+    if remainder <> 0 then
+        hasLineErr = TRUE
+    endif
+    
+    goto skip_line_no_format
+    
+    invalid_line_no_format:
+        hasLineErr = TRUE
+    
+    skip_line_no_format:
+    
+    if hasLineErr then
+        errMsg$ = "Invalid line number."
+        currentFieldNo = LINE_FIELD_NO
+    endif
+  
+        
+    return

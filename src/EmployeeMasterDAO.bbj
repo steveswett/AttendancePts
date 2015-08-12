@@ -1,0 +1,83 @@
+REM /**
+REM  * EmployeeMasterDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+get_name_last_first_mi:
+
+    enter badgeIn$, nameOut$
+    
+    gosub setup_constants
+    
+    gosub query_for_last_first_mi
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------
+REM  setup_constants
+REM  ------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    REM  TODO: In future, use Java static class to store config var names (to remove redundancy)
+    
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    GET_LAST_FIRST_MI_SELECT_STMT$ = "select rtrim(substring(name, 14, 14)) + ', ' + rtrim(substring(name, 1, 11)) + ' ' + rtrim(substring(name, 12, 2)) as last_first_mi " +
+:                                    "from employ where badg = ?"
+    
+    return
+
+
+REM  ------------------------------
+REM  query_for_last_first_mi
+REM  ------------------------------
+
+query_for_last_first_mi:
+
+    employChannel = sqlunt
+    sqlopen(employChannel) attendPtsDataSource$
+
+    sqlprep(employChannel) GET_LAST_FIRST_MI_SELECT_STMT$
+
+    nameOut$ = ""
+    
+    sqlexec(employChannel) badgeIn$
+    dim resultRow$:sqltmpl(employChannel)
+    
+    resultRow$ = sqlfetch(employChannel,err=emp_name_not_found)
+    nameOut$ = cvs(resultRow.last_first_mi$, 2)
+    
+    emp_name_not_found:
+    
+    sqlclose(employChannel)
+
+    return

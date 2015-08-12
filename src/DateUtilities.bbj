@@ -77,6 +77,19 @@ get_yymd_as_mdyy_with_slashes:
     endif
     
     exit
+    
+    
+get_yymd_as_mdy_with_slashes:
+
+    enter yyyymmddIn$, trimLeadingZeroIn, mdyWithSlashesOut$
+    
+    mdyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(3,2)
+    
+    if trimLeadingZeroIn and mdyWithSlashesOut$(1,1) = "0" then
+        mdyWithSlashesOut$ = mdyWithSlashesOut$(2)
+    endif
+    
+    exit
 
 
 get_yymdhms_as_mdy_with_time:
