@@ -162,13 +162,13 @@ setup_constants:
 :       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
 
     GET_NON_ZERO_PT_RECORDS_STMT$ =
-:       "select badg, ptdt, pts, stat, cd " +
+:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, chgby, text " +
 :       "from atnd " +
 :       "where badg = ? and stat = 'A' and pts > 0 " +
 :       "order by ptdt"
 
     GET_ALL_PT_RECORDS_STMT$ =
-:       "select badg, ptdt, pts, stat, cd " +
+:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, chgby, text " +
 :       "from atnd " +
 :       "where badg = ?" +
 :       "order by ptdt"
@@ -588,6 +588,8 @@ load_point_records_map:
     sqlexec(attendPtsChannel) badge6$ 
     dim resultRow$:sqltmpl(attendPtsChannel)
     
+    runningTotal = 0
+    
     while TRUE
     
         resultRow$ = sqlfetch(attendPtsChannel,err=*break)
@@ -595,6 +597,40 @@ load_point_records_map:
         pointDataMap!.put("pts", resultRow.pts)
         pointDataMap!.put("stat", resultRow.stat$)
         pointDataMap!.put("cd", resultRow.cd$)
+        pointDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        pointDataMap!.put("disp_cd", resultRow.disp_cd$)
+        pointDataMap!.put("chgby", resultRow.chgby$)
+        
+        if resultRow.stat$ = "A" then
+            runningTotal = runningTotal + resultRow.pts
+        endif
+
+        pointDataMap!.put("running_total", runningTotal)
+        
+        fullText$ = cvs(resultRow.text$,2)
+        textLength = len(fullText$)
+        text1$ = ""
+        text2$ = ""
+        text3$ = ""
+        
+        if textLength > 100 then
+            text1$ = fullText$(1,50)
+            text2$ = fullText$(51,50)
+            text3$ = fullText$(101)
+        endif
+        
+        if textLength > 50 and textLength <= 100 then
+            text1$ = fullText$(1,50)
+            text2$ = fullText$(51)
+        endif
+        
+        if textLength > 0 and textLength <= 50 then
+            text1$ = fullText$(1)
+        endif
+
+        pointDataMap!.put("text1", text1$)
+        pointDataMap!.put("text2", text2$)
+        pointDataMap!.put("text3", text3$)
 
         pointRecordsMap!.put(resultRow.ptdt$, pointDataMap!)
         

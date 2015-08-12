@@ -26,6 +26,7 @@ FALSE = 0
 RECORDS_PER_PAGE = 7
 COLUMNS_PER_PAGE = 1
 RECORDS_PER_COLUMN = 7
+ROWS_PER_RECORD = 2
 START_ROW_FOR_LIST = 6
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
@@ -242,13 +243,33 @@ display_data:
 
       pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(dateKey!) )
       
-      row = START_ROW_FOR_LIST + displayedCount - 1
+      system$ = iff( cvs(pointDataMap!.get("disp_cd"), 2) = "cpu", "Y", "N")
       
-      print @(1, row), str(displayedCount), "." 
+      text1$ = pointDataMap!.get("text1")
+      text2$ = pointDataMap!.get("text2")
+      text3$ = pointDataMap!.get("text3")
+      
+      if len(text1$) > 0 then
+        if len(text2$) > 0 or len(text3$) > 0 then
+            text1$ = cvs(text1$, 2) + " ..."
+        endif
+      endif
+      
+      row = START_ROW_FOR_LIST + displayedCount * ROWS_PER_RECORD - ROWS_PER_RECORD
+      
+      runningTotal = pointDataMap!.get("running_total")
+      
+      print @(1, row), displayedCount, "." 
       print @(5, row), formattedDate$
       print @(14,row), pointDataMap!.get("pts")
       print @(21,row), pointDataMap!.get("stat")
       print @(29,row), pointDataMap!.get("cd")
+      print @(33,row), pointDataMap!.get("wfmr_exc_def_id")
+      print @(40,row), pointDataMap!.get("disp_cd")
+      print @(67,row), system$
+      print @(73,row), str(runningTotal:"##.0")
+      
+      print @(26,row + 1), text1$ 
       
     wend
 

@@ -73,7 +73,7 @@ get_yymd_as_mdyy_with_slashes:
     mdyyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(1,4)
     
     if trimLeadingZeroIn and mdyyWithSlashesOut$(1,1) = "0" then
-        mdyyWithSlashesOut$ = mdyyWithSlashesOut$(2)
+        mdyyWithSlashesOut$ = " " + mdyyWithSlashesOut$(2)
     endif
     
     exit
@@ -86,7 +86,7 @@ get_yymd_as_mdy_with_slashes:
     mdyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(3,2)
     
     if trimLeadingZeroIn and mdyWithSlashesOut$(1,1) = "0" then
-        mdyWithSlashesOut$ = mdyWithSlashesOut$(2)
+        mdyWithSlashesOut$ = " " + mdyWithSlashesOut$(2)
     endif
     
     exit
