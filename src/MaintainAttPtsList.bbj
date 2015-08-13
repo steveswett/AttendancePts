@@ -118,7 +118,7 @@ init:
     
     call "EmployeeMasterDAO.bbj::get_name_last_first_mi", badge5In$, employeeName$
     
-    showZeroPtRecords = FALSE
+    showZeroPtRecords = TRUE
 
         rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
         rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
@@ -266,6 +266,8 @@ display_data:
       print @(29,row), pointDataMap!.get("cd")
       print @(33,row), pointDataMap!.get("wfmr_exc_def_id")
       print @(40,row), pointDataMap!.get("disp_cd")
+      print @(55,row), pointDataMap!.get("pts_removal_date")
+
       print @(67,row), system$
       print @(73,row), str(runningTotal:"##.0")
       

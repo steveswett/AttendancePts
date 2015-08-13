@@ -118,6 +118,16 @@ setup_constants:
 
     TRUE = 1
     FALSE = 0
+    
+    NO_OF_PTS_REMOVAL_PHRASES = 7
+    dim PTS_REMOVAL_PHRASES_ARRAY$[1:NO_OF_PTS_REMOVAL_PHRASES]
+    PTS_REMOVAL_PHRASES_ARRAY$[1] = "AWAY ON "
+    PTS_REMOVAL_PHRASES_ARRAY$[2] = "REMOVED "
+    PTS_REMOVAL_PHRASES_ARRAY$[3] = "INACTIVE ON "
+    PTS_REMOVAL_PHRASES_ARRAY$[4] = "OFF ON "
+    PTS_REMOVAL_PHRASES_ARRAY$[5] = "AWAY "
+    PTS_REMOVAL_PHRASES_ARRAY$[6] = "AWAYON "; REM  Yes, this "typo" one is intended
+    PTS_REMOVAL_PHRASES_ARRAY$[7] = "AWYA ON "; REM  Yes, this "typo" one is intended
 
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
 
@@ -631,6 +641,74 @@ load_point_records_map:
         pointDataMap!.put("text1", text1$)
         pointDataMap!.put("text2", text2$)
         pointDataMap!.put("text3", text3$)
+        
+        REM  Deduce the pts removal date:
+        ptsRemovalDate$ = ""
+        
+        for t = 3 to 1 -1
+        
+            switch t
+                
+                case 1
+                    textToSearch$ = cvs(text1$, 2)
+                    break
+                
+                case 2
+                    textToSearch$ = cvs(text2$, 2)
+                    break
+                
+                case 3
+                    textToSearch$ = cvs(text3$, 2)
+                    break
+                     
+            swend
+
+            needToBreak = FALSE
+
+            for i = 1 to NO_OF_PTS_REMOVAL_PHRASES
+            
+                searchFor$ = PTS_REMOVAL_PHRASES_ARRAY$[i] 
+                foundAt = pos(searchFor$=textToSearch$, -1)
+                
+                if foundAt > 0 then
+                    
+                    print "textToSearch$ = ", textToSearch$
+                    stringToTheRight$ = textToSearch$(foundAt + len(searchFor$))
+                    print "stringToTheRight$ = ", stringToTheRight$
+                    firstDateSlashAt = pos("/"=stringToTheRight$, 1, 1)
+                    secondDateSlashAt = pos("/"=stringToTheRight$, 1, 2)
+                    
+                    if firstDateSlashAt > 0 and secondDateSlashAt > 0 then
+                        endOfDatePos = secondDateSlashAt + 2 
+    
+                        if firstDateSlashAt = 2 then
+                            begOfDatePos = 1
+                        endif
+                        
+                        if firstDateSlashAt > 2 then
+                            begOfDatePos = firstDateSlashAt - 2
+                        endif
+                        
+                        dateLength = endOfDatePos - begOfDatePos + 1
+                        ptsRemovalDate$ = " " + stringToTheRight$(begOfDatePos, dateLength)
+                        
+                        print "ptsRemovalDate$ = ", ptsRemovalDate$
+    
+                        needToBreak = TRUE    
+                        break
+    
+                    endif 
+                    
+                endif
+                
+            next i
+            
+            if needToBreak then break
+        
+        next t
+        
+        
+        pointDataMap!.put("pts_removal_date", ptsRemovalDate$)
 
         pointRecordsMap!.put(resultRow.ptdt$, pointDataMap!)
         
