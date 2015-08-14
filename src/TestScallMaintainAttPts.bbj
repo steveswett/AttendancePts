@@ -1,0 +1,39 @@
+REM /**
+REM  * TestScallMaintainAttPts.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+cmd$ = "bbj MaintainAttPtsList.bbj - ""Steve"" ""Tennis"""
+
+returnCode = scall(cmd$)
+
+
+REM  The above could start a workspace program like in the following comment, but it couldn't write to a shared screen.
+REM  This is problematic when trying to do things interactively between Pro 5 and BBj.
+
+REM begin
+REM 
+REM name$ = argv(1)
+REM hobby$ = argv(2)
+REM 
+REM print "name$ = ", name$
+REM print "hobby$ = ", hobby$
+REM 
+REM input @(0,22), "Hit any key", ignoreInput$
+REM 
+REM end
+
+begin
+
+name$ = argv(1)
+hobby$ = argv(2)
+
+print @(0,0),'CS'
+
+print @(0,4),"name$ = ", name$
+print @(0,6), "hobby$ = ", hobby$
+
+input @(0,8), "Hit any key", ignoreInput$
+
+end

@@ -1,0 +1,21 @@
+REM /**
+REM  * BBJTEST.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+begin
+
+name$ = argv(1)
+hobby$ = argv(2)
+
+print @(0,0),'CS'
+
+print @(0,4),"name$ = ", name$
+print @(0,6), "hobby$ = ", hobby$
+
+input @(0,8), "Hit any key", ignoreInput$
+
+release
+
+end

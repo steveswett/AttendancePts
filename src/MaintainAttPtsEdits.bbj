@@ -37,11 +37,13 @@ START_ROW_FOR_LIST = 0
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-ERP_CODE_FIELD_NO = 1
-ERP_DESCR_FIELD_NO = 2
-ERP_PTS_FIELD_NO = 3
-ERP_STS_FIELD_NO = 4
-HIDDEN_FIELD_NO = 5
+PTS_FIELD_NO = 1
+STS_FIELD_NO = 2
+CODE_FIELD_NO = 3
+NOTES1_FIELD_NO = 4
+NOTES2_FIELD_NO = 5
+NOTES3_FIELD_NO = 6
+HIDDEN_FIELD_NO = 7
 
 
 REM     Note about INPUTE:
@@ -99,8 +101,7 @@ main_routine:
     
     gosub display_data
     
-    REM  gosub handle_input
-    input @(0,22), 'CL', "hit any key", ignoreInput$
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -181,7 +182,7 @@ init:
 
 display_screen_headings:
 
-    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "SUPERVISOR APPROVAL OF POINTS" 
+    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "ATTENDANCE POINTS" 
 
     return
 
@@ -241,10 +242,14 @@ display_data:
     print @(26,12), begUnLin$, pad( pointDataMap!.get("text3") , 50, "L", " "), endUnLin$
      
     dispCode$ = pointDataMap!.get("disp_cd")
-    call "ApproveAttPtsDispPopup.bbj::get_description", dispCode$, dispDescr$
     print @(0,14), "Disposition:"
-    print @(26,14), dispCode$
-    print @(36,14), "(", dispDescr$, ")"  
+    
+    if len( cvs(dispCode$,2) ) > 0 then
+        call "ApproveAttPtsDispPopup.bbj::get_description", dispCode$, dispDescr$
+        print @(26,14), dispCode$
+        print @(36,14), "(", dispDescr$, ")"  
+    endif
+    
     
     print @(0,15), "WFMR code:"
     
@@ -287,7 +292,7 @@ display_data:
     
     actionLabel$ = "F4=Exit  F9=Delete  Enter=Save"
     
-    print @(0,21), actionLabel$ 
+    print @(3,21), actionLabel$ 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
@@ -301,8 +306,8 @@ display_data:
     
 handle_input:
 
-    if isRecordEditable and dispCode$ = "E" then
-        currentFieldNo = ERP_CODE_FIELD_NO
+    if isRecordEditable then
+        currentFieldNo = PTS_FIELD_NO
     else
         currentFieldNo = HIDDEN_FIELD_NO
     endif
@@ -316,58 +321,86 @@ handle_input:
                 
                 break
         
-            case ERP_CODE_FIELD_NO
-                beforeValue$ = attPtsWorkDataMap!.get("erp_cd")
-                afterValue$ = beforeValue$ 
-                print @(14, 13), 'BU'
-                inpute 14, 13, 1, "", afterValue$
-                print @(15, 13), 'EU'
-                 
-                if !(afterValue$ = beforeValue$) then 
-                    attPtsWorkDataMap!.put("changed", TRUE)
-                    attPtsWorkDataMap!.put("erp_cd", afterValue$)
-                endif
-                
-                break
-        
-            case ERP_DESCR_FIELD_NO
-                beforeValue$ = attPtsWorkDataMap!.get("erp_note")
-                afterValue$ = beforeValue$ 
-                print @(14, 14), 'BU', 'LC'
-                inpute 14, 14, 50, "", afterValue$
-                print @(64, 14), 'EU', 'UC' 
-                
-                if !(afterValue$ = beforeValue$) then 
-                    attPtsWorkDataMap!.put("changed", TRUE)
-                    attPtsWorkDataMap!.put("erp_note", afterValue$)
-                endif
-                
-                break
-        
-            case ERP_PTS_FIELD_NO
-                beforeValue = attPtsWorkDataMap!.get("erp_pts_assessed")
+            case PTS_FIELD_NO
+                beforeValue = pointDataMap!.get("pts")
                 afterValue = beforeValue 
-                print @(14, 15), 'BU'
-                inputn 14, 15, "#.0", "#.0", "", 5, afterValue
-                print @(17, 15), 'EU'
+                print @(26, 6), 'BU'
+                inputn 26, 6, "#.0", "#.0", "", 5, afterValue
+                print @(29, 6), 'EU'
                  
                 if !(afterValue = beforeValue) then 
-                    attPtsWorkDataMap!.put("changed", TRUE)
-                    attPtsWorkDataMap!.put("erp_pts_assessed", afterValue)
+                    pointDataMap!.put("changed", TRUE)
+                    pointDataMap!.put("pts", afterValue)
                 endif
                 
                 break
         
-            case ERP_STS_FIELD_NO
-                beforeValue$ = attPtsWorkDataMap!.get("erp_sts_cd")
+            case STS_FIELD_NO
+                beforeValue$ = pointDataMap!.get("stat")
                 afterValue$ = beforeValue$ 
-                print @(14, 16), 'BU'
-                inpute 14, 16, 1, "", afterValue$
-                print @(15, 16), 'EU' 
+                print @(26, 7), 'BU'
+                inpute 26, 7, 1, "", afterValue$
+                print @(27, 7), 'EU' 
                 
                 if !(afterValue$ = beforeValue$) then 
-                    attPtsWorkDataMap!.put("changed", TRUE)
-                    attPtsWorkDataMap!.put("erp_sts_cd", afterValue$)
+                    pointDataMap!.put("changed", TRUE)
+                    pointDataMap!.put("stat", afterValue$)
+                endif
+                
+                break
+        
+            case CODE_FIELD_NO
+                beforeValue$ = pointDataMap!.get("cd")
+                afterValue$ = beforeValue$ 
+                print @(26, 8), 'BU'
+                inpute 26, 8, 1, "", afterValue$
+                print @(27, 8), 'EU' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    pointDataMap!.put("changed", TRUE)
+                    pointDataMap!.put("cd", afterValue$)
+                endif
+                
+                break
+        
+            case NOTES1_FIELD_NO
+                beforeValue$ = pointDataMap!.get("text1")
+                afterValue$ = beforeValue$ 
+                print @(26, 10), 'BU'
+                inpute 26, 10, 50, "", afterValue$
+                print @(76, 10), 'EU' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    pointDataMap!.put("changed", TRUE)
+                    pointDataMap!.put("text1", afterValue$)
+                endif
+                
+                break
+        
+            case NOTES2_FIELD_NO
+                beforeValue$ = pointDataMap!.get("text2")
+                afterValue$ = beforeValue$ 
+                print @(26, 11), 'BU'
+                inpute 26, 11, 50, "", afterValue$
+                print @(76, 11), 'EU' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    pointDataMap!.put("changed", TRUE)
+                    pointDataMap!.put("text2", afterValue$)
+                endif
+                
+                break
+        
+            case NOTES3_FIELD_NO
+                beforeValue$ = pointDataMap!.get("text3")
+                afterValue$ = beforeValue$ 
+                print @(26, 12), 'BU'
+                inpute 26, 12, 50, "", afterValue$
+                print @(76, 12), 'EU' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    pointDataMap!.put("changed", TRUE)
+                    pointDataMap!.put("text3", afterValue$)
                 endif
                 
                 break
@@ -384,55 +417,14 @@ handle_input:
         
         switch savedCTL
         
-            case ASC(F2_CTL_OUTPUT_VALUE$)
-                    if isRecordEditable then
-                        beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
-                        afterValue$ = beforeValue$ 
-                        call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 13, afterValue$
-    
-                        if !(afterValue$ = beforeValue$) then 
-                            
-                            if afterValue$ = "A" or afterValue$ = "N" or afterValue$ = "F" then
-                                gosub revert_work_data_to_orig_values
-                            endif
-                            
-                            if afterValue$ = "F" then
-                                attPtsWorkDataMap!.put("erp_sts_cd", "I")
-                            endif
-    
-                            attPtsWorkDataMap!.put("changed", TRUE)
-                            attPtsWorkDataMap!.put("disp_cd", afterValue$)
-                            
-                        endif
-                        
-                        currentFieldNo = iff(afterValue$ = "E", ERP_CODE_FIELD_NO, HIDDEN_FIELD_NO)
-                    endif
-        
-                    break
-        
-            case ASC(F3_CTL_OUTPUT_VALUE$)
-                    if isRecordEditable then
-                        beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
-                        afterValue = beforeValue 
-                        call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 9, afterValue, tmpReasonDescr$
-    
-                        if !(afterValue = beforeValue) then 
-                            attPtsWorkDataMap!.put("changed", TRUE)
-                            attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
-                            attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
-                        endif
-                    endif
-        
-                    break
-        
             case ASC(F4_CTL_OUTPUT_VALUE$)
                     if isRecordEditable then
-                        gosub handle_pending_change
+                        rem gosub handle_pending_change
                         
                         if len(errMsg$) = 0 then
     
                             if savedAnyRecordsOut then
-                                call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
+                                rem call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
                             endif
                             
                             needToBreak = TRUE
@@ -443,36 +435,6 @@ handle_input:
         
                     break
         
-            case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
-                    if canPageUp then
-                        if isRecordEditable then
-                            gosub handle_pending_change
-                            
-                            if len(errMsg$) = 0 then
-                                gosub set_current_record_no_for_page_up
-                            endif
-                        else
-                            gosub set_current_record_no_for_page_up
-                        endif
-                    endif
-        
-                    break
-                    
-            case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
-                    if canPageDown then
-                        if isRecordEditable then
-                            gosub handle_pending_change
-                            
-                            if len(errMsg$) = 0 then
-                                gosub set_current_record_no_for_page_down
-                            endif
-                        else
-                            gosub set_current_record_no_for_page_down
-                        endif
-                    endif
-                    
-                    break
-                    
             case ASC(TAB_CTL_OUTPUT_VALUE$)
                     isTabbing = TRUE
                     gosub set_field_no_after_tabbing
@@ -487,7 +449,7 @@ handle_input:
                     
             case 0
                     if isRecordEditable then
-                        gosub validate_and_save_record
+                        rem gosub validate_and_save_record
                         
                         if len(errMsg$) = 0 then
                             wasRecordSaved = TRUE
@@ -532,34 +494,6 @@ revert_work_data_to_orig_values:
     attPtsWorkDataMap!.put("erp_sts_cd", attPtsWorkDataMap!.get("orig_erp_sts_cd"))
 
     return
-
-    
-    rem ------------------------------------------------------------------------------------------
-    rem  When Page Up is pressed, calculate a new currentRecordNo
-    rem ------------------------------------------------------------------------------------------
-    
-    
-set_current_record_no_for_page_up:
-
-    currentRecordNo = currentRecordNo - RECORDS_PER_PAGE
-    
-    if currentRecordNo < 1 then currentRecordNo = 1
-
-    return
-
-    
-    rem ------------------------------------------------------------------------------------------
-    rem  When Page Down is pressed, calculate a new currentRecordNo
-    rem ------------------------------------------------------------------------------------------
-    
-    
-set_current_record_no_for_page_down:
-
-    currentRecordNo = currentRecordNo + RECORDS_PER_PAGE
-    
-    if currentRecordNo > attPtsWorkRecordsMapSize then currentRecordNo = attPtsWorkRecordsMapSize
-
-    return    
     
     
     rem ------------------------------------------------------------------------------------------
@@ -571,7 +505,7 @@ set_field_no_after_tabbing:
 
     if !(currentFieldNo = HIDDEN_FIELD_NO) then
         currentFieldNo = currentFieldNo + 1
-        if currentFieldNo > ERP_STS_FIELD_NO then currentFieldNo = ERP_CODE_FIELD_NO
+        if currentFieldNo > NOTES3_FIELD_NO then currentFieldNo = PTS_FIELD_NO
     endif
         
     return
@@ -586,7 +520,7 @@ set_field_no_after_back_tabbing:
 
     if !(currentFieldNo = HIDDEN_FIELD_NO) then
         currentFieldNo = currentFieldNo - 1
-        if currentFieldNo < ERP_CODE_FIELD_NO then currentFieldNo = ERP_STS_FIELD_NO
+        if currentFieldNo < PTS_FIELD_NO then currentFieldNo = NOTES3_FIELD_NO
     endif
     
     return
@@ -665,7 +599,7 @@ handle_pending_change:
 
 write_saved_message:
 
-    tmpMsg$ = "The record has been saved (ID " + str(attPtsWorkDataMap!.get("id")) + ")."
+    tmpMsg$ = "The record has been saved."
     print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$), tmpMsg$, 'RGB'(RGB_WHITE_ON_BLUE$)  
     
     return

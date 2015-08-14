@@ -1,0 +1,43 @@
+REM /**
+REM  * TestGetEnvVariable.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+begin
+
+REM useClient = num(argv(1))
+REM envVar$ = argv(2)
+
+useClient = 1
+
+    
+if useClient then
+    A$=OPTS
+    A$(8,1)=IOR(A$(8,1),$08$)
+    SETOPTS A$
+endif
+
+
+while 1
+
+    print @(0,0),'CS'
+    input @(0,0), "envVar name: ", envVar$
+    
+    print @(0,2),"useClient = ", useClient
+    print @(0,4), "envVar$ = ", envVar$
+    
+    value$ = env(envVar$)
+    
+    print @(0,6), "value$ = ", value$
+    
+    input @(0,8), "Hit any key or q to quit", ignoreInput$
+
+    if (ignoreInput$ = "q") then break
+    
+wend
+
+release
+
+end
