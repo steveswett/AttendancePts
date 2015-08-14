@@ -32,6 +32,7 @@ END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
 LINE_FIELD_NO = 1
+LAST_FIELD_NO = 1
 
 
 
@@ -41,14 +42,14 @@ REM     Any value less than 63 will cause the input function to exit setting the
 REM     The "help" function causes an exit with CTL=-1.
 
 
-F2_CUSTOM_INPUT_VALUE$ = $81$
-F2_CTL_OUTPUT_VALUE$ = $02$
-
 F4_CUSTOM_INPUT_VALUE$ = $82$
 F4_CTL_OUTPUT_VALUE$ = $04$
 
 F6_CUSTOM_INPUT_VALUE$ = $83$
 F6_CTL_OUTPUT_VALUE$ = $06$
+
+F8_CUSTOM_INPUT_VALUE$ = $81$
+F8_CTL_OUTPUT_VALUE$ = $02$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
@@ -92,8 +93,7 @@ main_routine:
     
     gosub display_data
     
-    REM  gosub handle_input
-    input @(0,22), 'CL', "Hit any key", ignoreInput$
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -118,7 +118,7 @@ init:
     
     call "EmployeeMasterDAO.bbj::get_name_last_first_mi", badge5In$, employeeName$
     
-    showZeroPtRecords = TRUE
+    showZeroPtRecords = FALSE
 
         rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
         rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
@@ -143,28 +143,28 @@ init:
         rem "2" - load only one key
         rem $01$ - means the F2 key (0-based)
         rem chr(1) - means the custom value of the function key is 1 byte long
-        rem F2_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
+        rem F8_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
         
-    print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $07$, chr(1), F8_CUSTOM_INPUT_VALUE$,
+
     print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
     
-    f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
     f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
     f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
+    f8Pair$ = F8_CUSTOM_INPUT_VALUE$ + F8_CTL_OUTPUT_VALUE$
     pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f8Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f8Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     gosub load_point_records_map
-    
     topLeftMapIndex = 1
     
     return
@@ -243,7 +243,7 @@ display_data:
 
       pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(dateKey!) )
       
-      system$ = iff( cvs(pointDataMap!.get("disp_cd"), 2) = "cpu", "Y", "N")
+      system$ = iff( cvs(pointDataMap!.get("chgby"), 2) = "cpu", "Y", "N")
       
       text1$ = pointDataMap!.get("text1")
       text2$ = pointDataMap!.get("text2")
@@ -261,11 +261,12 @@ display_data:
       
       print @(1, row), displayedCount, "." 
       print @(5, row), formattedDate$
-      print @(14,row), pointDataMap!.get("pts")
+      print @(14,row), str(pointDataMap!.get("pts"):"#.0")
       print @(21,row), pointDataMap!.get("stat")
       print @(29,row), pointDataMap!.get("cd")
-      print @(33,row), pointDataMap!.get("wfmr_exc_def_id")
+      print @(33,row), str(pointDataMap!.get("wfmr_exc_def_id"):"####")
       print @(40,row), pointDataMap!.get("disp_cd")
+      print @(45,row), pointDataMap!.get("pts_removed")
       print @(55,row), pointDataMap!.get("pts_removal_date")
 
       print @(67,row), system$
@@ -283,15 +284,15 @@ display_data:
     actionLabel$ = "F6=Jump To  "
 
     if showZeroPtRecords then
-        actionLabel$ = actionLabel$ + "F8=Hide Zero Pt Rows   "
+        actionLabel$ = actionLabel$ + "F8=Hide Zero Pt Rows  "
     else
-        actionLabel$ = actionLabel$ + "F8=Show Zero Pt Rows   "
+        actionLabel$ = actionLabel$ + "F8=Show Zero Pt Rows  "
     endif
     
-    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
-    if canPageDown then actionLabel$ = actionLabel$ + "Page Dn=Next Page   "
+    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page  " 
+    if canPageDown then actionLabel$ = actionLabel$ + "Page Dn=Next Page  "
     
-    print @(14,21), actionLabel$ 
+    print @(9,21), actionLabel$ 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
@@ -311,8 +312,8 @@ handle_input:
         
         if currentFieldNo = LINE_FIELD_NO then
             print @(6, 21), 'BU'
-            inpute 6, 21, 2, "", line$ 
-            print @(8, 21), 'EU' 
+            inpute 6, 21, 1, "", line$ 
+            print @(7, 21), 'EU' 
         endif
             
         gosub clear_err_msg
@@ -325,6 +326,18 @@ handle_input:
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
                     needToBreak = TRUE
+        
+                    break
+        
+            case ASC(F8_CTL_OUTPUT_VALUE$)
+                    if showZeroPtRecords then
+                        showZeroPtRecords = FALSE
+                    else
+                        showZeroPtRecords = TRUE
+                    endif    
+
+                    gosub load_point_records_map
+                    topLeftMapIndex = 1
         
                     break
         
@@ -424,7 +437,7 @@ set_top_left_map_index_for_page_down:
 set_field_no_after_tabbing:
 
     currentFieldNo = currentFieldNo + 1
-    if currentFieldNo > 2 then currentFieldNo = 1
+    if currentFieldNo > LAST_FIELD_NO then currentFieldNo = 1
     
     return
     
@@ -437,7 +450,7 @@ set_field_no_after_tabbing:
 set_field_no_after_back_tabbing:
 
     currentFieldNo = currentFieldNo - 1
-    if currentFieldNo < 1 then currentFieldNo = 2
+    if currentFieldNo < 1 then currentFieldNo = LAST_FIELD_NO
     
     return
     

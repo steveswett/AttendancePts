@@ -110,6 +110,289 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 subroutines:
 
 
+    rem ------------------------------------------------------------------------------------------
+    rem  Get current point levels for employees with saved records
+    rem ------------------------------------------------------------------------------------------
+
+
+get_current_point_levels:
+
+    employeeThresholdRecords! = new java.util.LinkedHashMap()
+    iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        tmpId = num(idKey!)
+        attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
+        dataWasSaved! = attPtsWorkDataMap!.get("saved")
+        if dataWasSaved! = null() then continue
+        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
+        
+        trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
+        paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
+        
+        thresholdDataMap! = new java.util.HashMap()
+        thresholdDataMap!.put("threshold", 0)
+        thresholdDataMap!.put("total_pts", 0)
+        thresholdDataMap!.put("last_first_mi", cvs(attPtsWorkDataMap!.get("last_first_mi"), 2) )
+        
+        employeeThresholdRecords!.put(paddedBadge$, thresholdDataMap!)
+        
+    wend
+
+    gosub load_thresholds_map
+
+    return
+
+    
+REM  ------------------------------------------------------------
+REM  Inactivate points older than 12 months (from today)
+REM  ------------------------------------------------------------
+    
+    
+inactivate_old_points:
+
+    inactivatedPtsRecordsList!.clear()
+
+    REM  Step 1. Compute date 12 months ago (using SQL Server for leap year handling)
+    
+    sqlServerChannel = sqlunt
+    sqlopen(sqlServerChannel) wfmrDataSource$
+    
+    sqlprep(sqlServerChannel) GET_DATE_12_MONTHS_AGO_STMT$
+    sqlexec(sqlServerChannel)
+     
+    dim resultRow$:sqltmpl(sqlServerChannel)
+    resultRow$ = sqlfetch(sqlServerChannel,err=failed_year_ago_fetch)
+    yearAgoDate$ = resultRow.year_ago_date$
+    
+    REM  Step 2. Query to get list of employees who qualify to have pts inactivated
+    
+    cutOffDate$ = yearAgoDate$(1,4) + yearAgoDate$(6,2) + yearAgoDate$(9,2)
+     
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsChannel) PTS_TO_BE_INACTIVATED_STMT$
+    sqlexec(attendPtsChannel) cutOffDate$
+
+    dim resultRow$:sqltmpl(attendPtsChannel)
+
+    while TRUE
+        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
+        call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", resultRow.ptdt$, TRUE, fmtPtsDate$ 
+        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts)
+        inactivatedPtsRecordsList!.add(outputRecord$) 
+    wend
+    
+    
+    REM  Step 3. Run the update query to inactivate the points
+    
+    if doActualUpdateIn then
+        sqlprep(attendPtsChannel) SET_TO_INACTIVATED_STMT$
+        sqlexec(attendPtsChannel) day, cutOffDate$
+    endif
+    
+    sqlclose(attendPtsChannel)
+    
+    failed_year_ago_fetch:
+    
+    sqlclose(sqlServerChannel)
+    
+    return
+    
+    
+REM  ------------------------------------------------------------
+REM  Load point records for a single employee
+REM  ------------------------------------------------------------
+    
+    
+load_point_records_map:
+
+    pointRecordsMap!.clear()
+    
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+    
+    if showZeroPtRecordsIn then
+        sqlprep(attendPtsChannel) GET_ALL_PT_RECORDS_STMT$
+    else
+        sqlprep(attendPtsChannel) GET_NON_ZERO_PT_RECORDS_STMT$
+    endif
+
+    badge6$ = "0" + badge5In$
+    sqlexec(attendPtsChannel) badge6$ 
+    dim resultRow$:sqltmpl(attendPtsChannel)
+    
+    runningTotal = 0
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
+        pointDataMap! = new java.util.HashMap()
+        pointDataMap!.put("pts", resultRow.pts)
+        pointDataMap!.put("stat", resultRow.stat$)
+        pointDataMap!.put("cd", resultRow.cd$)
+        pointDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        pointDataMap!.put("disp_cd", resultRow.disp_cd$)
+        pointDataMap!.put("chgby", resultRow.chgby$)
+        
+        if resultRow.stat$ = "A" then
+            runningTotal = runningTotal + resultRow.pts
+        endif
+
+        pointDataMap!.put("running_total", runningTotal)
+        
+        fullText$ = cvs(resultRow.text$,2)
+        textLength = len(fullText$)
+        text1$ = ""
+        text2$ = ""
+        text3$ = ""
+        
+        if textLength > 100 then
+            text1$ = fullText$(1,50)
+            text2$ = fullText$(51,50)
+            text3$ = fullText$(101)
+        endif
+        
+        if textLength > 50 and textLength <= 100 then
+            text1$ = fullText$(1,50)
+            text2$ = fullText$(51)
+        endif
+        
+        if textLength > 0 and textLength <= 50 then
+            text1$ = fullText$(1)
+        endif
+
+        pointDataMap!.put("text1", text1$)
+        pointDataMap!.put("text2", text2$)
+        pointDataMap!.put("text3", text3$)
+        
+        REM  Deduce the pts removal date:
+        ptsRemovalDate$ = ""
+        ptsRemoved$ = ""
+        
+        for t = 3 to 1 STEP -1
+        
+            switch t
+                
+                case 1
+                    textToSearch$ = cvs(text1$, 2)
+                    break
+                
+                case 2
+                    textToSearch$ = cvs(text2$, 2)
+                    break
+                
+                case 3
+                    textToSearch$ = cvs(text3$, 2)
+                    break
+                     
+            swend
+
+            if len(textToSearch$) = 0 then continue
+            
+            needToBreak = FALSE
+
+            for i = 1 to NO_OF_PTS_REMOVAL_PHRASES
+            
+                searchFor$ = PTS_REMOVAL_PHRASES_ARRAY$[i] 
+                foundAt = pos(searchFor$=textToSearch$, -1)
+                
+                if foundAt > 0 then
+                    
+                    rem print "textToSearch$ = ", textToSearch$
+                    stringToTheRight$ = textToSearch$(foundAt + len(searchFor$))
+                    rem print "stringToTheRight$ = ", stringToTheRight$
+                    firstDateSlashAt = pos("/"=stringToTheRight$, 1, 1)
+                    secondDateSlashAt = pos("/"=stringToTheRight$, 1, 2)
+                    
+                    if firstDateSlashAt > 0 and secondDateSlashAt > 0 then
+                        endOfDatePos = secondDateSlashAt + 2 
+    
+                        if firstDateSlashAt = 2 then
+                            begOfDatePos = 1
+                        endif
+                        
+                        if firstDateSlashAt > 2 then
+                            begOfDatePos = firstDateSlashAt - 2
+                        endif
+                        
+                        dateLength = endOfDatePos - begOfDatePos + 1
+                        ptsRemovalDate$ = " " + stringToTheRight$(begOfDatePos, dateLength)
+                        
+                        REM print "ptsRemovalDate$ = ", ptsRemovalDate$
+                        
+                        REM  PTS_QTY_PHRASES_ARRAY$
+                        
+                        for r = 1 to NO_OF_PTS_QTY_PHRASES
+
+                          searchForPhrase$ = PTS_QTY_PHRASES_ARRAY$[r] 
+                          hitAt = pos(searchForPhrase$=textToSearch$)
+                          
+                          if hitAt > 0 then
+                                ptsRemoved$ = textToSearch$( 1, hitAt + len(searchForPhrase$) - 2 )
+                          endif
+
+                        next r
+
+    
+                        needToBreak = TRUE    
+                        break
+    
+                    endif 
+                    
+                endif
+                
+            next i
+            
+            if needToBreak then break
+        
+        next t
+        
+        rem print "points date, pts removal date = ", resultRow.ptdt$, ptsRemovalDate$ 
+        pointDataMap!.put("pts_removal_date", ptsRemovalDate$)
+        pointDataMap!.put("pts_removed", ptsRemoved$)
+
+        pointRecordsMap!.put(resultRow.ptdt$, pointDataMap!)
+        
+    wend
+    
+    sqlclose(attendPtsChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------
+REM  Get total active points for a single employee
+REM  ------------------------------------------------------------
+    
+    
+get_points_total:
+
+    ptsTotal = 0
+    
+    attendPtsChannel = sqlunt
+    sqlopen(attendPtsChannel) attendPtsDataSource$
+    
+    sqlprep(attendPtsChannel) GET_PTS_TOTAL_STMT$
+
+    badge6$ = "0" + badge5In$
+    sqlexec(attendPtsChannel) badge6$ 
+    dim resultRow$:sqltmpl(attendPtsChannel)
+    
+    resultRow$ = sqlfetch(attendPtsChannel,err=total_not_found)
+    
+    ptsTotal = resultRow.pts_total
+    
+    total_not_found:
+    
+    sqlclose(attendPtsChannel)
+
+    return
+
+
 REM  ------------------------------------------------------------
 REM  setup_constants
 REM  ------------------------------------------------------------
@@ -128,6 +411,13 @@ setup_constants:
     PTS_REMOVAL_PHRASES_ARRAY$[5] = "AWAY "
     PTS_REMOVAL_PHRASES_ARRAY$[6] = "AWAYON "; REM  Yes, this "typo" one is intended
     PTS_REMOVAL_PHRASES_ARRAY$[7] = "AWYA ON "; REM  Yes, this "typo" one is intended
+    
+    NO_OF_PTS_QTY_PHRASES = 4
+    dim PTS_QTY_PHRASES_ARRAY$[1:NO_OF_PTS_QTY_PHRASES]
+    PTS_QTY_PHRASES_ARRAY$[1] = "POINT "
+    PTS_QTY_PHRASES_ARRAY$[2] = "POINTS "
+    PTS_QTY_PHRASES_ARRAY$[3] = "PT "
+    PTS_QTY_PHRASES_ARRAY$[4] = "PTS "
 
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
 
@@ -189,7 +479,7 @@ setup_constants:
 :       "where badg = ? and stat = 'A'"
     
     return
-
+    
 
 REM  ------------------------------------------------------------
 REM  Post the data in attPtsWorkRecordsToPostMap! and return stats
@@ -397,43 +687,7 @@ post_work_records_map:
     endif
     
     return
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Get current point levels for employees with saved records
-    rem ------------------------------------------------------------------------------------------
-
-
-get_current_point_levels:
-
-    employeeThresholdRecords! = new java.util.LinkedHashMap()
-    iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
     
-    while iter!.hasNext()
-    
-        idKey! = iter!.next()
-        tmpId = num(idKey!)
-        attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
-        dataWasSaved! = attPtsWorkDataMap!.get("saved")
-        if dataWasSaved! = null() then continue
-        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
-        
-        trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
-        paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
-        
-        thresholdDataMap! = new java.util.HashMap()
-        thresholdDataMap!.put("threshold", 0)
-        thresholdDataMap!.put("total_pts", 0)
-        thresholdDataMap!.put("last_first_mi", cvs(attPtsWorkDataMap!.get("last_first_mi"), 2) )
-        
-        employeeThresholdRecords!.put(paddedBadge$, thresholdDataMap!)
-        
-    wend
-
-    gosub load_thresholds_map
-
-    return
-
     
 REM  ------------------------------------------------------------
 REM  Load each employee's current points level (threshold) into employeeThresholdRecords!
@@ -517,232 +771,4 @@ load_thresholds_map:
     sqlclose(thresholdsChannel)
     
     return
-
     
-REM  ------------------------------------------------------------
-REM  Inactivate points older than 12 months (from today)
-REM  ------------------------------------------------------------
-    
-    
-inactivate_old_points:
-
-    inactivatedPtsRecordsList!.clear()
-
-    REM  Step 1. Compute date 12 months ago (using SQL Server for leap year handling)
-    
-    sqlServerChannel = sqlunt
-    sqlopen(sqlServerChannel) wfmrDataSource$
-    
-    sqlprep(sqlServerChannel) GET_DATE_12_MONTHS_AGO_STMT$
-    sqlexec(sqlServerChannel)
-     
-    dim resultRow$:sqltmpl(sqlServerChannel)
-    resultRow$ = sqlfetch(sqlServerChannel,err=failed_year_ago_fetch)
-    yearAgoDate$ = resultRow.year_ago_date$
-    
-    REM  Step 2. Query to get list of employees who qualify to have pts inactivated
-    
-    cutOffDate$ = yearAgoDate$(1,4) + yearAgoDate$(6,2) + yearAgoDate$(9,2)
-     
-    attendPtsChannel = sqlunt
-    sqlopen(attendPtsChannel) attendPtsDataSource$
-    
-    sqlprep(attendPtsChannel) PTS_TO_BE_INACTIVATED_STMT$
-    sqlexec(attendPtsChannel) cutOffDate$
-
-    dim resultRow$:sqltmpl(attendPtsChannel)
-
-    while TRUE
-        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
-        call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", resultRow.ptdt$, TRUE, fmtPtsDate$ 
-        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts)
-        inactivatedPtsRecordsList!.add(outputRecord$) 
-    wend
-    
-    
-    REM  Step 3. Run the update query to inactivate the points
-    
-    if doActualUpdateIn then
-        sqlprep(attendPtsChannel) SET_TO_INACTIVATED_STMT$
-        sqlexec(attendPtsChannel) day, cutOffDate$
-    endif
-    
-    sqlclose(attendPtsChannel)
-    
-    failed_year_ago_fetch:
-    
-    sqlclose(sqlServerChannel)
-    
-    return
-    
-    
-REM  ------------------------------------------------------------
-REM  Load point records for a single employee
-REM  ------------------------------------------------------------
-    
-    
-load_point_records_map:
-
-    pointRecordsMap!.clear()
-    
-    attendPtsChannel = sqlunt
-    sqlopen(attendPtsChannel) attendPtsDataSource$
-    
-    if showZeroPtRecordsIn then
-        sqlprep(attendPtsChannel) GET_ALL_PT_RECORDS_STMT$
-    else
-        sqlprep(attendPtsChannel) GET_NON_ZERO_PT_RECORDS_STMT$
-    endif
-
-    badge6$ = "0" + badge5In$
-    sqlexec(attendPtsChannel) badge6$ 
-    dim resultRow$:sqltmpl(attendPtsChannel)
-    
-    runningTotal = 0
-    
-    while TRUE
-    
-        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
-        pointDataMap! = new java.util.HashMap()
-        pointDataMap!.put("pts", resultRow.pts)
-        pointDataMap!.put("stat", resultRow.stat$)
-        pointDataMap!.put("cd", resultRow.cd$)
-        pointDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
-        pointDataMap!.put("disp_cd", resultRow.disp_cd$)
-        pointDataMap!.put("chgby", resultRow.chgby$)
-        
-        if resultRow.stat$ = "A" then
-            runningTotal = runningTotal + resultRow.pts
-        endif
-
-        pointDataMap!.put("running_total", runningTotal)
-        
-        fullText$ = cvs(resultRow.text$,2)
-        textLength = len(fullText$)
-        text1$ = ""
-        text2$ = ""
-        text3$ = ""
-        
-        if textLength > 100 then
-            text1$ = fullText$(1,50)
-            text2$ = fullText$(51,50)
-            text3$ = fullText$(101)
-        endif
-        
-        if textLength > 50 and textLength <= 100 then
-            text1$ = fullText$(1,50)
-            text2$ = fullText$(51)
-        endif
-        
-        if textLength > 0 and textLength <= 50 then
-            text1$ = fullText$(1)
-        endif
-
-        pointDataMap!.put("text1", text1$)
-        pointDataMap!.put("text2", text2$)
-        pointDataMap!.put("text3", text3$)
-        
-        REM  Deduce the pts removal date:
-        ptsRemovalDate$ = ""
-        
-        for t = 3 to 1 -1
-        
-            switch t
-                
-                case 1
-                    textToSearch$ = cvs(text1$, 2)
-                    break
-                
-                case 2
-                    textToSearch$ = cvs(text2$, 2)
-                    break
-                
-                case 3
-                    textToSearch$ = cvs(text3$, 2)
-                    break
-                     
-            swend
-
-            needToBreak = FALSE
-
-            for i = 1 to NO_OF_PTS_REMOVAL_PHRASES
-            
-                searchFor$ = PTS_REMOVAL_PHRASES_ARRAY$[i] 
-                foundAt = pos(searchFor$=textToSearch$, -1)
-                
-                if foundAt > 0 then
-                    
-                    print "textToSearch$ = ", textToSearch$
-                    stringToTheRight$ = textToSearch$(foundAt + len(searchFor$))
-                    print "stringToTheRight$ = ", stringToTheRight$
-                    firstDateSlashAt = pos("/"=stringToTheRight$, 1, 1)
-                    secondDateSlashAt = pos("/"=stringToTheRight$, 1, 2)
-                    
-                    if firstDateSlashAt > 0 and secondDateSlashAt > 0 then
-                        endOfDatePos = secondDateSlashAt + 2 
-    
-                        if firstDateSlashAt = 2 then
-                            begOfDatePos = 1
-                        endif
-                        
-                        if firstDateSlashAt > 2 then
-                            begOfDatePos = firstDateSlashAt - 2
-                        endif
-                        
-                        dateLength = endOfDatePos - begOfDatePos + 1
-                        ptsRemovalDate$ = " " + stringToTheRight$(begOfDatePos, dateLength)
-                        
-                        print "ptsRemovalDate$ = ", ptsRemovalDate$
-    
-                        needToBreak = TRUE    
-                        break
-    
-                    endif 
-                    
-                endif
-                
-            next i
-            
-            if needToBreak then break
-        
-        next t
-        
-        
-        pointDataMap!.put("pts_removal_date", ptsRemovalDate$)
-
-        pointRecordsMap!.put(resultRow.ptdt$, pointDataMap!)
-        
-    wend
-    
-    sqlclose(attendPtsChannel)
-
-    return
-    
-    
-REM  ------------------------------------------------------------
-REM  Get total active points for a single employee
-REM  ------------------------------------------------------------
-    
-    
-get_points_total:
-
-    ptsTotal = 0
-    
-    attendPtsChannel = sqlunt
-    sqlopen(attendPtsChannel) attendPtsDataSource$
-    
-    sqlprep(attendPtsChannel) GET_PTS_TOTAL_STMT$
-
-    badge6$ = "0" + badge5In$
-    sqlexec(attendPtsChannel) badge6$ 
-    dim resultRow$:sqltmpl(attendPtsChannel)
-    
-    resultRow$ = sqlfetch(attendPtsChannel,err=total_not_found)
-    
-    ptsTotal = resultRow.pts_total
-    
-    total_not_found:
-    
-    sqlclose(attendPtsChannel)
-
-    return
