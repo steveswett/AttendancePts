@@ -119,6 +119,7 @@ init:
     call "EmployeeMasterDAO.bbj::get_name_last_first_mi", badge5In$, employeeName$
     
     showZeroPtRecords = FALSE
+    showingJumpTo = FALSE
 
         rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
         rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
@@ -329,6 +330,11 @@ handle_input:
         
                     break
         
+            case ASC(F6_CTL_OUTPUT_VALUE$)
+                    gosub handle_jump_to
+        
+                    break
+        
             case ASC(F8_CTL_OUTPUT_VALUE$)
                     if showZeroPtRecords then
                         showZeroPtRecords = FALSE
@@ -514,4 +520,44 @@ validate_input:
     endif
   
         
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Prompt for date to jump to -- and go there
+    rem ------------------------------------------------------------------------------------------
+    
+    
+handle_jump_to:
+
+    jumpToDate$ = ""
+    
+    print @(0,22), "Date to jump to (MM/DD/YY):"
+    print @(27, 22), 'BU' 
+    inpute 27, 22, "00/00/00", "", jumpToDate$ 
+    print @(35, 22), 'EU' 
+
+    REM  Only do the "jump to" if all 6 digits entered for date
+    
+    if len(jumpToDate$) = 6 then
+    
+        tmpyymmdd$ = "20" + jumpToDate$(5,2) + jumpToDate$(1,4) 
+        iter! = pointRecordsMap!.keySet().iterator()
+        count = 0
+        
+        while iter!.hasNext()
+        
+          dateKey! = iter!.next()
+          count = count + 1
+          unformattedDate$ = dateKey!
+          
+          if unformattedDate$ >= tmpyymmdd$ then
+              topLeftMapIndex = count
+              break
+          endif 
+          
+        wend
+        
+    endif
+
     return
