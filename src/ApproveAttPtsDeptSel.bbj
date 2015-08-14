@@ -138,6 +138,7 @@ init:
     print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
+
     print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,

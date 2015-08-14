@@ -1,0 +1,751 @@
+REM /**
+REM  * MaintainAttPtsEdits.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.HashMap pointDataMap!
+
+declare java.util.LinkedHashMap exceptionDefsMap!
+declare java.util.LinkedHashMap wfmrReasonsMap!
+
+
+enter badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataChanged
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+TRUE = 1
+FALSE = 0
+
+RGB_WHITE_ON_BLUE$= $033F$
+RGB_YELLOW_ON_BLUE$ = $033C$
+
+dim ROW_OF_BLANKS$(80, " ")
+
+RECORDS_PER_PAGE = 1
+COLUMNS_PER_PAGE = 1
+RECORDS_PER_COLUMN = 1
+ROWS_PER_RECORD = 1
+START_ROW_FOR_LIST = 0
+END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
+SHOW_FIELD_TERMINATOR_PRESSED = FALSE
+
+ERP_CODE_FIELD_NO = 1
+ERP_DESCR_FIELD_NO = 2
+ERP_PTS_FIELD_NO = 3
+ERP_STS_FIELD_NO = 4
+HIDDEN_FIELD_NO = 5
+
+
+REM     Note about INPUTE:
+REM     
+REM     Any value less than 63 will cause the input function to exit setting the CTL value to the function value. 
+REM     The "help" function causes an exit with CTL=-1.
+
+
+F2_CUSTOM_INPUT_VALUE$ = $81$
+F2_CTL_OUTPUT_VALUE$ = $02$
+
+F3_CUSTOM_INPUT_VALUE$ = $82$
+F3_CTL_OUTPUT_VALUE$ = $03$
+
+F4_CUSTOM_INPUT_VALUE$ = $83$
+F4_CTL_OUTPUT_VALUE$ = $04$
+
+TAB_CUSTOM_INPUT_VALUE$ = $09$
+TAB_CTL_OUTPUT_VALUE$ = $19$
+
+BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
+BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
+
+PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
+
+PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+def fnHasRecordsBefore%(aDoIt)
+
+    return currentRecordNo > 1
+
+fnend
+
+
+def fnHasRecordsAfter%(aDoIt)
+
+    return currentRecordNo + RECORDS_PER_PAGE - 1 < attPtsWorkRecordsMapSize
+
+fnend
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub init
+    
+    gosub display_data
+    
+    REM  gosub handle_input
+    input @(0,22), 'CL', "hit any key", ignoreInput$
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+
+    anyDataChanged = FALSE
+
+        rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
+        rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
+
+    print 'UC', 'CS', 'ET'
+    
+        rem Set color.  In the following, $03$ is the background (blue) and $3F$ is the foreground (white).
+        rem The bits for that were: 0 0 1 1 1 1 1 1  (<-- foreground)   0 0 0 0 0 0 1 1  (<-- background)
+        
+    print 'RGB'(RGB_WHITE_ON_BLUE$)
+    rem print 'RGB'($033C$);   rem blue background, yellow foreground
+    rem print 'RGB'($0330$);   rem blue background, red foreground
+    
+    print 'CURSOR'("rep_block");   rem This only works in BBj -- not Pro/5
+
+
+        rem For info on function key programming, see this article: http://www.basis.com/kb00025
+        rem Also see Basis help: PRO/5 > User's Ref > Character Devices > Terminals > Function and Edit Keys
+    
+        rem Below is how the 'FL' (function keys) and 'EL' (edit keys) mnemonics are used to assign a key a value
+        
+        rem "2" - load only one key
+        rem $01$ - means the F2 key (0-based)
+        rem chr(1) - means the custom value of the function key is 1 byte long
+        rem F2_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
+        
+    print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $02$, chr(1), F3_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
+    print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
+    
+    f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
+    f3Pair$ = F3_CUSTOM_INPUT_VALUE$ + F3_CTL_OUTPUT_VALUE$
+    f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
+    pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
+    pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
+    tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
+    backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
+    
+    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f3Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f3Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    
+    exceptionDefsMap! = new java.util.LinkedHashMap()
+    call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
+    
+    wfmrReasonsMap! = new java.util.LinkedHashMap()
+    call "WFMRReasonDAO.bbj::get_ids_and_names", wfmrReasonsMap!
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the screen headings
+    rem ------------------------------------------------------------------------------------------
+
+
+display_screen_headings:
+
+    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "SUPERVISOR APPROVAL OF POINTS" 
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display data on page, besides page headings
+    rem ------------------------------------------------------------------------------------------
+
+    
+display_data:
+
+    print @(0,0), 'CE', 'UC'
+    
+    gosub display_screen_headings
+    
+    REM  TODO: Need to set to editable or not depending on user's capabilities (or perhaps whether called as inquiry):
+    
+    isRecordEditable = TRUE
+    
+    if isRecordEditable then
+        begUnLin$ = 'BU'
+        endUnLin$ = 'EU'
+    else
+        begUnLin$ = ""
+        endUnLin$ = ""
+    endif
+    
+    print @(0,3), badge5In$
+    print @(7,3), employeeNameIn$
+    
+    unformattedDate$ = pointsDate!
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, formattedDate$
+    
+    print @(0,5), "Points date:"
+    print @(26,5), formattedDate$
+    
+    print @(0,6), "Points:"
+    print @(26,6), begUnLin$, str( pointDataMap!.get("pts"):"#.0" ), endUnLin$
+    
+    status$ = pointDataMap!.get("stat")
+    print @(0,7), "Status (A, I):"
+    print @(26,7), begUnLin$, status$, endUnLin$
+    print @(36,7), "(", iff(status$ = "A", "Active", "Inactive"), ")"
+    
+    attCode$ = pointDataMap!.get("cd")
+    print @(0,8), "Code (1, 2):"
+    print @(26,8), begUnLin$, attCode$, endUnLin$
+    print @(36,8), "(", iff(attCode$ = "1", "Late or Leave Early", "Absent"), ")"
+    
+    print @(0,10), "Notes line 1:"
+    print @(26,10), begUnLin$, pad( pointDataMap!.get("text1") , 50, "L", " "), endUnLin$
+    
+    print @(0,11), "Notes line 2:"
+    print @(26,11), begUnLin$, pad( pointDataMap!.get("text2") , 50, "L", " "), endUnLin$
+    
+    print @(0,12), "Notes line 3:"
+    print @(26,12), begUnLin$, pad( pointDataMap!.get("text3") , 50, "L", " "), endUnLin$
+     
+    dispCode$ = pointDataMap!.get("disp_cd")
+    call "ApproveAttPtsDispPopup.bbj::get_description", dispCode$, dispDescr$
+    print @(0,14), "Disposition:"
+    print @(26,14), dispCode$
+    print @(36,14), "(", dispDescr$, ")"  
+    
+    print @(0,15), "WFMR code:"
+    
+    wfmrExcDefId! = pointDataMap!.get("wfmr_exc_def_id")
+    
+    if wfmrExcDefId! > 0 then
+        wfmrExcDefDescr$ = exceptionDefsMap!.get(wfmrExcDefId!)
+        if len(wfmrExcDefDescr$) > 40 then wfmrExcDefDescr$ = wfmrExcDefDescr$(1,40)
+        print @(25,15), wfmrExcDefId! 
+        print @(36,15), "(", wfmrExcDefDescr$, ")"
+    endif  
+    
+    print @(0,16), "WFMR reason:"
+    
+    wfmrReasonId! = pointDataMap!.get("wfmr_reason_id")
+    
+    if wfmrReasonId! > 0 then
+        wfmrReasonDescr$ = wfmrReasonsMap!.get(wfmrReasonId!)
+        if len(wfmrReasonDescr$) > 40 then wfmrReasonDescr$ = wfmrReasonDescr$(1,40)
+        print @(25,16), wfmrReasonId! 
+        print @(36,16), "(", wfmrReasonDescr$, ")"
+    endif
+    
+    dateAdded$ = pointDataMap!.get("adddt")
+    print @(0,17), "Added date:"
+    print @(26,17), dateAdded$
+    
+    if len( cvs(dateAdded$,2) ) > 0 then
+        print @(36,17), "by ", pointDataMap!.get("addby")
+    endif
+    
+    dateChanged$ = pointDataMap!.get("chgdt")
+    print @(0,18), "Last changed date:"
+    print @(26,18), dateChanged$
+    
+    if len( cvs(dateChanged$,2) ) > 0 then
+        print @(36,18), "by ", pointDataMap!.get("chgby")
+    endif
+      
+    
+    actionLabel$ = "F4=Exit  F9=Delete  Enter=Save"
+    
+    print @(0,21), actionLabel$ 
+    
+    if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Handle input, which will be F4 or Page Up or Page Down
+    rem ------------------------------------------------------------------------------------------
+
+    
+handle_input:
+
+    if isRecordEditable and dispCode$ = "E" then
+        currentFieldNo = ERP_CODE_FIELD_NO
+    else
+        currentFieldNo = HIDDEN_FIELD_NO
+    endif
+
+    while TRUE
+        
+        switch currentFieldNo
+        
+            case HIDDEN_FIELD_NO
+                inpute 0, 21, 1, "", ignoreInput$
+                
+                break
+        
+            case ERP_CODE_FIELD_NO
+                beforeValue$ = attPtsWorkDataMap!.get("erp_cd")
+                afterValue$ = beforeValue$ 
+                print @(14, 13), 'BU'
+                inpute 14, 13, 1, "", afterValue$
+                print @(15, 13), 'EU'
+                 
+                if !(afterValue$ = beforeValue$) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_cd", afterValue$)
+                endif
+                
+                break
+        
+            case ERP_DESCR_FIELD_NO
+                beforeValue$ = attPtsWorkDataMap!.get("erp_note")
+                afterValue$ = beforeValue$ 
+                print @(14, 14), 'BU', 'LC'
+                inpute 14, 14, 50, "", afterValue$
+                print @(64, 14), 'EU', 'UC' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_note", afterValue$)
+                endif
+                
+                break
+        
+            case ERP_PTS_FIELD_NO
+                beforeValue = attPtsWorkDataMap!.get("erp_pts_assessed")
+                afterValue = beforeValue 
+                print @(14, 15), 'BU'
+                inputn 14, 15, "#.0", "#.0", "", 5, afterValue
+                print @(17, 15), 'EU'
+                 
+                if !(afterValue = beforeValue) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_pts_assessed", afterValue)
+                endif
+                
+                break
+        
+            case ERP_STS_FIELD_NO
+                beforeValue$ = attPtsWorkDataMap!.get("erp_sts_cd")
+                afterValue$ = beforeValue$ 
+                print @(14, 16), 'BU'
+                inpute 14, 16, 1, "", afterValue$
+                print @(15, 16), 'EU' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    attPtsWorkDataMap!.put("changed", TRUE)
+                    attPtsWorkDataMap!.put("erp_sts_cd", afterValue$)
+                endif
+                
+                break
+            
+        swend
+
+            
+        gosub clear_err_msg
+
+        savedCTL = CTL
+        isTabbing = FALSE
+        needToBreak = FALSE
+        wasRecordSaved = FALSE
+        
+        switch savedCTL
+        
+            case ASC(F2_CTL_OUTPUT_VALUE$)
+                    if isRecordEditable then
+                        beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
+                        afterValue$ = beforeValue$ 
+                        call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 13, afterValue$
+    
+                        if !(afterValue$ = beforeValue$) then 
+                            
+                            if afterValue$ = "A" or afterValue$ = "N" or afterValue$ = "F" then
+                                gosub revert_work_data_to_orig_values
+                            endif
+                            
+                            if afterValue$ = "F" then
+                                attPtsWorkDataMap!.put("erp_sts_cd", "I")
+                            endif
+    
+                            attPtsWorkDataMap!.put("changed", TRUE)
+                            attPtsWorkDataMap!.put("disp_cd", afterValue$)
+                            
+                        endif
+                        
+                        currentFieldNo = iff(afterValue$ = "E", ERP_CODE_FIELD_NO, HIDDEN_FIELD_NO)
+                    endif
+        
+                    break
+        
+            case ASC(F3_CTL_OUTPUT_VALUE$)
+                    if isRecordEditable then
+                        beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
+                        afterValue = beforeValue 
+                        call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 9, afterValue, tmpReasonDescr$
+    
+                        if !(afterValue = beforeValue) then 
+                            attPtsWorkDataMap!.put("changed", TRUE)
+                            attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
+                            attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
+                        endif
+                    endif
+        
+                    break
+        
+            case ASC(F4_CTL_OUTPUT_VALUE$)
+                    if isRecordEditable then
+                        gosub handle_pending_change
+                        
+                        if len(errMsg$) = 0 then
+    
+                            if savedAnyRecordsOut then
+                                call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
+                            endif
+                            
+                            needToBreak = TRUE
+                        endif
+                    else
+                        needToBreak = TRUE
+                    endif
+        
+                    break
+        
+            case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
+                    if canPageUp then
+                        if isRecordEditable then
+                            gosub handle_pending_change
+                            
+                            if len(errMsg$) = 0 then
+                                gosub set_current_record_no_for_page_up
+                            endif
+                        else
+                            gosub set_current_record_no_for_page_up
+                        endif
+                    endif
+        
+                    break
+                    
+            case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
+                    if canPageDown then
+                        if isRecordEditable then
+                            gosub handle_pending_change
+                            
+                            if len(errMsg$) = 0 then
+                                gosub set_current_record_no_for_page_down
+                            endif
+                        else
+                            gosub set_current_record_no_for_page_down
+                        endif
+                    endif
+                    
+                    break
+                    
+            case ASC(TAB_CTL_OUTPUT_VALUE$)
+                    isTabbing = TRUE
+                    gosub set_field_no_after_tabbing
+                    
+                    break
+                    
+            case ASC(BACKTAB_CTL_OUTPUT_VALUE$)
+                    isTabbing = TRUE
+                    gosub set_field_no_after_back_tabbing
+                    
+                    break
+                    
+            case 0
+                    if isRecordEditable then
+                        gosub validate_and_save_record
+                        
+                        if len(errMsg$) = 0 then
+                            wasRecordSaved = TRUE
+                        endif
+                    endif
+                    
+                    break
+        swend
+
+        if needToBreak then break
+
+        if isTabbing and SHOW_FIELD_TERMINATOR_PRESSED then
+            print @(55,21), 'CL', "CTL, savedCTL: ", CTL, ", ", savedCTL
+        endif
+
+        if !(isTabbing) and len(errMsg$) = 0 then
+            gosub display_data
+            
+            if wasRecordSaved then
+                gosub write_saved_message
+            endif
+            
+        endif
+        
+    wend
+    
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  revert_work_data_to_orig_values -- reset editable fields' values to values initially read
+    rem ------------------------------------------------------------------------------------------
+    
+    
+revert_work_data_to_orig_values:
+
+    attPtsWorkDataMap!.put("disp_cd", attPtsWorkDataMap!.get("orig_disp_cd"))
+    attPtsWorkDataMap!.put("disp_edt_reas_id", attPtsWorkDataMap!.get("orig_disp_edt_reas_id"))
+    attPtsWorkDataMap!.put("erp_cd", attPtsWorkDataMap!.get("orig_erp_cd"))
+    attPtsWorkDataMap!.put("erp_note", attPtsWorkDataMap!.get("orig_erp_note"))
+    attPtsWorkDataMap!.put("erp_pts_assessed", attPtsWorkDataMap!.get("orig_erp_pts_assessed"))
+    attPtsWorkDataMap!.put("erp_sts_cd", attPtsWorkDataMap!.get("orig_erp_sts_cd"))
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Up is pressed, calculate a new currentRecordNo
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_current_record_no_for_page_up:
+
+    currentRecordNo = currentRecordNo - RECORDS_PER_PAGE
+    
+    if currentRecordNo < 1 then currentRecordNo = 1
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Down is pressed, calculate a new currentRecordNo
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_current_record_no_for_page_down:
+
+    currentRecordNo = currentRecordNo + RECORDS_PER_PAGE
+    
+    if currentRecordNo > attPtsWorkRecordsMapSize then currentRecordNo = attPtsWorkRecordsMapSize
+
+    return    
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  set_field_no_after_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_field_no_after_tabbing:
+
+    if !(currentFieldNo = HIDDEN_FIELD_NO) then
+        currentFieldNo = currentFieldNo + 1
+        if currentFieldNo > ERP_STS_FIELD_NO then currentFieldNo = ERP_CODE_FIELD_NO
+    endif
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  set_field_no_after_back_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_field_no_after_back_tabbing:
+
+    if !(currentFieldNo = HIDDEN_FIELD_NO) then
+        currentFieldNo = currentFieldNo - 1
+        if currentFieldNo < ERP_CODE_FIELD_NO then currentFieldNo = ERP_STS_FIELD_NO
+    endif
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  validate_and_save_record
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_and_save_record:
+
+    gosub validate_input
+    
+    if len(errMsg$) > 0 then
+        gosub display_err_msg
+    else
+        gosub save_record
+    endif
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  save_record
+    rem ------------------------------------------------------------------------------------------
+    
+    
+save_record:
+
+    call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
+    attPtsWorkDataMap!.remove("changed")
+    attPtsWorkDataMap!.put("saved", TRUE)
+    savedAnyRecordsOut = TRUE
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  handle_pending_change
+    rem ------------------------------------------------------------------------------------------
+    
+    
+handle_pending_change:
+
+    if !( attPtsWorkDataMap!.get("changed") = null() ) then
+    
+        saveChanges$ = "Y"
+        
+        print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$)
+        print @(14,22), "Do you want to save changes made to this record? ", 'BU'
+        inpute 63, 22, 1, "", saveChanges$
+        print @(64, 22), 'EU', 'RGB'(RGB_WHITE_ON_BLUE$)
+        
+        if saveChanges$ = "Y" then 
+            gosub validate_and_save_record
+
+            if len(errMsg$) = 0 then
+                gosub write_saved_message
+                wait .5
+            endif
+            
+        else
+            gosub revert_work_data_to_orig_values
+        endif
+        
+    endif    
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  write_saved_message
+    rem ------------------------------------------------------------------------------------------
+
+
+write_saved_message:
+
+    tmpMsg$ = "The record has been saved (ID " + str(attPtsWorkDataMap!.get("id")) + ")."
+    print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$), tmpMsg$, 'RGB'(RGB_WHITE_ON_BLUE$)  
+    
+    return
+    
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  clear_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+clear_err_msg:
+
+    print @(0,22), 'CL'
+    errMsg$ = ""
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  display_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+display_err_msg:
+
+    print @(0,22), 'CL', 'BR', pad(errMsg$, 80, "L", " "), 'ER'
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  validate_input
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_input:
+
+    if !(attPtsWorkDataMap!.get("disp_cd") = "E") then goto end_validate_input
+    
+    editReasonId = attPtsWorkDataMap!.get("disp_edt_reas_id") 
+
+    if editReasonId = 0 then
+        errMsg$ = "An edit reason is required.  Use F3 to pick one."
+        goto end_validate_input
+    endif
+    
+    erpCode$ = attPtsWorkDataMap!.get("erp_cd") 
+
+    if erpCode$ <> "1" and erpCode$ <> "2" then
+        errMsg$ = "Invalid ERP code."
+        currentFieldNo = ERP_CODE_FIELD_NO
+        goto end_validate_input
+    endif
+    
+    erpNote$ = cvs( attPtsWorkDataMap!.get("erp_note"), 3 ) 
+
+    if len(erpNote$) = 0 then
+        errMsg$ = "A value is required in the ""Descr"" field."
+        currentFieldNo = ERP_DESCR_FIELD_NO
+        goto end_validate_input
+    endif
+
+    erpPts = attPtsWorkDataMap!.get("erp_pts_assessed")
+    
+    if (erpPts < 0 or erpPts > 3) then
+        errMsg$ = "A value between 0 and 3 is required in the ""Pts"" field."
+        currentFieldNo = ERP_PTS_FIELD_NO
+        goto end_validate_input
+    endif
+    
+    erpSts$ = attPtsWorkDataMap!.get("erp_sts_cd") 
+
+    if erpSts$ <> "A" and erpSts$ <> "I" then
+        errMsg$ = "Invalid Status code."
+        currentFieldNo = ERP_STS_FIELD_NO
+        goto end_validate_input
+    endif
+ 
+    
+    end_validate_input:
+        
+    return

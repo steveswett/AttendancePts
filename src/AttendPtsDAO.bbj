@@ -235,7 +235,11 @@ load_point_records_map:
         pointDataMap!.put("stat", resultRow.stat$)
         pointDataMap!.put("cd", resultRow.cd$)
         pointDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        pointDataMap!.put("wfmr_reason_id", resultRow.wfmr_reason_id)
         pointDataMap!.put("disp_cd", resultRow.disp_cd$)
+        pointDataMap!.put("adddt", resultRow.adddt$)
+        pointDataMap!.put("chgdt", resultRow.chgdt$)
+        pointDataMap!.put("addby", resultRow.addby$)
         pointDataMap!.put("chgby", resultRow.chgby$)
         
         if resultRow.stat$ = "A" then
@@ -462,13 +466,13 @@ setup_constants:
 :       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
 
     GET_NON_ZERO_PT_RECORDS_STMT$ =
-:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, chgby, text " +
+:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, chgdt, chgby " +
 :       "from atnd " +
 :       "where badg = ? and stat = 'A' and pts > 0 " +
 :       "order by ptdt"
 
     GET_ALL_PT_RECORDS_STMT$ =
-:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, chgby, text " +
+:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, chgdt, chgby " +
 :       "from atnd " +
 :       "where badg = ?" +
 :       "order by ptdt"

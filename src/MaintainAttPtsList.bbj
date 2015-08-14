@@ -223,7 +223,6 @@ display_data:
     
     dim datesArray![1:RECORDS_PER_PAGE]
 
-
     iter! = pointRecordsMap!.keySet().iterator()
     
     while iter!.hasNext()
@@ -381,10 +380,18 @@ handle_input:
                     else
                         tmpDate! = datesArray![ num(line$) ]
                         pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
-                        call "ApproveAttPtsEmpSel.bbj", shiftIn$, deptIdIn, deptNameIn$, tmpDate!, pointDataMap!, overallSavedAnyRecordsOut
+                        call "MaintainAttPtsEdits.bbj", badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
                         
-                        if overallSavedAnyRecordsOut then
+                        if anyDataChanged then
+                        
+                            REM  May not have to do any of the rem'd things below:
+                            
+                            rem savedTopLeft = topLeftMapIndex
                             gosub load_point_records_map
+                            rem topLeftMapIndex = savedTopLeft 
+                            rem positionToDate$ = tmpDate!
+                            rem gosub position_list_to_date
+                            
                         endif 
                         
                     endif
@@ -540,24 +547,34 @@ handle_jump_to:
     REM  Only do the "jump to" if all 6 digits entered for date
     
     if len(jumpToDate$) = 6 then
-    
-        tmpyymmdd$ = "20" + jumpToDate$(5,2) + jumpToDate$(1,4) 
-        iter! = pointRecordsMap!.keySet().iterator()
-        count = 0
-        
-        while iter!.hasNext()
-        
-          dateKey! = iter!.next()
-          count = count + 1
-          unformattedDate$ = dateKey!
-          
-          if unformattedDate$ >= tmpyymmdd$ then
-              topLeftMapIndex = count
-              break
-          endif 
-          
-        wend
-        
+        positionToDate$ = "20" + jumpToDate$(5,2) + jumpToDate$(1,4)
+        gosub position_list_to_date 
     endif
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Position the list to the "positionToDate$"
+    rem ------------------------------------------------------------------------------------------
+    
+    
+position_list_to_date:
+
+    iter! = pointRecordsMap!.keySet().iterator()
+    count = 0
+    
+    while iter!.hasNext()
+    
+      dateKey! = iter!.next()
+      count = count + 1
+      unformattedDate$ = dateKey!
+      
+      if unformattedDate$ >= positionToDate$ then
+          topLeftMapIndex = count
+          break
+      endif 
+      
+    wend
 
     return
