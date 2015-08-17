@@ -13,7 +13,7 @@ declare java.util.LinkedHashMap exceptionDefsMap!
 declare java.util.LinkedHashMap wfmrReasonsMap!
 
 
-enter badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataChanged
+enter badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataSaved
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -121,7 +121,7 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 init:
 
-    anyDataChanged = FALSE
+    anyDataSaved = FALSE
 
         rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
         rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
@@ -171,6 +171,16 @@ init:
     
     wfmrReasonsMap! = new java.util.LinkedHashMap()
     call "WFMRReasonDAO.bbj::get_ids_and_names", wfmrReasonsMap!
+    
+            
+    REM  Save original values of editable fields:
+
+    pointDataMap!.put("orig_pts", pointDataMap!.get("pts") )
+    pointDataMap!.put("orig_stat", pointDataMap!.get("stat") )
+    pointDataMap!.put("orig_cd", pointDataMap!.get("cd") )
+    pointDataMap!.put("orig_text1", pointDataMap!.get("text1") )
+    pointDataMap!.put("orig_text2", pointDataMap!.get("text2") )
+    pointDataMap!.put("orig_text3", pointDataMap!.get("text3") )
     
     return
 
@@ -419,11 +429,11 @@ handle_input:
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
                     if isRecordEditable then
-                        rem gosub handle_pending_change
+                        gosub handle_pending_change
                         
                         if len(errMsg$) = 0 then
     
-                            if savedAnyRecordsOut then
+                            if anyDataSaved then
                                 rem call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
                             endif
                             
@@ -449,7 +459,7 @@ handle_input:
                     
             case 0
                     if isRecordEditable then
-                        rem gosub validate_and_save_record
+                        gosub validate_and_save_record
                         
                         if len(errMsg$) = 0 then
                             wasRecordSaved = TRUE
@@ -480,18 +490,18 @@ handle_input:
 
     
     rem ------------------------------------------------------------------------------------------
-    rem  revert_work_data_to_orig_values -- reset editable fields' values to values initially read
+    rem  reset editable fields' values to values initially read
     rem ------------------------------------------------------------------------------------------
     
     
 revert_work_data_to_orig_values:
 
-    attPtsWorkDataMap!.put("disp_cd", attPtsWorkDataMap!.get("orig_disp_cd"))
-    attPtsWorkDataMap!.put("disp_edt_reas_id", attPtsWorkDataMap!.get("orig_disp_edt_reas_id"))
-    attPtsWorkDataMap!.put("erp_cd", attPtsWorkDataMap!.get("orig_erp_cd"))
-    attPtsWorkDataMap!.put("erp_note", attPtsWorkDataMap!.get("orig_erp_note"))
-    attPtsWorkDataMap!.put("erp_pts_assessed", attPtsWorkDataMap!.get("orig_erp_pts_assessed"))
-    attPtsWorkDataMap!.put("erp_sts_cd", attPtsWorkDataMap!.get("orig_erp_sts_cd"))
+    pointDataMap!.put("pts", pointDataMap!.get("orig_pts") )
+    pointDataMap!.put("stat", pointDataMap!.get("orig_stat") )
+    pointDataMap!.put("cd", pointDataMap!.get("orig_cd") )
+    pointDataMap!.put("text1", pointDataMap!.get("orig_text1") )
+    pointDataMap!.put("text2", pointDataMap!.get("orig_text2") )
+    pointDataMap!.put("text3", pointDataMap!.get("orig_text3") )
 
     return
     
@@ -551,10 +561,10 @@ validate_and_save_record:
     
 save_record:
 
-    call "AttendPtsWorkDAO.bbj::save_one_record", attPtsWorkDataMap!
-    attPtsWorkDataMap!.remove("changed")
-    attPtsWorkDataMap!.put("saved", TRUE)
-    savedAnyRecordsOut = TRUE
+    call "AttendPtsDAO.bbj::save_pts_record_for_employee", badge5In$, pointsDate!, pointDataMap!
+    pointDataMap!.remove("changed")
+    pointDataMap!.put("saved", TRUE)
+    anyDataSaved = TRUE
 
     return
     
@@ -566,7 +576,7 @@ save_record:
     
 handle_pending_change:
 
-    if !( attPtsWorkDataMap!.get("changed") = null() ) then
+    if !( pointDataMap!.get("changed") = null() ) then
     
         saveChanges$ = "Y"
         
@@ -638,44 +648,27 @@ display_err_msg:
     
 validate_input:
 
-    if !(attPtsWorkDataMap!.get("disp_cd") = "E") then goto end_validate_input
+    pts = pointDataMap!.get("pts")
     
-    editReasonId = attPtsWorkDataMap!.get("disp_edt_reas_id") 
-
-    if editReasonId = 0 then
-        errMsg$ = "An edit reason is required.  Use F3 to pick one."
+    if (pts < 0 or pts > 3) then
+        errMsg$ = "A value between 0 and 3 is required in the ""Points"" field."
+        currentFieldNo = PTS_FIELD_NO
         goto end_validate_input
     endif
     
-    erpCode$ = attPtsWorkDataMap!.get("erp_cd") 
+    sts$ = pointDataMap!.get("stat") 
 
-    if erpCode$ <> "1" and erpCode$ <> "2" then
-        errMsg$ = "Invalid ERP code."
-        currentFieldNo = ERP_CODE_FIELD_NO
-        goto end_validate_input
-    endif
-    
-    erpNote$ = cvs( attPtsWorkDataMap!.get("erp_note"), 3 ) 
-
-    if len(erpNote$) = 0 then
-        errMsg$ = "A value is required in the ""Descr"" field."
-        currentFieldNo = ERP_DESCR_FIELD_NO
-        goto end_validate_input
-    endif
-
-    erpPts = attPtsWorkDataMap!.get("erp_pts_assessed")
-    
-    if (erpPts < 0 or erpPts > 3) then
-        errMsg$ = "A value between 0 and 3 is required in the ""Pts"" field."
-        currentFieldNo = ERP_PTS_FIELD_NO
-        goto end_validate_input
-    endif
-    
-    erpSts$ = attPtsWorkDataMap!.get("erp_sts_cd") 
-
-    if erpSts$ <> "A" and erpSts$ <> "I" then
+    if sts$ <> "A" and sts$ <> "I" then
         errMsg$ = "Invalid Status code."
-        currentFieldNo = ERP_STS_FIELD_NO
+        currentFieldNo = STS_FIELD_NO
+        goto end_validate_input
+    endif
+    
+    code$ = pointDataMap!.get("cd") 
+
+    if code$ <> "1" and code$ <> "2" then
+        errMsg$ = "Invalid Code."
+        currentFieldNo = CODE_FIELD_NO
         goto end_validate_input
     endif
  

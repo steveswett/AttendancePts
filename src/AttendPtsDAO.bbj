@@ -103,6 +103,17 @@ get_pts_total_for_employee:
     
     exit
     
+    
+save_pts_record_for_employee:
+
+    enter badge5In$, pointsDate!, pointDataMap!
+    
+    gosub setup_constants
+    
+    gosub save_pts_record
+    
+    exit
+    
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -481,6 +492,12 @@ setup_constants:
 :       "select sum(pts) as pts_total " +
 :       "from atnd " +
 :       "where badg = ? and stat = 'A'"
+
+    UPDATE_SINGLE_PTS_RECORD_STMT$ =
+:       "update atnd " +
+:       "set pts = ?, stat = ?, CD = ?, text = ?, chgdt = ?, chgby = ? " +
+:       "where " +
+:       "badg = ? and ptdt = ?"
     
     return
     
@@ -776,3 +793,36 @@ load_thresholds_map:
     
     return
     
+    
+REM  ------------------------------------------------------------
+REM  Save one record for one employee, using pointDataMap! for input
+REM  ------------------------------------------------------------
+
+save_pts_record:
+
+REM     UPDATE_SINGLE_PTS_RECORD_STMT$ =
+REM :       "update atnd " +
+REM :       "set pts = ?, stat = ?, CD = ?, text = ?, chgdt = ?, chgby = ? " +
+REM :       "where " +
+REM :       "badg = ? and ptdt = ?"
+
+    updateChannel = sqlunt
+    sqlopen(updateChannel) attendPtsDataSource$
+    
+    sqlprep(updateChannel) UPDATE_SINGLE_PTS_RECORD_STMT$
+
+    fullText$ = 
+:   pad( pointDataMap!.get("text1") , 50, "L", " ") + 
+:   pad( pointDataMap!.get("text2") , 50, "L", " ") + 
+:   pointDataMap!.get("text3")
+
+    ucUserLogin$ = cvs(info(3,2), 4)
+
+    badge6$ = "0" + badge5In$
+
+    sqlexec(updateChannel) pointDataMap!.get("pts"), pointDataMap!.get("stat"), pointDataMap!.get("cd"),
+:       fullText$, day, ucUserLogin$, badge6$, pointsDate!
+
+    sqlclose(updateChannel)
+
+    return
