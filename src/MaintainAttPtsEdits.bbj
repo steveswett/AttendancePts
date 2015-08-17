@@ -510,6 +510,13 @@ handle_input:
                         
                         if len(errMsg$) = 0 then
                             wasRecordSaved = TRUE
+                            
+                            if (isAddMode) then
+                                gosub write_saved_message
+                                wait .5
+                                needToBreak = TRUE
+                            endif
+                            
                         endif
                     endif
                     
@@ -595,20 +602,39 @@ validate_and_save_record:
     if len(errMsg$) > 0 then
         gosub display_err_msg
     else
-        gosub save_record
+        if (isAddMode) then
+            gosub insert_record
+        else
+            gosub update_record
+        endif
     endif
 
     return
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  save_record
+    rem  update_record
     rem ------------------------------------------------------------------------------------------
     
     
-save_record:
+update_record:
 
-    call "AttendPtsDAO.bbj::save_pts_record_for_employee", badge5In$, pointsDate!, pointDataMap!
+    call "AttendPtsDAO.bbj::update_pts_record_for_employee", badge5In$, pointsDate!, pointDataMap!
+    pointDataMap!.remove("changed")
+    pointDataMap!.put("saved", TRUE)
+    anyDataSaved = TRUE
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  insert_record
+    rem ------------------------------------------------------------------------------------------
+    
+    
+insert_record:
+
+    call "AttendPtsDAO.bbj::insert_pts_record_for_employee", badge5In$, pointDataMap!.get("ptdt"), pointDataMap!
     pointDataMap!.remove("changed")
     pointDataMap!.put("saved", TRUE)
     anyDataSaved = TRUE
@@ -628,9 +654,16 @@ handle_pending_change:
         saveChanges$ = "Y"
         
         print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$)
-        print @(14,22), "Do you want to save changes made to this record? ", 'BU'
-        inpute 63, 22, 1, "", saveChanges$
-        print @(64, 22), 'EU', 'RGB'(RGB_WHITE_ON_BLUE$)
+        
+        if isAddMode then
+            print @(15,22), "You have begun to edit a new record.  Add it? ", 'BU'
+            inpute 61, 22, 1, "", saveChanges$
+        else
+            print @(14,22), "Do you want to save changes made to this record? ", 'BU'
+            inpute 63, 22, 1, "", saveChanges$
+        endif
+        
+        print @(78, 22), 'EU', 'RGB'(RGB_WHITE_ON_BLUE$)
         
         if saveChanges$ = "Y" then 
             gosub validate_and_save_record
@@ -641,7 +674,9 @@ handle_pending_change:
             endif
             
         else
-            gosub revert_work_data_to_orig_values
+            if !(isAddMode) then
+                gosub revert_work_data_to_orig_values
+            endif
         endif
         
     endif    
@@ -697,18 +732,21 @@ validate_input:
 
     if (isAddMode) then
         yyyymmddTemp$ = pointDataMap!.get("ptdt")
-        tmpYr = num(yyyymmddTemp$(1,4))
-        tmpMo = num(yyyymmddTemp$(5,2))
-        tmpDay = num(yyyymmddTemp$(7,2))
-        tmpResult = jul(tmpYr, tmpMo, tmpDay, err=bad_jul_date)
-        goto good_jul_date
+        call "DateUtilities.bbj::is_valid_yyyymmdd_date", yyyymmddTemp$, isValidDate 
 
-        bad_jul_date:
-        errMsg$ = "Date entered is not valid (MM/DD/YY)."
-        currentFieldNo = PTS_DATE_FIELD_NO
-        goto end_validate_input
+        if !(isValidDate) then
+            errMsg$ = "Date entered is not valid (MM/DD/YY)."
+            currentFieldNo = PTS_DATE_FIELD_NO
+            goto end_validate_input
+        endif
         
-        good_jul_date:
+        call "AttendPtsDAO.bbj::does_pts_record_exist", badge5In$, yyyymmddTemp$, doesPtsRecordExist
+        
+        if doesPtsRecordExist then
+            errMsg$ = "A record with this date is already on file; cannot add."
+            currentFieldNo = PTS_DATE_FIELD_NO
+            goto end_validate_input
+        endif
     endif
 
     pts = pointDataMap!.get("pts")

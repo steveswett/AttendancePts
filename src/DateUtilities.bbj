@@ -112,6 +112,28 @@ get_current_timestamp:
     yyyymmddhhmmss$ = fnGetCurrentTimestamp$(TRUE)
     
     exit
+    
+    
+is_valid_yyyymmdd_date:
+
+    enter yyyymmddTemp$, isValidDate
+    
+    gosub setup_constants
+
+    isValidDate = TRUE
+    
+    tmpYr = num(yyyymmddTemp$(1,4))
+    tmpMo = num(yyyymmddTemp$(5,2))
+    tmpDay = num(yyyymmddTemp$(7,2))
+    tmpResult = jul(tmpYr, tmpMo, tmpDay, err=bad_jul_date)
+    goto good_jul_date
+
+    bad_jul_date:
+    isValidDate = FALSE
+    
+    good_jul_date:
+    
+    exit
 
 
 rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*

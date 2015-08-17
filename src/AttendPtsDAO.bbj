@@ -115,13 +115,24 @@ get_pts_total_for_employee:
     exit
     
     
-save_pts_record_for_employee:
+update_pts_record_for_employee:
 
     enter badge5In$, pointsDate!, pointDataMap!
     
     gosub setup_constants
     
-    gosub save_pts_record
+    gosub update_pts_record
+    
+    exit
+    
+    
+insert_pts_record_for_employee:
+
+    enter badge5In$, pointsDate!, pointDataMap!
+    
+    gosub setup_constants
+    
+    gosub insert_pts_record
     
     exit
     
@@ -133,6 +144,17 @@ delete_pts_record_for_employee:
     gosub setup_constants
     
     gosub delete_pts_record
+    
+    exit
+    
+    
+does_pts_record_exist:
+
+    enter badge5In$, pointsDate$, doesPtsRecordExist
+    
+    gosub setup_constants
+    
+    gosub check_existence_of_pts_record
     
     exit
     
@@ -502,7 +524,7 @@ setup_constants:
     useWindowsMailSend = num(useWindowsMailSend$)
 
     
-    POSTING_CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
+    CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
     
     POSTING_UPDATE_STMT$ = 
 :       "update atnd " +
@@ -557,6 +579,12 @@ setup_constants:
 :       "where " +
 :       "badg = ? and ptdt = ?"
 
+    INSERT_SINGLE_PTS_RECORD_STMT$ =
+:       "insert into atnd " +
+:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
+:       "values " +
+:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
     DELETE_SINGLE_PTS_RECORD_STMT$ =
 :       "delete from atnd " +
 :       "where " +
@@ -596,7 +624,7 @@ post_work_records_map:
     postingInsertChannel = sqlunt
     sqlopen(postingInsertChannel) attendPtsDataSource$
 
-    sqlprep(postingCheckExistChannel) POSTING_CHECK_EXIST_STMT$
+    sqlprep(postingCheckExistChannel) CHECK_EXIST_STMT$
     sqlprep(postingUpdateChannel) POSTING_UPDATE_STMT$
     sqlprep(postingInsertChannel) POSTING_INSERT_STMT$
     
@@ -858,10 +886,11 @@ load_thresholds_map:
     
     
 REM  ------------------------------------------------------------
-REM  Save one record for one employee, using pointDataMap! for input
+REM  Update one record for one employee, using pointDataMap! for input
 REM  ------------------------------------------------------------
 
-save_pts_record:
+
+update_pts_record:
 
 REM     UPDATE_SINGLE_PTS_RECORD_STMT$ =
 REM :       "update atnd " +
@@ -889,7 +918,12 @@ REM :       "badg = ? and ptdt = ?"
     sqlclose(updateChannel)
 
     return
+ 
     
+REM  ------------------------------------------------------------
+REM  Delete an attendance points record
+REM  ------------------------------------------------------------
+
     
 delete_pts_record:
 
@@ -903,6 +937,71 @@ delete_pts_record:
     sqlexec(deleteChannel) badge6$, pointsDate!
 
     sqlclose(deleteChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------
+REM  Check to see whether attendance points record exists
+REM  ------------------------------------------------------------
+
+    
+check_existence_of_pts_record:
+
+    doesPtsRecordExist = FALSE
+    
+    existenceChannel = sqlunt
+    sqlopen(existenceChannel) attendPtsDataSource$
+    
+    sqlprep(existenceChannel) CHECK_EXIST_STMT$
+
+    badge6$ = "0" + badge5In$
+
+    sqlexec(existenceChannel) badge6$, pointsDate$
+    dim resultRow$:sqltmpl(existenceChannel)
+    resultRow$ = sqlfetch(existenceChannel,err=pts_record_absent)
+    
+    if resultRow.hit_count > 0 then doesPtsRecordExist = TRUE
+    
+    pts_record_absent:
+
+    sqlclose(existenceChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------
+REM  Insert one record for one employee, using pointDataMap! for input
+REM  ------------------------------------------------------------
+
+
+insert_pts_record:
+
+    insertChannel = sqlunt
+    sqlopen(insertChannel) attendPtsDataSource$
+    
+    sqlprep(insertChannel) INSERT_SINGLE_PTS_RECORD_STMT$
+    
+REM     INSERT_SINGLE_PTS_RECORD_STMT$ =
+REM :   "insert into atnd " +
+REM :   "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
+REM :   "values " +
+REM :   "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+    fullText$ = 
+:   pad( pointDataMap!.get("text1") , 50, "L", " ") + 
+:   pad( pointDataMap!.get("text2") , 50, "L", " ") + 
+:   pointDataMap!.get("text3")
+
+    ucLoginUser$ = cvs(info(3,2), 4)
+
+    badge6$ = "0" + badge5In$
+
+    sqlexec(insertChannel) badge6$, pointsDate!, pointDataMap!.get("pts"), 
+:       pointDataMap!.get("cd"), pointDataMap!.get("stat"), fullText$, 
+:      day, "", ucLoginUser$, "", "", 0, 0, 0, "" 
+
+    sqlclose(insertChannel)
 
     return
     
