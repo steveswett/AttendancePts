@@ -1,0 +1,23 @@
+REM /**
+REM  * TestJulianDate.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+print "Input to jul is 2015, 08, 17.  Should be good."
+
+result = jul(2015, 08, 17, err=by_good_1)
+
+print "Good 1: result = ", result
+
+by_good_1:
+
+print "Input to jul is 15, 13, 17.  Should NOT be good."
+
+result = jul(15, 13, 17, err=by_good_2)
+
+print "Good 2: result = ", result
+
+by_good_2:
+

@@ -82,6 +82,17 @@ inactivate_pts_older_than_12_months:
     exit
     
     
+get_default_pt_data_map_for_add:
+
+    enter pointDataMap!
+    
+    gosub setup_constants
+    
+    gosub load_default_point_data_map
+    
+    exit
+    
+    
 get_pts_records_for_employee:
 
     enter badge5In$, showZeroPtRecordsIn, pointRecordsMap!
@@ -223,7 +234,43 @@ inactivate_old_points:
     sqlclose(sqlServerChannel)
     
     return
+
     
+REM  ------------------------------------------------------------
+REM  Load default point data map for a single record add/insert
+REM  ------------------------------------------------------------
+    
+    
+load_default_point_data_map:
+
+    pointDataMap!.clear()
+    
+    call "DateUtilities.bbj::get_current_timestamp", tmpDate$
+
+    pointDataMap!.put("ptdt", tmpDate$(1,8))
+    pointDataMap!.put("pts", 0)
+    pointDataMap!.put("stat", " ")
+    pointDataMap!.put("cd", " ")
+    pointDataMap!.put("wfmr_exc_def_id", 0)
+    pointDataMap!.put("wfmr_reason_id", 0)
+    pointDataMap!.put("disp_cd", "")
+    pointDataMap!.put("adddt", day)
+    pointDataMap!.put("chgdt", "")
+    
+    ucLoginUser$ = cvs(info(3,2), 4)
+    
+    pointDataMap!.put("addby", ucLoginUser$)
+    pointDataMap!.put("chgby", "")
+    pointDataMap!.put("running_total", 0)
+    
+    pointDataMap!.put("text1", "")
+    pointDataMap!.put("text2", "")
+    pointDataMap!.put("text3", "")
+    
+    pointDataMap!.put("pts_removal_date", "")
+    pointDataMap!.put("pts_removed", "")
+
+    return
     
 REM  ------------------------------------------------------------
 REM  Load point records for a single employee
@@ -832,12 +879,12 @@ REM :       "badg = ? and ptdt = ?"
 :   pad( pointDataMap!.get("text2") , 50, "L", " ") + 
 :   pointDataMap!.get("text3")
 
-    ucUserLogin$ = cvs(info(3,2), 4)
+    ucLoginUser$ = cvs(info(3,2), 4)
 
     badge6$ = "0" + badge5In$
 
     sqlexec(updateChannel) pointDataMap!.get("pts"), pointDataMap!.get("stat"), pointDataMap!.get("cd"),
-:       fullText$, day, ucUserLogin$, badge6$, pointsDate!
+:       fullText$, day, ucLoginUser$, badge6$, pointsDate!
 
     sqlclose(updateChannel)
 

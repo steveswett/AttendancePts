@@ -51,6 +51,9 @@ F6_CTL_OUTPUT_VALUE$ = $06$
 F8_CUSTOM_INPUT_VALUE$ = $81$
 F8_CTL_OUTPUT_VALUE$ = $02$
 
+F10_CUSTOM_INPUT_VALUE$ = $84$
+F10_CTL_OUTPUT_VALUE$ = $10$
+
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
 
@@ -149,6 +152,7 @@ init:
     print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $07$, chr(1), F8_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $09$, chr(1), F10_CUSTOM_INPUT_VALUE$,
 
     print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
@@ -157,13 +161,14 @@ init:
     f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
     f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
     f8Pair$ = F8_CUSTOM_INPUT_VALUE$ + F8_CTL_OUTPUT_VALUE$
+    f10Pair$ = F10_CUSTOM_INPUT_VALUE$ + F10_CTL_OUTPUT_VALUE$
     pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f8Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f8Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f8Pair$ + f4Pair$ + f6Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f8Pair$ + f4Pair$ + f6Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     gosub load_point_records_map
     topLeftMapIndex = 1
@@ -281,16 +286,16 @@ display_data:
     canPageUp = fnHasRecordsBefore%(TRUE)
     canPageDown = fnHasRecordsAfter%(TRUE)
     
-    actionLabel$ = "F6=Jump To  "
+    actionLabel$ = "F6=Jump To  F8=Add  "
 
     if showZeroPtRecords then
-        actionLabel$ = actionLabel$ + "F8=Hide Zero Pt Rows  "
+        actionLabel$ = actionLabel$ + "F10=Hide Zero Pt Rows  "
     else
-        actionLabel$ = actionLabel$ + "F8=Show Zero Pt Rows  "
+        actionLabel$ = actionLabel$ + "F10=Show Zero Pt Rows  "
     endif
     
-    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page  " 
-    if canPageDown then actionLabel$ = actionLabel$ + "Page Dn=Next Page  "
+    if canPageUp then actionLabel$ = actionLabel$ + "PgUp=Prev Pg  " 
+    if canPageDown then actionLabel$ = actionLabel$ + "PgDn=Next Pg  "
     
     print @(9,21), actionLabel$ 
     
@@ -335,6 +340,19 @@ handle_input:
                     break
         
             case ASC(F8_CTL_OUTPUT_VALUE$)
+                    pointDataMap! = new java.util.HashMap()
+                    call "AttendPtsDAO.bbj::get_default_pt_data_map_for_add", pointDataMap!
+                    tmpDate! = pointDataMap!.get("ptdt")
+                    call "MaintainAttPtsEdits.bbj", TRUE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+                    line$ = " "
+                    
+                    if anyDataChanged then
+                        gosub load_point_records_map
+                    endif 
+        
+                    break
+        
+            case ASC(F10_CTL_OUTPUT_VALUE$)
                     if showZeroPtRecords then
                         showZeroPtRecords = FALSE
                     else
@@ -380,7 +398,7 @@ handle_input:
                     else
                         tmpDate! = datesArray![ num(line$) ]
                         pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
-                        call "MaintainAttPtsEdits.bbj", badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+                        call "MaintainAttPtsEdits.bbj", FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
                         line$ = " "
                         
                         if anyDataChanged then

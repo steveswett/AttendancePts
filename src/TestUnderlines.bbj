@@ -1,0 +1,9 @@
+REM /**
+REM  * TestUnderlines.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+print @(0,0), 'CS'
+
+print @(10,4), 'BU', "This BBj should be underlined.", 'EU'

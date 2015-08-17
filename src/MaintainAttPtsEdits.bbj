@@ -13,7 +13,7 @@ declare java.util.LinkedHashMap exceptionDefsMap!
 declare java.util.LinkedHashMap wfmrReasonsMap!
 
 
-enter badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataSaved
+enter isAddMode, badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataSaved
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -37,13 +37,14 @@ START_ROW_FOR_LIST = 0
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-PTS_FIELD_NO = 1
-STS_FIELD_NO = 2
-CODE_FIELD_NO = 3
-NOTES1_FIELD_NO = 4
-NOTES2_FIELD_NO = 5
-NOTES3_FIELD_NO = 6
-HIDDEN_FIELD_NO = 7
+PTS_DATE_FIELD_NO = 1
+PTS_FIELD_NO = 2
+STS_FIELD_NO = 3
+CODE_FIELD_NO = 4
+NOTES1_FIELD_NO = 5
+NOTES2_FIELD_NO = 6
+NOTES3_FIELD_NO = 7
+HIDDEN_FIELD_NO = 8
 
 
 REM     Note about INPUTE:
@@ -119,6 +120,14 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 init:
 
     anyDataSaved = FALSE
+    
+    if isAddMode then
+        firstFieldNo = PTS_DATE_FIELD_NO 
+    else
+        firstFieldNo = PTS_FIELD_NO 
+    endif
+    
+    lastFieldNo = NOTES3_FIELD_NO 
 
         rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
         rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
@@ -168,15 +177,19 @@ init:
     wfmrReasonsMap! = new java.util.LinkedHashMap()
     call "WFMRReasonDAO.bbj::get_ids_and_names", wfmrReasonsMap!
     
+    if !(isAddMode) then
+    
+        REM  Save original values of editable fields:
+    
+        pointDataMap!.put("orig_pts", pointDataMap!.get("pts") )
+        pointDataMap!.put("orig_stat", pointDataMap!.get("stat") )
+        pointDataMap!.put("orig_cd", pointDataMap!.get("cd") )
+        pointDataMap!.put("orig_text1", pointDataMap!.get("text1") )
+        pointDataMap!.put("orig_text2", pointDataMap!.get("text2") )
+        pointDataMap!.put("orig_text3", pointDataMap!.get("text3") )
+        
+    endif
             
-    REM  Save original values of editable fields:
-
-    pointDataMap!.put("orig_pts", pointDataMap!.get("pts") )
-    pointDataMap!.put("orig_stat", pointDataMap!.get("stat") )
-    pointDataMap!.put("orig_cd", pointDataMap!.get("cd") )
-    pointDataMap!.put("orig_text1", pointDataMap!.get("text1") )
-    pointDataMap!.put("orig_text2", pointDataMap!.get("text2") )
-    pointDataMap!.put("orig_text3", pointDataMap!.get("text3") )
     
     return
 
@@ -222,8 +235,13 @@ display_data:
     unformattedDate$ = pointsDate!
     call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, formattedDate$
     
-    print @(0,5), "Points date:"
-    print @(26,5), formattedDate$
+    print @(0,5), "Points date (MM/DD/YY):"
+    
+    if (isAddMode) then
+        print @(26,5), begUnLin$, formattedDate$, endUnLin$
+    else
+        print @(26,5), formattedDate$
+    endif
     
     print @(0,6), "Points:"
     print @(26,6), begUnLin$, str( pointDataMap!.get("pts"):"#.0" ), endUnLin$
@@ -295,8 +313,12 @@ display_data:
         print @(36,18), "by ", pointDataMap!.get("chgby")
     endif
       
+    if (isAddMode) then
+        actionLabel$ = "F4=Exit  Enter=Save"
+    else
+        actionLabel$ = "F4=Exit  F9=Delete  Enter=Save"
+    endif
     
-    actionLabel$ = "F4=Exit  F9=Delete  Enter=Save"
     
     print @(3,21), actionLabel$ 
     
@@ -313,7 +335,7 @@ display_data:
 handle_input:
 
     if isRecordEditable then
-        currentFieldNo = PTS_FIELD_NO
+        currentFieldNo = firstFieldNo
     else
         currentFieldNo = HIDDEN_FIELD_NO
     endif
@@ -324,6 +346,29 @@ handle_input:
         
             case HIDDEN_FIELD_NO
                 inpute 0, 21, 1, "", ignoreInput$
+                
+                break
+        
+            case PTS_DATE_FIELD_NO
+                unformattedDate$ = pointDataMap!.get("ptdt")
+                
+                REM  Convert YYYYMMDD to MMDDYY
+                
+                beforeValue$ = unformattedDate$(5,4) + unformattedDate$(3,2)
+                afterValue$ = beforeValue$ 
+                print @(26, 5), 'BU'
+                inpute 26, 5, "00/00/00", "", afterValue$
+                print @(34, 5), 'EU' 
+                
+                if !(afterValue$ = beforeValue$) then 
+                    pointDataMap!.put("changed", TRUE)
+                    
+                    REM  Convert MMDDYY to YYYYMMDD
+                    
+                    afterValue$ = pad(afterValue$, 6, "L", "0")
+                    afterValue$ = "20" + afterValue$(5,2) + afterValue$(1,4)
+                    pointDataMap!.put("ptdt", afterValue$)
+                endif
                 
                 break
         
@@ -517,7 +562,7 @@ set_field_no_after_tabbing:
 
     if !(currentFieldNo = HIDDEN_FIELD_NO) then
         currentFieldNo = currentFieldNo + 1
-        if currentFieldNo > NOTES3_FIELD_NO then currentFieldNo = PTS_FIELD_NO
+        if currentFieldNo > lastFieldNo then currentFieldNo = firstFieldNo
     endif
         
     return
@@ -532,7 +577,7 @@ set_field_no_after_back_tabbing:
 
     if !(currentFieldNo = HIDDEN_FIELD_NO) then
         currentFieldNo = currentFieldNo - 1
-        if currentFieldNo < PTS_FIELD_NO then currentFieldNo = NOTES3_FIELD_NO
+        if currentFieldNo < firstFieldNo then currentFieldNo = lastFieldNo
     endif
     
     return
@@ -649,6 +694,22 @@ display_err_msg:
     
     
 validate_input:
+
+    if (isAddMode) then
+        yyyymmddTemp$ = pointDataMap!.get("ptdt")
+        tmpYr = num(yyyymmddTemp$(1,4))
+        tmpMo = num(yyyymmddTemp$(5,2))
+        tmpDay = num(yyyymmddTemp$(7,2))
+        tmpResult = jul(tmpYr, tmpMo, tmpDay, err=bad_jul_date)
+        goto good_jul_date
+
+        bad_jul_date:
+        errMsg$ = "Date entered is not valid (MM/DD/YY)."
+        currentFieldNo = PTS_DATE_FIELD_NO
+        goto end_validate_input
+        
+        good_jul_date:
+    endif
 
     pts = pointDataMap!.get("pts")
     
