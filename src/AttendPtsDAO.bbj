@@ -114,6 +114,17 @@ save_pts_record_for_employee:
     
     exit
     
+    
+delete_pts_record_for_employee:
+
+    enter badge5In$, pointsDate!
+    
+    gosub setup_constants
+    
+    gosub delete_pts_record
+    
+    exit
+    
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -498,6 +509,11 @@ setup_constants:
 :       "set pts = ?, stat = ?, CD = ?, text = ?, chgdt = ?, chgby = ? " +
 :       "where " +
 :       "badg = ? and ptdt = ?"
+
+    DELETE_SINGLE_PTS_RECORD_STMT$ =
+:       "delete from atnd " +
+:       "where " +
+:       "badg = ? and ptdt = ?"
     
     return
     
@@ -826,3 +842,20 @@ REM :       "badg = ? and ptdt = ?"
     sqlclose(updateChannel)
 
     return
+    
+    
+delete_pts_record:
+
+    deleteChannel = sqlunt
+    sqlopen(deleteChannel) attendPtsDataSource$
+    
+    sqlprep(deleteChannel) DELETE_SINGLE_PTS_RECORD_STMT$
+
+    badge6$ = "0" + badge5In$
+
+    sqlexec(deleteChannel) badge6$, pointsDate!
+
+    sqlclose(deleteChannel)
+
+    return
+    

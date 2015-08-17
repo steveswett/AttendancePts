@@ -52,14 +52,11 @@ REM     Any value less than 63 will cause the input function to exit setting the
 REM     The "help" function causes an exit with CTL=-1.
 
 
-F2_CUSTOM_INPUT_VALUE$ = $81$
-F2_CTL_OUTPUT_VALUE$ = $02$
-
-F3_CUSTOM_INPUT_VALUE$ = $82$
-F3_CTL_OUTPUT_VALUE$ = $03$
-
 F4_CUSTOM_INPUT_VALUE$ = $83$
 F4_CTL_OUTPUT_VALUE$ = $04$
+
+F9_CUSTOM_INPUT_VALUE$ = $82$
+F9_CTL_OUTPUT_VALUE$ = $03$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
@@ -144,27 +141,26 @@ init:
         rem Below is how the 'FL' (function keys) and 'EL' (edit keys) mnemonics are used to assign a key a value
         
         rem "2" - load only one key
-        rem $01$ - means the F2 key (0-based)
+        rem $03$ - means the F4 key (0-based)
         rem chr(1) - means the custom value of the function key is 1 byte long
-        rem F2_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
+        rem F4_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
         
-    print 'FL', "2", $01$, chr(1), F2_CUSTOM_INPUT_VALUE$,
-    print 'FL', "2", $02$, chr(1), F3_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
+    print 'FL', "2", $08$, chr(1), F9_CUSTOM_INPUT_VALUE$,
+    
     print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
     
-    f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
-    f3Pair$ = F3_CUSTOM_INPUT_VALUE$ + F3_CTL_OUTPUT_VALUE$
     f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
+    f9Pair$ = F9_CUSTOM_INPUT_VALUE$ + F9_CTL_OUTPUT_VALUE$
     pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f3Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f3Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f4Pair$ + f9Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f4Pair$ + f9Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     exceptionDefsMap! = new java.util.LinkedHashMap()
     call "WFMRExceptionDefsDAO.bbj::get_ids_and_names", exceptionDefsMap!
@@ -432,15 +428,21 @@ handle_input:
                         gosub handle_pending_change
                         
                         if len(errMsg$) = 0 then
-    
-                            if anyDataSaved then
-                                rem call "ApproveAttPtsPost.bbj", shiftIn$, deptIdIn, deptNameIn$, dateIn!, attPtsWorkRecordsMap!
-                            endif
-                            
                             needToBreak = TRUE
                         endif
                     else
                         needToBreak = TRUE
+                    endif
+        
+                    break
+        
+            case ASC(F9_CTL_OUTPUT_VALUE$)
+                    if isRecordEditable then
+                        gosub handle_delete
+                        
+                        if okToDeleteRecord$ = "Y" then
+                            needToBreak = TRUE
+                        endif
                     endif
         
                     break
@@ -676,3 +678,41 @@ validate_input:
     end_validate_input:
         
     return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Show delete confirmation and delete record, if desired
+    rem ------------------------------------------------------------------------------------------
+    
+    
+handle_delete:
+
+        okToDeleteRecord$ = "N"
+        
+        print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$)
+        print @(14,22), "Are you sure you wish to delete this record? ", 'BU'
+        inpute 59, 22, 1, "", okToDeleteRecord$
+        print @(60, 22), 'EU', 'RGB'(RGB_WHITE_ON_BLUE$)
+        
+        if okToDeleteRecord$ = "Y" then 
+            call "AttendPtsDAO.bbj::delete_pts_record_for_employee", badge5In$, pointsDate!
+            anyDataSaved = TRUE
+            gosub write_deleted_message
+            wait .5
+        endif
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Show message that record has been deleted
+    rem ------------------------------------------------------------------------------------------
+    
+    
+write_deleted_message:
+
+    tmpMsg$ = "The record has been deleted."
+    print @(0,22), 'CL', 'RGB'(RGB_YELLOW_ON_BLUE$), tmpMsg$, 'RGB'(RGB_WHITE_ON_BLUE$)  
+    
+    return
+    

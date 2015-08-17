@@ -381,17 +381,10 @@ handle_input:
                         tmpDate! = datesArray![ num(line$) ]
                         pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
                         call "MaintainAttPtsEdits.bbj", badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+                        line$ = " "
                         
                         if anyDataChanged then
-                        
-                            REM  May not have to do any of the rem'd things below:
-                            
-                            rem savedTopLeft = topLeftMapIndex
                             gosub load_point_records_map
-                            rem topLeftMapIndex = savedTopLeft 
-                            rem positionToDate$ = tmpDate!
-                            rem gosub position_list_to_date
-                            
                         endif 
                         
                     endif
