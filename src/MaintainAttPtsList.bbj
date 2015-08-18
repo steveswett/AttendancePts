@@ -404,20 +404,26 @@ handle_input:
                     break
                     
             case 0
-                    gosub validate_input
+                    REM  For backwards compatibility, an Enter without a line # will page forward (if more lines available)
                     
-                    if len(errMsg$) > 0 then
-                        gosub display_err_msg
+                    if len(cvs(line$, 2)) = 0 and canPageDown then
+                        gosub set_top_left_map_index_for_page_down
                     else
-                        tmpDate! = datesArray![ num(line$) ]
-                        pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
-                        call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
-                        line$ = " "
+                        gosub validate_input
                         
-                        if anyDataChanged then
-                            gosub load_point_records_map
-                        endif 
-                        
+                        if len(errMsg$) > 0 then
+                            gosub display_err_msg
+                        else
+                            tmpDate! = datesArray![ num(line$) ]
+                            pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
+                            call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+                            line$ = " "
+                            
+                            if anyDataChanged then
+                                gosub load_point_records_map
+                            endif 
+                            
+                        endif
                     endif
                     
                     break
