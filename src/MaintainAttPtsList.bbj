@@ -120,7 +120,9 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 init:
 
-    badge5In$ = argv(1)
+    isInquiryMode = num( argv(1) )
+    badge5In$ = argv(2)
+    
     
     call "EmployeeMasterDAO.bbj::get_name_last_first_mi", badge5In$, employeeName$
     
@@ -165,13 +167,14 @@ init:
     f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
     f8Pair$ = F8_CUSTOM_INPUT_VALUE$ + F8_CTL_OUTPUT_VALUE$
     f10Pair$ = F10_CUSTOM_INPUT_VALUE$ + F10_CTL_OUTPUT_VALUE$
+
     pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f8Pair$ + f4Pair$ + f6Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f8Pair$ + f4Pair$ + f6Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f4Pair$ + f6Pair$ + f8Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f4Pair$ + f6Pair$ + f8Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     gosub load_point_records_map
     topLeftMapIndex = 1
@@ -290,7 +293,11 @@ display_data:
     canPageUp = fnHasRecordsBefore%(TRUE)
     canPageDown = fnHasRecordsAfter%(TRUE)
     
-    actionLabel$ = "F6=Jump To  F8=Add  "
+    actionLabel$ = "F6=Jump To  "
+    
+    if !(isInquiryMode) then
+        actionLabel$ = actionLabel$ + "F8=Add  "
+    endif
 
     if showZeroPtRecords then
         actionLabel$ = actionLabel$ + "F10=Hide Zero Pt Rows  "
@@ -344,14 +351,16 @@ handle_input:
                     break
         
             case ASC(F8_CTL_OUTPUT_VALUE$)
-                    pointDataMap! = new java.util.HashMap()
-                    call "AttendPtsDAO.bbj::get_default_pt_data_map_for_add", pointDataMap!
-                    tmpDate! = pointDataMap!.get("ptdt")
-                    call "MaintainAttPtsEdits.bbj", TRUE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
-                    line$ = " "
-                    
-                    if anyDataChanged then
-                        gosub load_point_records_map
+                    if !(isInquiryMode) then
+                        pointDataMap! = new java.util.HashMap()
+                        call "AttendPtsDAO.bbj::get_default_pt_data_map_for_add", pointDataMap!
+                        tmpDate! = pointDataMap!.get("ptdt")
+                        call "MaintainAttPtsEdits.bbj", isInquiryMode, TRUE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+                        line$ = " "
+                        
+                        if anyDataChanged then
+                            gosub load_point_records_map
+                        endif
                     endif 
         
                     break
@@ -402,7 +411,7 @@ handle_input:
                     else
                         tmpDate! = datesArray![ num(line$) ]
                         pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
-                        call "MaintainAttPtsEdits.bbj", FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+                        call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
                         line$ = " "
                         
                         if anyDataChanged then

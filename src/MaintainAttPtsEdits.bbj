@@ -13,7 +13,7 @@ declare java.util.LinkedHashMap exceptionDefsMap!
 declare java.util.LinkedHashMap wfmrReasonsMap!
 
 
-enter isAddMode, badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataSaved
+enter isInquiryMode, isAddMode, badge5In$, employeeNameIn$, pointsDate!, pointDataMap!, anyDataSaved
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -236,7 +236,7 @@ display_data:
     
     REM  TODO: Need to set to editable or not depending on user's capabilities (or perhaps whether called as inquiry):
     
-    isRecordEditable = TRUE
+    isRecordEditable = !(isInquiryMode)
     
     if isRecordEditable then
         begUnLin$ = 'BU'
@@ -290,7 +290,7 @@ display_data:
         print @(26,14), dispCode$
         print @(36,14), "(", dispDescr$, ")"
         
-        if !(isAddMode) then
+        if !(isAddMode) and !(isInquiryMode) then
             origDispCode$ = pointDataMap!.get("orig_disp_cd")
             
             if hasFMLATypeOrigDisposition then
@@ -338,11 +338,19 @@ display_data:
     if len( cvs(dateChanged$,2) ) > 0 then
         print @(36,18), "by ", pointDataMap!.get("chgby")
     endif
-      
-    if (isAddMode) then
-        actionLabel$ = "F4=Exit  Enter=Save"
+    
+    if isInquiryMode then
+        saveCaption$ = "Enter=Continue"
+        deleteCaption$ = ""
     else
-        actionLabel$ = "F4=Exit  F9=Delete  Enter=Save"
+        saveCaption$ = "Enter=Save"
+        deleteCaption$ = "F9=Delete  "
+    endif
+      
+    if isAddMode then
+        actionLabel$ = "F4=Exit  " + saveCaption$
+    else
+        actionLabel$ = "F4=Exit  " + deleteCaption$ + saveCaption$
     endif
     
     
@@ -495,16 +503,18 @@ handle_input:
         switch savedCTL
         
             case ASC(F2_CTL_OUTPUT_VALUE$)
-                    origDispCode$ = pointDataMap!.get("orig_disp_cd")
-            
-                    if isRecordEditable and !(isAddMode) and hasFMLATypeOrigDisposition then
-                        beforeValue$ = pointDataMap!.get("disp_cd")
-                        afterValue$ = beforeValue$ 
-                        call "ApproveAttPtsDispPopup.bbj::show_popup", TRUE, 30, 13, afterValue$
-    
-                        if !(afterValue$ = beforeValue$) then 
-                            pointDataMap!.put("changed", TRUE)
-                            pointDataMap!.put("disp_cd", afterValue$)
+                    if !(isInquiryMode) then
+                        origDispCode$ = pointDataMap!.get("orig_disp_cd")
+                
+                        if isRecordEditable and !(isAddMode) and hasFMLATypeOrigDisposition then
+                            beforeValue$ = pointDataMap!.get("disp_cd")
+                            afterValue$ = beforeValue$ 
+                            call "ApproveAttPtsDispPopup.bbj::show_popup", TRUE, 30, 13, afterValue$
+        
+                            if !(afterValue$ = beforeValue$) then 
+                                pointDataMap!.put("changed", TRUE)
+                                pointDataMap!.put("disp_cd", afterValue$)
+                            endif
                         endif
                     endif
         
@@ -560,6 +570,8 @@ handle_input:
                             endif
                             
                         endif
+                    else
+                        needToBreak = TRUE
                     endif
                     
                     break
