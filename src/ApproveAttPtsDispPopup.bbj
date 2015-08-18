@@ -14,7 +14,24 @@ rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
 rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+
+def fnSkipDispCode(aDispCode!)
+
+    tmpSkip = FALSE
     
+    if isFMLAMode then
+        if aDispCode! <> "F" and aDispCode! <> "P" and aDispCode! <> "D" then tmpSkip = TRUE
+    else
+        if aDispCode! = "P" or aDispCode! = "D" then tmpSkip = TRUE
+    endif
+    
+    return tmpSkip
+
+fnend    
 
 
 
@@ -38,7 +55,7 @@ get_description:
 
 show_popup:
 
-    enter upperLeftColumn, upperLeftRow, dispCode$
+    enter isFMLAMode, upperLeftColumn, upperLeftRow, dispCode$
     
     gosub setup_constants
 
@@ -115,6 +132,8 @@ init:
     dispCodesMap!.put("A", "Approve WFMR Values")
     dispCodesMap!.put("E", "Edit")
     dispCodesMap!.put("F", "FMLA Pending")
+    dispCodesMap!.put("P", "FMLA Approved")
+    dispCodesMap!.put("D", "FMLA Denied")
     
     return
 
@@ -157,6 +176,9 @@ display_popup:
     while iter!.hasNext()
     
       tmpDispCode! = iter!.next()
+      
+      if fnSkipDispCode(tmpDispCode!) then continue
+      
       x = x + 1
       
       print @(5, x),  dispCodesMap!.get(tmpDispCode!)
@@ -210,6 +232,9 @@ handle_input:
     while iter!.hasNext()
     
       tmpDispCode! = iter!.next()
+      
+      if fnSkipDispCode(tmpDispCode!) then continue
+      
       x = x + 1
       
       if x = cursorRow then

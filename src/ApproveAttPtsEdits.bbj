@@ -460,7 +460,7 @@ handle_input:
                     if isRecordEditable then
                         beforeValue$ = attPtsWorkDataMap!.get("disp_cd")
                         afterValue$ = beforeValue$ 
-                        call "ApproveAttPtsDispPopup.bbj::show_popup", 30, 13, afterValue$
+                        call "ApproveAttPtsDispPopup.bbj::show_popup", FALSE, 30, 13, afterValue$
     
                         if !(afterValue$ = beforeValue$) then 
                             

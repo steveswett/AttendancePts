@@ -575,7 +575,7 @@ setup_constants:
 
     UPDATE_SINGLE_PTS_RECORD_STMT$ =
 :       "update atnd " +
-:       "set pts = ?, stat = ?, CD = ?, text = ?, chgdt = ?, chgby = ? " +
+:       "set pts = ?, stat = ?, cd = ?, text = ?, chgdt = ?, chgby = ?, disp_cd = ? " +
 :       "where " +
 :       "badg = ? and ptdt = ?"
 
@@ -892,12 +892,6 @@ REM  ------------------------------------------------------------
 
 update_pts_record:
 
-REM     UPDATE_SINGLE_PTS_RECORD_STMT$ =
-REM :       "update atnd " +
-REM :       "set pts = ?, stat = ?, CD = ?, text = ?, chgdt = ?, chgby = ? " +
-REM :       "where " +
-REM :       "badg = ? and ptdt = ?"
-
     updateChannel = sqlunt
     sqlopen(updateChannel) attendPtsDataSource$
     
@@ -911,9 +905,13 @@ REM :       "badg = ? and ptdt = ?"
     ucLoginUser$ = cvs(info(3,2), 4)
 
     badge6$ = "0" + badge5In$
+    
+REM     print @(0,21), 'CL', 
+REM     print @(0,22), 'CL', "pointDataMap!.get(""pts"") = ", pointDataMap!.get("pts")
+REM     input @(60,22), "hit any key", ignoreInput$
 
     sqlexec(updateChannel) pointDataMap!.get("pts"), pointDataMap!.get("stat"), pointDataMap!.get("cd"),
-:       fullText$, day, ucLoginUser$, badge6$, pointsDate!
+:       fullText$, day, ucLoginUser$, pointDataMap!.get("disp_cd"), badge6$, pointsDate!
 
     sqlclose(updateChannel)
 

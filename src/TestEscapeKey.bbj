@@ -1,0 +1,9 @@
+REM /**
+REM  * TestEscapeKey.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+input @(0,0),'CS', @(0,2), "hit escape key", inputKey$
+
+print "inputKey$, CTL = ", inputKey$, ", ", CTL
