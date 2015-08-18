@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <buildpath>
-	<buildpathentry excluding="**/.cvs/|**/.cvsignore|**/.git/|**/.gitignore|**/.svn/|**/.svnignore|**/bin/|.builaunches/|.guilaunches/|wbp-meta/" kind="src" path=""/>
+	<buildpathentry excluding=".builaunches/|.git*|.guilaunches/|.work/|cfg/|wbp-meta/" kind="src" path=""/>
 	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER">
 		<attributes>
 			<attribute name="projectClasspathName" value=""/>
