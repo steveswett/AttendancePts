@@ -52,12 +52,16 @@ REM
 REM     Any value less than 63 will cause the input function to exit setting the CTL value to the function value. 
 REM     The "help" function causes an exit with CTL=-1.
 
+REM     For consistency across programs regarding function keys (not edit keys):
+REM     Input values: F1, F2, F3 ... F10 = $C1$, $C2$, $C3$ ... $C0$
+REM     Output values: F1, F2, F3 ... F10 = $01$, $02$, $03$ ... $10$
 
-F4_CUSTOM_INPUT_VALUE$ = $83$
+
+F4_CUSTOM_INPUT_VALUE$ = $C4$
 F4_CTL_OUTPUT_VALUE$ = $04$
 
-F9_CUSTOM_INPUT_VALUE$ = $82$
-F9_CTL_OUTPUT_VALUE$ = $03$
+F9_CUSTOM_INPUT_VALUE$ = $C9$
+F9_CTL_OUTPUT_VALUE$ = $09$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
