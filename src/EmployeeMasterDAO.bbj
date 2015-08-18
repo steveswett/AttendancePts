@@ -24,11 +24,22 @@ entry_points:
 
 get_name_last_first_mi:
 
-    enter badgeIn$, nameOut$
+    enter badge5In$, nameOut$
     
     gosub setup_constants
     
     gosub query_for_last_first_mi
+    
+    exit
+
+
+set_attend_pts_date_to_today:
+
+    enter badge5In$
+    
+    gosub setup_constants
+    
+    gosub update_pts_date_to_today
     
     exit
 
@@ -38,9 +49,9 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 subroutines:
 
 
-REM  ------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  setup_constants
-REM  ------------------------------
+REM  ------------------------------------------------------------------------------------------
 
 setup_constants:
 
@@ -54,12 +65,15 @@ setup_constants:
     GET_LAST_FIRST_MI_SELECT_STMT$ = "select rtrim(substring(name, 14, 14)) + ', ' + rtrim(substring(name, 1, 11)) + ' ' + rtrim(substring(name, 12, 2)) as last_first_mi " +
 :                                    "from employ where badg = ?"
     
+    SET_ATTEND_PTS_DATE_TO_TODAY_STMT$ = "update employ set atndt = ? where badg = ?"
+    
     return
 
 
-REM  ------------------------------
-REM  query_for_last_first_mi
-REM  ------------------------------
+REM  ------------------------------------------------------------------------------------------
+REM  Get name like this: "LAST, FIRST M."
+REM  ------------------------------------------------------------------------------------------
+
 
 query_for_last_first_mi:
 
@@ -70,13 +84,31 @@ query_for_last_first_mi:
 
     nameOut$ = ""
     
-    sqlexec(employChannel) badgeIn$
+    sqlexec(employChannel) badge5In$
     dim resultRow$:sqltmpl(employChannel)
     
     resultRow$ = sqlfetch(employChannel,err=emp_name_not_found)
     nameOut$ = cvs(resultRow.last_first_mi$, 2)
     
     emp_name_not_found:
+    
+    sqlclose(employChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Set the points date in field ATNDT to the current date
+REM  ------------------------------------------------------------------------------------------
+
+    
+update_pts_date_to_today:
+
+    employChannel = sqlunt
+    sqlopen(employChannel) attendPtsDataSource$
+
+    sqlprep(employChannel) SET_ATTEND_PTS_DATE_TO_TODAY_STMT$
+    sqlexec(employChannel) day, badge5In$
     
     sqlclose(employChannel)
 
