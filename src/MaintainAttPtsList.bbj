@@ -69,6 +69,9 @@ PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
 PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
 PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
 
+ESCAPE_CUSTOM_INPUT_VALUE$ = $1B$
+ESCAPE_CTL_OUTPUT_VALUE$ = $1D$
+
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
@@ -172,9 +175,10 @@ init:
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
+    escPair$ = ESCAPE_CUSTOM_INPUT_VALUE$ + ESCAPE_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f4Pair$ + f6Pair$ + f8Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f4Pair$ + f6Pair$ + f8Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f4Pair$ + f6Pair$ + f8Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + escPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f4Pair$ + f6Pair$ + f8Pair$ + f10Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + escPair$ + stbl("!EDIT"))
     
     gosub load_point_records_map
     topLeftMapIndex = 1
@@ -341,6 +345,11 @@ handle_input:
         switch savedCTL
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
+                    needToBreak = TRUE
+        
+                    break
+        
+            case ASC(ESCAPE_CTL_OUTPUT_VALUE$)
                     needToBreak = TRUE
         
                     break

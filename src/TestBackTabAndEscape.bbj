@@ -1,0 +1,23 @@
+terms$=stbl("!TERMS")
+
+rem tab:
+if pos($0901$=terms$)=0 then terms$=stbl("!TERMS",terms$+$0901$)
+
+rem shift-tab:
+if pos($8902$=terms$)=0 then terms$=stbl("!TERMS",terms$+$8902$)
+
+escape:
+terms$=stbl("!TERMS",terms$+$1B03$)
+
+rem print 'et'
+
+print "Expected CTL: tab = 1, shift-tab = 2, escape = 3"
+
+REM  Only shift-tab needs a custom 'EL' mnemonic instruction
+print 'el',"2",chr(60),chr(1),$89$,
+
+rem print 'el',"2",chr(60),chr(1),$1B$,
+
+input "Press TAB or SHIFT+TAB or Esc: ",*
+
+print "CTL = ",ctl
