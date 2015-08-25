@@ -1,0 +1,111 @@
+REM /**
+REM  * ETOHistoryDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+get_most_recent_award_date_on_before:
+
+    enter badge5In$, yyyymmddIn$, awardDateOut$
+    
+    gosub setup_constants
+    
+    gosub get_most_recent_award_date
+    
+    exit
+
+
+add_award_date:
+
+    enter badge5In$, awardDateIn$, awardHrsIn
+    
+    gosub setup_constants
+    
+    gosub insert_award_date
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    attendPtsDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    RECENT_AWARD_DATE_STMT$ = "select award_date from eto_history where badge = ? and award_date <= ? order by AWARD_DATE desc"
+    
+    INSERT_AWARD_DATE_STMT$ = "insert into eto_history (badge, award_date, award_hours) values (?, ?, ?)"
+    
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Get the most recent ETO award date that is on/before the date passed in
+REM  ------------------------------------------------------------------------------------------
+
+get_most_recent_award_date:
+
+    historyChannel = sqlunt
+    sqlopen(historyChannel) attendPtsDataSource$
+
+    sqlprep(historyChannel) RECENT_AWARD_DATE_STMT$
+
+    awardDateOut$ = ""
+
+    sqlexec(historyChannel) badge5In$, yyyymmddIn$
+    dim resultRow$:sqltmpl(historyChannel)
+    
+    resultRow$ = sqlfetch(historyChannel,err=no_date_found)
+    awardDateOut$ = resultRow.award_date$
+    
+    no_date_found:
+    
+    sqlclose(historyChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Add an award date
+REM  ------------------------------------------------------------------------------------------
+
+insert_award_date:
+
+    historyChannel = sqlunt
+    sqlopen(historyChannel) attendPtsDataSource$
+
+    sqlprep(historyChannel) INSERT_AWARD_DATE_STMT$
+    sqlexec(historyChannel) badge5In$, awardDateIn$, awardHrsIn
+    
+    sqlclose(historyChannel)
+
+    return

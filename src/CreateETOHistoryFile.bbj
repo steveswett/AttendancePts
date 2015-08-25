@@ -1,0 +1,38 @@
+REM /**
+REM  * CreateETOHistoryFile.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+begin
+
+REM  File name max = 16.  If longer, Browser EM won't let you build a table over existing file name.
+
+FILE_NAME$ = "ETO_HISTORY"
+
+REM  Column name max = 16
+REM  DESCRIPTION - if underlines not used, BBj Enterprise Manager will ignore data after first blank space
+
+TEMPLATE$ = 
+: "BADGE:C(5):DESCRIPTION=Employee_Badge_No:," +
+: "AWARD_DATE:C(8):DESCRIPTION=Award_Date:," +
+: "AWARD_HOURS:N(4):DESCRIPTION=Award_Amount_in_Hours:"
+
+
+gosub create_empty_file
+
+end
+
+
+create_empty_file:
+
+    chdir "C:/basis-database/Steve-Local/DataFiles"
+
+    erase FILE_NAME$,err=*next
+    
+    REM  In statement below, the optional "field segment" is left off since not using delimited fields
+    
+    mkeyed FILE_NAME$, [1:13], 0, 32, err=*next
+
+    return

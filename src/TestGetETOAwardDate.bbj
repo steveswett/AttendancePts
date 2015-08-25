@@ -1,0 +1,11 @@
+REM /**
+REM  * TestGetETOAwardDate.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+call "ETOHistoryDAO.bbj::get_most_recent_award_date_on_before", "12345", "20150824", awardDateOut$
+
+print awardDateOut$
+
+call "ETOHistoryDAO.bbj::add_award_date", "12345", "20150829", 8.25
