@@ -1,0 +1,32 @@
+REM /**
+REM  * TestShiftTab.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+TAB_CUSTOM_INPUT_VALUE$ = $09$
+TAB_CTL_OUTPUT_VALUE$ = $19$
+
+BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
+BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
+
+print 'ET'
+
+rem 60 works for Windows
+rem print 'EL', "2", chr(60), chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
+
+rem 10 is supposed to work for Unix/BBj    
+print 'EL', "2", chr(10), chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
+
+tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
+backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
+
+resultIgnored$ = stbl("!TERMS", tabPair$ + backtabPair$ + stbl("!TERMS"))
+resultIgnored$ = stbl("!EDIT", tabPair$ + backtabPair$ + stbl("!EDIT"))
+
+while 1
+    input "Press any key, q to quit", ch$
+    print " ch$=", ch$
+    print " ctl=", ctl
+    if ch$="q" then break
+wend

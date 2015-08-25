@@ -26,7 +26,7 @@ COLUMNS_PER_PAGE = 2
 RECORDS_PER_COLUMN = 15
 START_ROW_FOR_LIST = 5
 END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
-SHOW_FIELD_TERMINATOR_PRESSED = FALSE
+SHOW_FIELD_TERMINATOR_PRESSED = TRUE
 
 DEPT_FIELD_NO = 1
 SHIFT_FIELD_NO = 2
@@ -139,7 +139,14 @@ init:
     print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
     print 'FL', "2", $05$, chr(1), F6_CUSTOM_INPUT_VALUE$,
 
-    print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
+    rem print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
+      
+rem    Try Unix ($0B$ instead of $3C$) -- didn't work              
+rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
+
+    rem  In below, "chr(10)" refers to key number 10 -- which is the first extra key defined in termcap
+    print 'EL', "2", chr(10), chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
+        
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
     

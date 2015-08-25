@@ -1,0 +1,17 @@
+REM /**
+REM  * TestXCall.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+call_it:
+
+enter valueIn$, valueOut
+
+if valueIn$ = "a" then
+    valueOut = 1
+else
+    valueOut = 2
+endif    
+
+exit
