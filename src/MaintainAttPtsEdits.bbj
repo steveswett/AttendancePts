@@ -514,6 +514,15 @@ handle_input:
                             if !(afterValue$ = beforeValue$) then 
                                 pointDataMap!.put("changed", TRUE)
                                 pointDataMap!.put("disp_cd", afterValue$)
+                                
+                                if afterValue$ = "D" then
+                                    pointDataMap!.put("stat", "A")
+                                endif
+                                
+                                if afterValue$ = "P" then
+                                    pointDataMap!.put("stat", "I")
+                                endif
+                                
                             endif
                         endif
                     endif
