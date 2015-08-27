@@ -14,6 +14,8 @@ declare java.util.LinkedHashMap noTimeOffEmployeeRecordsMap!
 declare java.util.LinkedHashMap someTimeOffEmployeeRecordsMap!
 declare java.util.LinkedHashMap combinedEmployeeRecordsMap!
 
+declare java.util.HashMap employeeDataMap!
+
 declare java.util.HashSet employeesWithZeroPtsSet!
 declare java.util.HashSet employeesWithETOAwardsSet!
 
@@ -60,7 +62,7 @@ REM  ---------------------------------------------------------------------------
 award_eto:
 
 
-    REM  Step 1. Skip processing if first eligible award date hasn't been reached
+    REM  Skip processing if first eligible award date hasn't been reached
     
     call "DateUtilities.bbj::get_current_timestamp", currentTimeStamp$
     
@@ -68,53 +70,57 @@ award_eto:
     
     if yyyymmddCurrent$ < firstEligibleAwardDate$ then
         goto skip_eto_awarding
-    endif 
+    endif
+
     
-    
-    REM  Step 2. Get "90 days ago" date
+    REM  Get "90 days ago" date
 
     call "DateUtilities.bbj::get_yyyymmdd_relative_to_today", -90, yyyymmddNinetyDaysAgo$
+    
+    
+    gosub do_standard_90_day_window_group
+    
+    gosub do_non_standard_90_plus_day_window_group
+    
+    gosub combine_and_process_qualified_eto_awardees 
+    
+    
+    skip_eto_awarding:
+
+    return
 
 
-    REM  Step 3. Get a list of employees having NO attendance pts in the past 90 days
+REM  --------------------------------------------------------------------------------
+REM  Do processing for employees who are in the standard 90-day window (no time off requests)
+REM  --------------------------------------------------------------------------------
+
+
+do_standard_90_day_window_group:
+
+    REM  Step 1. Get a list of employees having NO attendance pts in the past 90 days
     
     employeesWithZeroPtsSet! = new java.util.HashSet()
     
     call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithZeroPtsSet!
 
     
-    REM Step 4. Get a list of employees having any ETO awards in the past 90 days
+    REM  Step 2. Get a list of employees having any ETO awards in the past 90 days
     
     employeesWithETOAwardsSet! = new java.util.HashSet()
     
     call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithETOAwardsSet!
     
     
-    REM  Step 5. Get a list of employees having NO time off requests in the past 90 days
+    REM  Step 3. Get a list of employees having NO time off requests in the past 90 days
     
     noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
     call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!
-    
-    
-    REM  Step 6. Get a list of employees having SOME time off requests in the past 90 days
 
-    someTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
     
-    
-    REM  Step 7. Do special handline for "SOME time off" folks
-    
-    
-    REM Step 8. Combine "NO time off" and "SOME time off" structures
-    
-    combinedEmployeeRecordsMap! = new java.util.LinkedHashMap(noTimeOffEmployeeRecordsMap!)
-    combinedEmployeeRecordsMap!.putAll(someTimeOffEmployeeRecordsMap!)
-    
-    REM Step 9. Build list of eligible employees (combined structures, no attendance pts, no ETO awards)
-    
-    employeesEarningNewETOSet! = new java.util.LinkedHashSet()
-    
-    iter! = combinedEmployeeRecordsMap!.keySet().iterator()
+    REM Step 4. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
+
+    iter! = noTimeOffEmployeeRecordsMap!.keySet().iterator()
     
     while iter!.hasNext()
     
@@ -124,41 +130,62 @@ award_eto:
         
         if employeesWithETOAwardsSet!.contains(badgeKey!) then continue
         
-        employeesEarningNewETOSet!.add(badgeKey!)
+        employeeDataMap! = cast( java.util.HashMap, noTimeOffEmployeeRecordsMap!.get(badgeKey!) )
+        employeeDataMap!.put("qualifies", TRUE)
+        noTimeOffEmployeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
     
     wend
     
-    if employeesEarningNewETOSet!.size() > 0 then
-        gosub process_qualified_eto_awardees
-    endif     
-    
-    
-    skip_eto_awarding:
 
     return
 
 
 REM  --------------------------------------------------------------------------------
-REM  Process all employees who have qualified to receive an ETO award
+REM  Do processing for employees who have time off requests and more than 90 days need to be considered
 REM  --------------------------------------------------------------------------------
 
 
-process_qualified_eto_awardees:
+do_non_standard_90_plus_day_window_group:
+
+    someTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
 
-    call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
+    return
+    
+
+REM  --------------------------------------------------------------------------------
+REM  Combine and process all employees who have qualified to receive an ETO award
+REM  --------------------------------------------------------------------------------
+
+
+combine_and_process_qualified_eto_awardees:
+
+    combinedEmployeeRecordsMap! = new java.util.LinkedHashMap()
+    combinedEmployeeRecordsMap!.putAll(noTimeOffEmployeeRecordsMap!)
+    combinedEmployeeRecordsMap!.putAll(someTimeOffEmployeeRecordsMap!)
+
+    
+    employeesEarningNewETOSet! = new java.util.LinkedHashSet()
+    
+    iter! = combinedEmployeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        
+        employeeDataMap! = cast( java.util.HashMap, combinedEmployeeRecordsMap!.get(badgeKey!) )
+        
+        if employeeDataMap!.containsKey("qualifies") then
+            employeesEarningNewETOSet!.add(badgeKey!)
+        endif
+    
+    wend
+    
+    if employeesEarningNewETOSet!.size() > 0 then
+        call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
+    endif     
     
     print "Number of ETO awardees = ", employeesEarningNewETOSet!.size()
      
 
-REM     iter! = employeesEarningNewETOSet!.iterator()
-REM     
-REM     while iter!.hasNext()
-REM     
-REM         badgeKey! = iter!.next()
-REM         
-REM         print "badge = ", badgeKey!
-REM     
-REM     wend
-    
     return
