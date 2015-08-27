@@ -8,6 +8,7 @@ REM  */
 use java.util.LinkedHashMap
 use java.util.HashMap
 use java.util.Vector
+use java.util.HashSet
 
 declare java.util.LinkedHashMap attPtsWorkRecordsToPostMap!
 declare java.util.HashMap attPtsWorkDataMap!
@@ -29,6 +30,8 @@ declare java.util.Vector inactivatedPtsRecordsList!
 
 declare java.util.LinkedHashMap pointRecordsMap!
 declare java.util.HashMap pointDataMap!
+
+declare java.util.HashSet employeesWithZeroPtsSet!
 
 
 
@@ -111,6 +114,17 @@ get_pts_total_for_employee:
     gosub setup_constants
     
     gosub get_points_total
+    
+    exit
+    
+    
+get_employees_with_zero_pts_for_date_range:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, employeesWithZeroPtsSet!
+    
+    gosub setup_constants
+    
+    gosub get_employees_with_zero_pts
     
     exit
     
@@ -201,9 +215,9 @@ get_current_point_levels:
     return
 
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Inactivate points older than 12 months (from today)
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
     
     
 inactivate_old_points:
@@ -258,9 +272,9 @@ inactivate_old_points:
     return
 
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Load default point data map for a single record add/insert
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
     
     
 load_default_point_data_map:
@@ -294,9 +308,9 @@ load_default_point_data_map:
 
     return
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Load point records for a single employee
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
     
     
 load_point_records_map:
@@ -459,9 +473,9 @@ load_point_records_map:
     return
     
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Get total active points for a single employee
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
     
     
 get_points_total:
@@ -488,9 +502,9 @@ get_points_total:
     return
 
 
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  setup_constants
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
 setup_constants:
 
@@ -522,6 +536,8 @@ setup_constants:
     
     call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
     useWindowsMailSend = num(useWindowsMailSend$)
+
+    call "ConfigVarsDAO.bbj::get_value", "employ.table.ops.jobareas.where.clause", configVarFound, configVarDataType$, jobareasWhereClause$
 
     
     CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
@@ -589,13 +605,24 @@ setup_constants:
 :       "delete from atnd " +
 :       "where " +
 :       "badg = ? and ptdt = ?"
+
+    GET_ZERO_PTS_FOR_DATE_RANGE_STMT$ =
+:       "select employ.badg, sum(atnd.pts) as total_pts " +
+:       "from employ " +
+:       "left join atnd on '0' + employ.badg = atnd.badg and atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ? " +
+:       "where " + 
+:       "employ.termdt = '' and " + 
+:       "employ.salhr = 'H' and " +
+:       cvs(jobareasWhereClause$, 2) + " " +
+:       "group by employ.badg " +
+:       "having sum(atnd.pts) = 0"
     
     return
     
 
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Post the data in attPtsWorkRecordsToPostMap! and return stats
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
 post_work_records_map:
 
@@ -801,9 +828,9 @@ post_work_records_map:
     return
     
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Load each employee's current points level (threshold) into employeeThresholdRecords!
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
 load_thresholds_map:
 
@@ -885,9 +912,9 @@ load_thresholds_map:
     return
     
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Update one record for one employee, using pointDataMap! for input
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
 
 update_pts_record:
@@ -920,9 +947,9 @@ REM     input @(60,22), "hit any key", ignoreInput$
     return
  
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Delete an attendance points record
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
     
 delete_pts_record:
@@ -943,9 +970,9 @@ delete_pts_record:
     return
     
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Check to see whether attendance points record exists
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
     
 check_existence_of_pts_record:
@@ -972,9 +999,9 @@ check_existence_of_pts_record:
     return
     
     
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 REM  Insert one record for one employee, using pointDataMap! for input
-REM  ------------------------------------------------------------
+REM  ------------------------------------------------------------------------------------------
 
 
 insert_pts_record:
@@ -1009,3 +1036,28 @@ REM :   "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
     return
     
+    
+REM  ------------------------------------------------------------------------------------------
+REM  For a given date range, get employees with zero pts and put in employeesWithZeroPtsSet! 
+REM  ------------------------------------------------------------------------------------------
+
+
+get_employees_with_zero_pts:
+
+    employeesWithZeroPtsSet!.clear()
+    
+    zeroPtsChannel = sqlunt
+    sqlopen(zeroPtsChannel) attendPtsDataSource$
+
+    sqlprep(zeroPtsChannel) GET_ZERO_PTS_FOR_DATE_RANGE_STMT$
+    sqlexec(zeroPtsChannel) yyyymmddFromIn$, yyyymmddToIn$
+    dim resultRow$:sqltmpl(zeroPtsChannel)
+    
+    while TRUE
+        resultRow$ = sqlfetch(zeroPtsChannel,err=*break)
+        employeesWithZeroPtsSet!.add(cvs(resultRow.badg$, 2))
+    wend
+    
+    sqlclose(zeroPtsChannel)
+
+    return

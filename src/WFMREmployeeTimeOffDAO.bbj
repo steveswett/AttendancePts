@@ -1,0 +1,124 @@
+REM /**
+REM  * WFMREmployeeTimeOffDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.HashMap
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+get_employees_with_no_time_off:
+
+    enter employeeRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub load_records_for_employees_with_no_time_off
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
+    
+    REM  The following query grabs employees with no time off requests in the past 90 days.  If we need to filter out
+    REM  certain time off requests, the "select" stmt inside the "in" clause can be modified.  The "lab_pay_adjustment"
+    REM  table could be used for that.  Would need to join it.
+    
+    REM  --join lab_pay_adjustment on lab_employee_time_off.pay_adjustment_id = lab_pay_adjustment.pay_adjustment_id
+    
+    EMPLOYEES_WITH_NO_TIME_OFF_STMT$ = 
+:       "select " +
+:       "rad_sys_user.last_name, " +
+:       "rad_sys_user.first_name, " +
+:       "employee.employee_id, " +
+:       "employee.badge_number " +
+:       "from employee " +
+:       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
+:       "where employee.home_business_unit_id = ? " +
+:       "and employee.manager_level_flag <> 'y' " +
+:       "and rad_sys_user.status_code = 'a' " +
+:       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
+:       "and employee.employee_id not " +
+:       "in(" +
+:           "select " + 
+:           "lab_employee_time_off.employee_id " +
+:           "from lab_employee_time_off " + 
+:           "join employee on employee.employee_id = lab_employee_time_off.employee_id " +
+:           "where " + 
+:           "employee.home_business_unit_id = ? and " +
+:           "lab_employee_time_off.status_code = 'a' and " +
+:           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
+:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' " +
+:       ") " +
+:       "order by rad_sys_user.last_name, rad_sys_user.first_name"
+    
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Load records for employees with no time off requests in the past 90 days
+REM  ------------------------------------------------------------------------------------------
+
+load_records_for_employees_with_no_time_off:
+
+    employeeRecordsMap!.clear()
+
+    timeOffChannel = sqlunt
+    sqlopen(timeOffChannel) wfmrDataSource$
+
+    sqlprep(timeOffChannel) EMPLOYEES_WITH_NO_TIME_OFF_STMT$
+
+    sqlexec(timeOffChannel) opsBusinessUnit$, opsBusinessUnit$
+    dim resultRow$:sqltmpl(timeOffChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(timeOffChannel,err=*break)
+        employeeDataMap! = new java.util.HashMap()
+        employeeDataMap!.put("last_name", cvs(resultRow.last_name$, 2))
+        employeeDataMap!.put("first_name", cvs(resultRow.first_name$, 2))
+        employeeDataMap!.put("employee_id", resultRow.employee_id)
+        employeeRecordsMap!.put(cvs(resultRow.badge_number$, 2), employeeDataMap! )
+        
+    wend
+    
+    sqlclose(timeOffChannel)
+
+    return

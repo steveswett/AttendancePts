@@ -134,6 +134,15 @@ is_valid_yyyymmdd_date:
     good_jul_date:
     
     exit
+    
+    
+get_yyyymmdd_relative_to_today:
+
+    enter daysBeforeMinusOrAfterPlusIn, yyyymmddOut$
+    
+    gosub get_relative_yyyymmdd
+    
+    exit
 
 
 rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -141,9 +150,43 @@ rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 subroutines:
 
 
+REM  ------------------------------------------------------------
+REM  Setup constants
+REM  ------------------------------------------------------------
+
+
 setup_constants:
 
     TRUE = 1
     FALSE = 0
+
+    return
+
+    
+REM  ------------------------------------------------------------
+REM  Get date relative to today
+REM  ------------------------------------------------------------
+
+
+REM  TODO: This could be replaced in the future with a Java time library like JODA
+
+get_relative_yyyymmdd:
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+
+    wfmrDataChannel = sqlunt
+    sqlopen(wfmrDataChannel) wfmrDataSource$
+
+    sqlprep(wfmrDataChannel) "select convert(varchar(10), dateadd(day, ?, getdate()), 120) as relative_date"
+    sqlexec(wfmrDataChannel) daysBeforeMinusOrAfterPlusIn
+    
+    dim resultRow$:sqltmpl(wfmrDataChannel)
+    resultRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
+    
+    yyyymmddOut$ = resultRow.relative_date$(1,4) + resultRow.relative_date$(6,2) + resultRow.relative_date$(9,2) 
+    
+    row_not_found:
+    
+    sqlclose(wfmrDataChannel)
 
     return
