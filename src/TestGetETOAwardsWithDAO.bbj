@@ -1,0 +1,22 @@
+REM /**
+REM  * TestGetETOAwardsWithDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.HashSet
+declare java.util.HashSet employeesWithAwardsSet!
+
+employeesWithAwardsSet! = new java.util.HashSet()
+
+call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", "20150520", "20150827", employeesWithAwardsSet!
+
+iter! = employeesWithAwardsSet!.iterator()
+
+while iter!.hasNext()
+
+    badgeKey! = iter!.next()
+    
+    print "badge = ", badgeKey!
+
+wend

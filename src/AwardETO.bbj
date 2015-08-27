@@ -8,10 +8,16 @@ REM  */
 use java.util.HashMap
 use java.util.LinkedHashMap
 use java.util.HashSet
+use java.util.LinkedHashSet
 
 declare java.util.LinkedHashMap noTimeOffEmployeeRecordsMap!
-declare java.util.HashSet employeesWithZeroPtsSet!
+declare java.util.LinkedHashMap someTimeOffEmployeeRecordsMap!
+declare java.util.LinkedHashMap combinedEmployeeRecordsMap!
 
+declare java.util.HashSet employeesWithZeroPtsSet!
+declare java.util.HashSet employeesWithETOAwardsSet!
+
+declare java.util.LinkedHashSet employeesEarningNewETOSet!
 
 
 begin
@@ -21,27 +27,6 @@ rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
-
-
-def fnRunSQL(pStmt$)
-
-    rtnVal = 0
-
-    sqlprep(wfmrDataChannel) pStmt$
-    sqlexec(wfmrDataChannel)
-    
-    dim resultRow$:sqltmpl(wfmrDataChannel)
-    resultRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
-    
-    fromDate$ = resultRow.from_date$
-    toDate$ = resultRow.to_date$ 
-    rtnVal = 1
-    
-    row_not_found:
-    
-    return rtnVal
-    
-fnend
 
 
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
@@ -56,63 +41,21 @@ end
 rem *- - - - - - - - - - SUB-ROUTINES - - - - - - - - - -*
 
 
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 REM  init
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 
 init:
-
-    weekday$ = date(0: "%Ds")
-    
-    daysToGoBack = 2
-    
-    if weekday$ = "Sat" then daysToGoBack = daysToGoBack + 1 
-    if weekday$ = "Sun" then daysToGoBack = daysToGoBack + 2 
-    
-    
-    REM TODO: We may need to go back 1 additional day for each holiday encountered between "today" and "today - daysToGoBack".
-    REM       However, we don't have an easy way to get holidays:
-    REM          Blue Screen: "HO" key in VZ file.  But data isn't accurate.  For example, 7/3/15 is missing
-    REM          WFMR: Lab_Time_Event table.  But "occurrence definitions" are used instead of fixed dates.  Not all fields understood.
-    
-
-    preferredDateRangeSelectStmt$ = 
-:       "select top 1 " +
-:       "convert(varchar(10), start_date, 120) as from_date, " +
-:       "convert(varchar(10), DATEADD(day, -"+
-:       str(daysToGoBack) +
-:       " ,getdate()), 120) as to_date " +
-:       "from lab_pay_period " +
-:       "where start_date < DATEADD(day, -"+
-:       str(daysToGoBack) +
-:       " ,getdate()) " +
-:       "order by start_date desc"
-
-
-    REM  Fallback position is to use a range "current date - 7" through "current date - 2"
-    
-    daysToGoBackAndFiveMore = daysToGoBack - 5
-
-    fallbackDateRangeSelectStmt$ = 
-:       "select " + 
-:       "convert(varchar(10), DATEADD(day, -"+
-:       str(daysToGoBackAndFiveMore) +
-:       " ,getdate()), 120) as from_date, " +
-:       "convert(varchar(10), DATEADD(day, -"+
-:       str(daysToGoBack) +
-:       " ,getdate()), 120) as to_date" 
-
-
-    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     call "ConfigVarsDAO.bbj::get_value", "eto.first.eligible.award.date", configVarFound, configVarDataType$, firstEligibleAwardDate$
 
     return
 
 
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 REM  Award ETO to eligible employees
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
+
 
 award_eto:
 
@@ -133,27 +76,89 @@ award_eto:
     call "DateUtilities.bbj::get_yyyymmdd_relative_to_today", -90, yyyymmddNinetyDaysAgo$
 
 
-    REM  Step 3. Get a list of employees having NO time off requests in the past 90 days
-    
-    noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
-
-    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!
-    
-    
-    REM  Step 4. Get a list of employees having NO attendance pts in the past 90 days
+    REM  Step 3. Get a list of employees having NO attendance pts in the past 90 days
     
     employeesWithZeroPtsSet! = new java.util.HashSet()
     
     call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithZeroPtsSet!
 
     
-    REM Step 5. Get a list of employees having any ETO awards in the past 90 days
+    REM Step 4. Get a list of employees having any ETO awards in the past 90 days
+    
+    employeesWithETOAwardsSet! = new java.util.HashSet()
+    
+    call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithETOAwardsSet!
     
     
-    REM Step 6. Build list of eligible employees (no time off requests, no attendance pts, no ETO awards)
+    REM  Step 5. Get a list of employees having NO time off requests in the past 90 days
+    
+    noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
+
+    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!
+    
+    
+    REM  Step 6. Get a list of employees having SOME time off requests in the past 90 days
+
+    someTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
+    
+    
+    REM  Step 7. Do special handline for "SOME time off" folks
+    
+    
+    REM Step 8. Combine "NO time off" and "SOME time off" structures
+    
+    combinedEmployeeRecordsMap! = new java.util.LinkedHashMap(noTimeOffEmployeeRecordsMap!)
+    combinedEmployeeRecordsMap!.putAll(someTimeOffEmployeeRecordsMap!)
+    
+    REM Step 9. Build list of eligible employees (combined structures, no attendance pts, no ETO awards)
+    
+    employeesEarningNewETOSet! = new java.util.LinkedHashSet()
+    
+    iter! = combinedEmployeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        
+        if !(employeesWithZeroPtsSet!.contains(badgeKey!)) then continue
+        
+        if employeesWithETOAwardsSet!.contains(badgeKey!) then continue
+        
+        employeesEarningNewETOSet!.add(badgeKey!)
+    
+    wend
+    
+    if employeesEarningNewETOSet!.size() > 0 then
+        gosub process_qualified_eto_awardees
+    endif     
     
     
     skip_eto_awarding:
 
     return
 
+
+REM  --------------------------------------------------------------------------------
+REM  Process all employees who have qualified to receive an ETO award
+REM  --------------------------------------------------------------------------------
+
+
+process_qualified_eto_awardees:
+
+
+    call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
+    
+    print "Number of ETO awardees = ", employeesEarningNewETOSet!.size()
+     
+
+REM     iter! = employeesEarningNewETOSet!.iterator()
+REM     
+REM     while iter!.hasNext()
+REM     
+REM         badgeKey! = iter!.next()
+REM         
+REM         print "badge = ", badgeKey!
+REM     
+REM     wend
+    
+    return

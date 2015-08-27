@@ -500,331 +500,31 @@ get_points_total:
     sqlclose(attendPtsChannel)
 
     return
-
-
+    
+    
 REM  ------------------------------------------------------------------------------------------
-REM  setup_constants
-REM  ------------------------------------------------------------------------------------------
-
-setup_constants:
-
-    TRUE = 1
-    FALSE = 0
-    
-    NO_OF_PTS_REMOVAL_PHRASES = 7
-    dim PTS_REMOVAL_PHRASES_ARRAY$[1:NO_OF_PTS_REMOVAL_PHRASES]
-    PTS_REMOVAL_PHRASES_ARRAY$[1] = "AWAY ON "
-    PTS_REMOVAL_PHRASES_ARRAY$[2] = "REMOVED "
-    PTS_REMOVAL_PHRASES_ARRAY$[3] = "INACTIVE ON "
-    PTS_REMOVAL_PHRASES_ARRAY$[4] = "OFF ON "
-    PTS_REMOVAL_PHRASES_ARRAY$[5] = "AWAY "
-    PTS_REMOVAL_PHRASES_ARRAY$[6] = "AWAYON "; REM  Yes, this "typo" one is intended
-    PTS_REMOVAL_PHRASES_ARRAY$[7] = "AWYA ON "; REM  Yes, this "typo" one is intended
-    
-    NO_OF_PTS_QTY_PHRASES = 4
-    dim PTS_QTY_PHRASES_ARRAY$[1:NO_OF_PTS_QTY_PHRASES]
-    PTS_QTY_PHRASES_ARRAY$[1] = "POINT "
-    PTS_QTY_PHRASES_ARRAY$[2] = "POINTS "
-    PTS_QTY_PHRASES_ARRAY$[3] = "PT "
-    PTS_QTY_PHRASES_ARRAY$[4] = "PTS "
-
-    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
-
-    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
-
-    call "ConfigVarsDAO.bbj::get_value", "mail.recipients.attend.pts.warning.levels", configVarFound, configVarDataType$, warningLevelsRecipients$
-    
-    call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
-    useWindowsMailSend = num(useWindowsMailSend$)
-
-    call "ConfigVarsDAO.bbj::get_value", "employ.table.ops.jobareas.where.clause", configVarFound, configVarDataType$, jobareasWhereClause$
-
-    
-    CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
-    
-    POSTING_UPDATE_STMT$ = 
-:       "update atnd " +
-:       "set pts = ?, cd = ?, stat = ?, text = ?, chgdt = ?, chgby = ?, " +
-:       "work_file_id = ?, wfmr_exc_def_id = ?, wfmr_reason_id = ?, disp_cd = ? " +
-:       "where badg = ? and ptdt = ?"
-    
-    POSTING_INSERT_STMT$ = 
-:       "insert into atnd " +
-:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
-:       "values " +
-:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
-    GET_DATE_12_MONTHS_AGO_STMT$ = "select convert(varchar(10), dateadd(month, -12, getdate()), 120) as year_ago_date"
-    
-    PTS_TO_BE_INACTIVATED_STMT$ = 
-:       "select employ.badg, employ.name, ptdt, pts " +
-:       "from atnd " +
-:       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
-:       "where atnd.PTDT <= ? and atnd.STAT = 'A' and employ.termdt = '' " +
-:       "order by employ.name, ptdt"
-
-    SET_TO_INACTIVATED_STMT$ =
-:       "update atnd " +
-:       "set " +
-:       "stat = 'I', " +
-:       "text = trim(text) + ' - auto inactivated', " +
-:       "chgdt = ?, " +
-:       "chgby = 'cpu       ' " +
-:       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
-
-    GET_NON_ZERO_PT_RECORDS_STMT$ =
-:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, chgdt, chgby " +
-:       "from atnd " +
-:       "where badg = ? and stat = 'A' and pts > 0 " +
-:       "order by ptdt"
-
-    GET_ALL_PT_RECORDS_STMT$ =
-:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, chgdt, chgby " +
-:       "from atnd " +
-:       "where badg = ?" +
-:       "order by ptdt"
-
-    GET_PTS_TOTAL_STMT$ =
-:       "select sum(pts) as pts_total " +
-:       "from atnd " +
-:       "where badg = ? and stat = 'A'"
-
-    UPDATE_SINGLE_PTS_RECORD_STMT$ =
-:       "update atnd " +
-:       "set pts = ?, stat = ?, cd = ?, text = ?, chgdt = ?, chgby = ?, disp_cd = ? " +
-:       "where " +
-:       "badg = ? and ptdt = ?"
-
-    INSERT_SINGLE_PTS_RECORD_STMT$ =
-:       "insert into atnd " +
-:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
-:       "values " +
-:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-
-    DELETE_SINGLE_PTS_RECORD_STMT$ =
-:       "delete from atnd " +
-:       "where " +
-:       "badg = ? and ptdt = ?"
-
-    GET_ZERO_PTS_FOR_DATE_RANGE_STMT$ =
-:       "select employ.badg, sum(atnd.pts) as total_pts " +
-:       "from employ " +
-:       "left join atnd on '0' + employ.badg = atnd.badg and atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ? " +
-:       "where " + 
-:       "employ.termdt = '' and " + 
-:       "employ.salhr = 'H' and " +
-:       cvs(jobareasWhereClause$, 2) + " " +
-:       "group by employ.badg " +
-:       "having sum(atnd.pts) = 0"
-    
-    return
-    
-
-REM  ------------------------------------------------------------------------------------------
-REM  Post the data in attPtsWorkRecordsToPostMap! and return stats
+REM  For a given date range, get employees with zero pts and put in employeesWithZeroPtsSet! 
 REM  ------------------------------------------------------------------------------------------
 
-post_work_records_map:
 
-    postingStatsMap!.clear()
-    qtysInsertedMap! = new java.util.HashMap() 
-    qtysUpdatedMap! = new java.util.HashMap()
-    
-    qtysInsertedMap!.put("A", 0)
-    qtysInsertedMap!.put("E", 0)
-    qtysInsertedMap!.put("F", 0)
-    qtysUpdatedMap!.put("A", 0)
-    qtysUpdatedMap!.put("E", 0)
-    qtysUpdatedMap!.put("F", 0)
-    qtySaved! = 0
-    qtyPosted! = 0
-    
-    gosub get_current_point_levels 
-    employeeThresholdRecordsBefore! = new java.util.LinkedHashMap(employeeThresholdRecords!)
-    
-    postingCheckExistChannel = sqlunt
-    sqlopen(postingCheckExistChannel) attendPtsDataSource$
-    
-    postingUpdateChannel = sqlunt
-    sqlopen(postingUpdateChannel) attendPtsDataSource$
-    
-    postingInsertChannel = sqlunt
-    sqlopen(postingInsertChannel) attendPtsDataSource$
+get_employees_with_zero_pts:
 
-    sqlprep(postingCheckExistChannel) CHECK_EXIST_STMT$
-    sqlprep(postingUpdateChannel) POSTING_UPDATE_STMT$
-    sqlprep(postingInsertChannel) POSTING_INSERT_STMT$
+    employeesWithZeroPtsSet!.clear()
     
-    flagPostingChannel = 0
-    call "AttendPtsWorkDAO.bbj::open_and_prep_channel_to_flag_posting", flagPostingChannel
-    
-    loginUser$ = ""
-    call "TerminalUtilities.bbj::get_login_user", loginUser$ 
-    
-    iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
-    
-    while iter!.hasNext()
-    
-        idKey! = iter!.next()
-        tmpId = num(idKey!)
-        attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
-        dataWasSaved! = attPtsWorkDataMap!.get("saved")
-        if dataWasSaved! = null() then continue
-        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
-        if dispCode$ = "N" then continue
-        
-        qtySaved! = qtySaved! + 1  
+    zeroPtsChannel = sqlunt
+    sqlopen(zeroPtsChannel) attendPtsDataSource$
 
-        REM  Determine whether to do insert or update
-        
-        doUpdate = FALSE
+    sqlprep(zeroPtsChannel) GET_ZERO_PTS_FOR_DATE_RANGE_STMT$
+    sqlexec(zeroPtsChannel) yyyymmddFromIn$, yyyymmddToIn$
+    dim resultRow$:sqltmpl(zeroPtsChannel)
     
-        trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
-        paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
-        pointsDate$ = attPtsWorkDataMap!.get("wfmr_exc_date")
-
-        sqlexec(postingCheckExistChannel) paddedBadge$, pointsDate$
-        dim resultRow$:sqltmpl(postingCheckExistChannel)
-        resultRow$ = sqlfetch(postingCheckExistChannel,err=end_check_exist)
-        if resultRow.hit_count > 0 then doUpdate = TRUE
-        
-        end_check_exist:
-        
-        lastModTimestamp$ = attPtsWorkDataMap!.get("last_mod")
-        lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
-        lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
-        wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
-        wfmrReasonId = attPtsWorkDataMap!.get("wfmr_reason_id")
-             
-        if doUpdate then
-        
-            sqlexec(postingUpdateChannel) 
-:               attPtsWorkDataMap!.get("erp_pts_assessed"), 
-:               attPtsWorkDataMap!.get("erp_cd"),
-:               attPtsWorkDataMap!.get("erp_sts_cd"),
-:               attPtsWorkDataMap!.get("erp_note"), 
-:               lastModDateMDY$, 
-:               lastModByUserUC$,
-:               tmpId, 
-:               wfmrExceptionDefId, 
-:               wfmrReasonId, 
-:               dispCode$, 
-:               paddedBadge$,
-:               pointsDate$
-
-            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
-            
-            qtyPosted! = qtyPosted! + 1  
-            qty! = qtysUpdatedMap!.get(dispCode$) + 1
-            qtysUpdatedMap!.put(dispCode$, qty!)
-            
-        else
-        
-            sqlexec(postingInsertChannel)
-:               paddedBadge$,
-:               pointsDate$,
-:               attPtsWorkDataMap!.get("erp_pts_assessed"), 
-:               attPtsWorkDataMap!.get("erp_cd"),
-:               attPtsWorkDataMap!.get("erp_sts_cd"),
-:               attPtsWorkDataMap!.get("erp_note"), 
-:               lastModDateMDY$, 
-:               "",        
-:               lastModByUserUC$,
-:               "",
-:               "",
-:               idKey!,        
-:               wfmrExceptionDefId, 
-:               wfmrReasonId, 
-:               dispCode$ 
-        
-            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
-            
-            qtyPosted! = qtyPosted! + 1  
-            qty! = qtysInsertedMap!.get(dispCode$) + 1
-            qtysInsertedMap!.put(dispCode$, qty!)
-
-        endif
-        
+    while TRUE
+        resultRow$ = sqlfetch(zeroPtsChannel,err=*break)
+        employeesWithZeroPtsSet!.add(cvs(resultRow.badg$, 2))
     wend
     
-    sqlclose(postingCheckExistChannel)
-    sqlclose(postingUpdateChannel)
-    sqlclose(postingInsertChannel)
+    sqlclose(zeroPtsChannel)
 
-    call "AttendPtsWorkDAO.bbj::close_channel_to_flag_posting", flagPostingChannel
-    
-    
-    gosub get_current_point_levels 
-    employeeThresholdRecordsAfter! = new java.util.LinkedHashMap(employeeThresholdRecords!) 
-    
-    REM  Prepare threshold changes data to send back in stats:
-    
-    thresholdChangesMap! = new java.util.LinkedHashMap()
-    
-    qtyChangedWarningLevels! = 0
-    iter! = employeeThresholdRecordsBefore!.keySet().iterator()
-    
-    while iter!.hasNext()
-    
-        badgeKey! = iter!.next()
-        beforeThresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecordsBefore!.get(badgeKey!) )
-        afterThresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecordsAfter!.get(badgeKey!) )
-
-        beforeThreshold = num(beforeThresholdDataMap!.get("threshold"))
-        afterThreshold = num(afterThresholdDataMap!.get("threshold"))
-
-        if afterThreshold > beforeThreshold then
-            qtyChangedWarningLevels! = qtyChangedWarningLevels! + 1
-            thresholdChangeDetailsMap! = new java.util.HashMap()
-            thresholdChangeDetailsMap!.put("prev_threshold", beforeThreshold)
-            thresholdChangeDetailsMap!.put("new_threshold", afterThreshold)
-            thresholdChangeDetailsMap!.put("last_first_mi", afterThresholdDataMap!.get("last_first_mi"))
-            thresholdChangeDetailsMap!.put("total_pts", afterThresholdDataMap!.get("total_pts"))
-            thresholdChangesMap!.put(badgeKey!, thresholdChangeDetailsMap!)
-        endif
-
-    wend
-
-    postingStatsMap!.put("qtys_inserted_map", qtysInsertedMap!)
-    postingStatsMap!.put("qtys_updated_map", qtysUpdatedMap!)
-    postingStatsMap!.put("qty_saved", qtySaved!)
-    postingStatsMap!.put("qty_posted", qtyPosted!)
-    postingStatsMap!.put("qty_changed_warning_levels", qtyChangedWarningLevels!)
-    postingStatsMap!.put("threshold_changes_map", thresholdChangesMap!)
-    
-    if qtyChangedWarningLevels! > 0 then
-    
-        subject$ = "Employee(s) reached a new attendance pts warning level just now"
-
-        lineFeed$ = iff(useWindowsMailSend, "<br/>", $0A$)
-
-        REM  Start formatting the e-mail body.
-        
-        body$ = ""
-        
-        iter! = thresholdChangesMap!.keySet().iterator()
-    
-        while iter!.hasNext()
-        
-            badgeKey! = iter!.next()
-            thresholdChangeDetailsMap! = cast( java.util.HashMap, thresholdChangesMap!.get(badgeKey!) )
-            
-            body$ = body$ + thresholdChangeDetailsMap!.get("last_first_mi") + " reached level " +
-:               str( thresholdChangeDetailsMap!.get("new_threshold") ) + ".  Previously at level " +
-:               str( thresholdChangeDetailsMap!.get("prev_threshold") ) + ".  Total current points is " +
-:               str( thresholdChangeDetailsMap!.get("total_pts") ) + "." + lineFeed$ + lineFeed$
-            
-        wend
-        
-        body$ = body$ + lineFeed$ + "Generated from Attendance Points Supervisor Approval program (" +
-:           pgm(-2) + ") by user " + loginUser$ + "."
-
-        REM  Finish formatting the e-mail body.
-    
-        call "MailUtilities.bbj::send_simple_email_msg", warningLevelsRecipients$, subject$, body$
-    
-    endif
-    
     return
     
     
@@ -1036,28 +736,329 @@ REM :   "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
     return
     
-    
+
 REM  ------------------------------------------------------------------------------------------
-REM  For a given date range, get employees with zero pts and put in employeesWithZeroPtsSet! 
+REM  Post the data in attPtsWorkRecordsToPostMap! and return stats
 REM  ------------------------------------------------------------------------------------------
 
+post_work_records_map:
 
-get_employees_with_zero_pts:
-
-    employeesWithZeroPtsSet!.clear()
+    postingStatsMap!.clear()
+    qtysInsertedMap! = new java.util.HashMap() 
+    qtysUpdatedMap! = new java.util.HashMap()
     
-    zeroPtsChannel = sqlunt
-    sqlopen(zeroPtsChannel) attendPtsDataSource$
-
-    sqlprep(zeroPtsChannel) GET_ZERO_PTS_FOR_DATE_RANGE_STMT$
-    sqlexec(zeroPtsChannel) yyyymmddFromIn$, yyyymmddToIn$
-    dim resultRow$:sqltmpl(zeroPtsChannel)
+    qtysInsertedMap!.put("A", 0)
+    qtysInsertedMap!.put("E", 0)
+    qtysInsertedMap!.put("F", 0)
+    qtysUpdatedMap!.put("A", 0)
+    qtysUpdatedMap!.put("E", 0)
+    qtysUpdatedMap!.put("F", 0)
+    qtySaved! = 0
+    qtyPosted! = 0
     
-    while TRUE
-        resultRow$ = sqlfetch(zeroPtsChannel,err=*break)
-        employeesWithZeroPtsSet!.add(cvs(resultRow.badg$, 2))
+    gosub get_current_point_levels 
+    employeeThresholdRecordsBefore! = new java.util.LinkedHashMap(employeeThresholdRecords!)
+    
+    postingCheckExistChannel = sqlunt
+    sqlopen(postingCheckExistChannel) attendPtsDataSource$
+    
+    postingUpdateChannel = sqlunt
+    sqlopen(postingUpdateChannel) attendPtsDataSource$
+    
+    postingInsertChannel = sqlunt
+    sqlopen(postingInsertChannel) attendPtsDataSource$
+
+    sqlprep(postingCheckExistChannel) CHECK_EXIST_STMT$
+    sqlprep(postingUpdateChannel) POSTING_UPDATE_STMT$
+    sqlprep(postingInsertChannel) POSTING_INSERT_STMT$
+    
+    flagPostingChannel = 0
+    call "AttendPtsWorkDAO.bbj::open_and_prep_channel_to_flag_posting", flagPostingChannel
+    
+    loginUser$ = ""
+    call "TerminalUtilities.bbj::get_login_user", loginUser$ 
+    
+    iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        tmpId = num(idKey!)
+        attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsToPostMap!.get(idKey!) )
+        dataWasSaved! = attPtsWorkDataMap!.get("saved")
+        if dataWasSaved! = null() then continue
+        dispCode$ = attPtsWorkDataMap!.get("disp_cd")
+        if dispCode$ = "N" then continue
+        
+        qtySaved! = qtySaved! + 1  
+
+        REM  Determine whether to do insert or update
+        
+        doUpdate = FALSE
+    
+        trimmedBadge$ = cvs(attPtsWorkDataMap!.get("emp_badge_no"), 3) 
+        paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
+        pointsDate$ = attPtsWorkDataMap!.get("wfmr_exc_date")
+
+        sqlexec(postingCheckExistChannel) paddedBadge$, pointsDate$
+        dim resultRow$:sqltmpl(postingCheckExistChannel)
+        resultRow$ = sqlfetch(postingCheckExistChannel,err=end_check_exist)
+        if resultRow.hit_count > 0 then doUpdate = TRUE
+        
+        end_check_exist:
+        
+        lastModTimestamp$ = attPtsWorkDataMap!.get("last_mod")
+        lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
+        lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
+        wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
+        wfmrReasonId = attPtsWorkDataMap!.get("wfmr_reason_id")
+             
+        if doUpdate then
+        
+            sqlexec(postingUpdateChannel) 
+:               attPtsWorkDataMap!.get("erp_pts_assessed"), 
+:               attPtsWorkDataMap!.get("erp_cd"),
+:               attPtsWorkDataMap!.get("erp_sts_cd"),
+:               attPtsWorkDataMap!.get("erp_note"), 
+:               lastModDateMDY$, 
+:               lastModByUserUC$,
+:               tmpId, 
+:               wfmrExceptionDefId, 
+:               wfmrReasonId, 
+:               dispCode$, 
+:               paddedBadge$,
+:               pointsDate$
+
+            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
+            
+            qtyPosted! = qtyPosted! + 1  
+            qty! = qtysUpdatedMap!.get(dispCode$) + 1
+            qtysUpdatedMap!.put(dispCode$, qty!)
+            
+        else
+        
+            sqlexec(postingInsertChannel)
+:               paddedBadge$,
+:               pointsDate$,
+:               attPtsWorkDataMap!.get("erp_pts_assessed"), 
+:               attPtsWorkDataMap!.get("erp_cd"),
+:               attPtsWorkDataMap!.get("erp_sts_cd"),
+:               attPtsWorkDataMap!.get("erp_note"), 
+:               lastModDateMDY$, 
+:               "",        
+:               lastModByUserUC$,
+:               "",
+:               "",
+:               idKey!,        
+:               wfmrExceptionDefId, 
+:               wfmrReasonId, 
+:               dispCode$ 
+        
+            call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
+            
+            qtyPosted! = qtyPosted! + 1  
+            qty! = qtysInsertedMap!.get(dispCode$) + 1
+            qtysInsertedMap!.put(dispCode$, qty!)
+
+        endif
+        
     wend
     
-    sqlclose(zeroPtsChannel)
+    sqlclose(postingCheckExistChannel)
+    sqlclose(postingUpdateChannel)
+    sqlclose(postingInsertChannel)
 
+    call "AttendPtsWorkDAO.bbj::close_channel_to_flag_posting", flagPostingChannel
+    
+    
+    gosub get_current_point_levels 
+    employeeThresholdRecordsAfter! = new java.util.LinkedHashMap(employeeThresholdRecords!) 
+    
+    REM  Prepare threshold changes data to send back in stats:
+    
+    thresholdChangesMap! = new java.util.LinkedHashMap()
+    
+    qtyChangedWarningLevels! = 0
+    iter! = employeeThresholdRecordsBefore!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        beforeThresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecordsBefore!.get(badgeKey!) )
+        afterThresholdDataMap! = cast( java.util.HashMap, employeeThresholdRecordsAfter!.get(badgeKey!) )
+
+        beforeThreshold = num(beforeThresholdDataMap!.get("threshold"))
+        afterThreshold = num(afterThresholdDataMap!.get("threshold"))
+
+        if afterThreshold > beforeThreshold then
+            qtyChangedWarningLevels! = qtyChangedWarningLevels! + 1
+            thresholdChangeDetailsMap! = new java.util.HashMap()
+            thresholdChangeDetailsMap!.put("prev_threshold", beforeThreshold)
+            thresholdChangeDetailsMap!.put("new_threshold", afterThreshold)
+            thresholdChangeDetailsMap!.put("last_first_mi", afterThresholdDataMap!.get("last_first_mi"))
+            thresholdChangeDetailsMap!.put("total_pts", afterThresholdDataMap!.get("total_pts"))
+            thresholdChangesMap!.put(badgeKey!, thresholdChangeDetailsMap!)
+        endif
+
+    wend
+
+    postingStatsMap!.put("qtys_inserted_map", qtysInsertedMap!)
+    postingStatsMap!.put("qtys_updated_map", qtysUpdatedMap!)
+    postingStatsMap!.put("qty_saved", qtySaved!)
+    postingStatsMap!.put("qty_posted", qtyPosted!)
+    postingStatsMap!.put("qty_changed_warning_levels", qtyChangedWarningLevels!)
+    postingStatsMap!.put("threshold_changes_map", thresholdChangesMap!)
+    
+    if qtyChangedWarningLevels! > 0 then
+    
+        subject$ = "Employee(s) reached a new attendance pts warning level just now"
+
+        lineFeed$ = iff(useWindowsMailSend, "<br/>", $0A$)
+
+        REM  Start formatting the e-mail body.
+        
+        body$ = ""
+        
+        iter! = thresholdChangesMap!.keySet().iterator()
+    
+        while iter!.hasNext()
+        
+            badgeKey! = iter!.next()
+            thresholdChangeDetailsMap! = cast( java.util.HashMap, thresholdChangesMap!.get(badgeKey!) )
+            
+            body$ = body$ + thresholdChangeDetailsMap!.get("last_first_mi") + " reached level " +
+:               str( thresholdChangeDetailsMap!.get("new_threshold") ) + ".  Previously at level " +
+:               str( thresholdChangeDetailsMap!.get("prev_threshold") ) + ".  Total current points is " +
+:               str( thresholdChangeDetailsMap!.get("total_pts") ) + "." + lineFeed$ + lineFeed$
+            
+        wend
+        
+        body$ = body$ + lineFeed$ + "Generated from Attendance Points Supervisor Approval program (" +
+:           pgm(-2) + ") by user " + loginUser$ + "."
+
+        REM  Finish formatting the e-mail body.
+    
+        call "MailUtilities.bbj::send_simple_email_msg", warningLevelsRecipients$, subject$, body$
+    
+    endif
+    
     return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+    
+    NO_OF_PTS_REMOVAL_PHRASES = 7
+    dim PTS_REMOVAL_PHRASES_ARRAY$[1:NO_OF_PTS_REMOVAL_PHRASES]
+    PTS_REMOVAL_PHRASES_ARRAY$[1] = "AWAY ON "
+    PTS_REMOVAL_PHRASES_ARRAY$[2] = "REMOVED "
+    PTS_REMOVAL_PHRASES_ARRAY$[3] = "INACTIVE ON "
+    PTS_REMOVAL_PHRASES_ARRAY$[4] = "OFF ON "
+    PTS_REMOVAL_PHRASES_ARRAY$[5] = "AWAY "
+    PTS_REMOVAL_PHRASES_ARRAY$[6] = "AWAYON "; REM  Yes, this "typo" one is intended
+    PTS_REMOVAL_PHRASES_ARRAY$[7] = "AWYA ON "; REM  Yes, this "typo" one is intended
+    
+    NO_OF_PTS_QTY_PHRASES = 4
+    dim PTS_QTY_PHRASES_ARRAY$[1:NO_OF_PTS_QTY_PHRASES]
+    PTS_QTY_PHRASES_ARRAY$[1] = "POINT "
+    PTS_QTY_PHRASES_ARRAY$[2] = "POINTS "
+    PTS_QTY_PHRASES_ARRAY$[3] = "PT "
+    PTS_QTY_PHRASES_ARRAY$[4] = "PTS "
+
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "mail.recipients.attend.pts.warning.levels", configVarFound, configVarDataType$, warningLevelsRecipients$
+    
+    call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
+    useWindowsMailSend = num(useWindowsMailSend$)
+
+    call "ConfigVarsDAO.bbj::get_value", "employ.table.ops.jobareas.where.clause", configVarFound, configVarDataType$, jobareasWhereClause$
+
+    
+    CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
+    
+    POSTING_UPDATE_STMT$ = 
+:       "update atnd " +
+:       "set pts = ?, cd = ?, stat = ?, text = ?, chgdt = ?, chgby = ?, " +
+:       "work_file_id = ?, wfmr_exc_def_id = ?, wfmr_reason_id = ?, disp_cd = ? " +
+:       "where badg = ? and ptdt = ?"
+    
+    POSTING_INSERT_STMT$ = 
+:       "insert into atnd " +
+:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
+:       "values " +
+:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+    GET_DATE_12_MONTHS_AGO_STMT$ = "select convert(varchar(10), dateadd(month, -12, getdate()), 120) as year_ago_date"
+    
+    PTS_TO_BE_INACTIVATED_STMT$ = 
+:       "select employ.badg, employ.name, ptdt, pts " +
+:       "from atnd " +
+:       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
+:       "where atnd.PTDT <= ? and atnd.STAT = 'A' and employ.termdt = '' " +
+:       "order by employ.name, ptdt"
+
+    SET_TO_INACTIVATED_STMT$ =
+:       "update atnd " +
+:       "set " +
+:       "stat = 'I', " +
+:       "text = trim(text) + ' - auto inactivated', " +
+:       "chgdt = ?, " +
+:       "chgby = 'cpu       ' " +
+:       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
+
+    GET_NON_ZERO_PT_RECORDS_STMT$ =
+:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, chgdt, chgby " +
+:       "from atnd " +
+:       "where badg = ? and stat = 'A' and pts > 0 " +
+:       "order by ptdt"
+
+    GET_ALL_PT_RECORDS_STMT$ =
+:       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, chgdt, chgby " +
+:       "from atnd " +
+:       "where badg = ?" +
+:       "order by ptdt"
+
+    GET_PTS_TOTAL_STMT$ =
+:       "select sum(pts) as pts_total " +
+:       "from atnd " +
+:       "where badg = ? and stat = 'A'"
+
+    UPDATE_SINGLE_PTS_RECORD_STMT$ =
+:       "update atnd " +
+:       "set pts = ?, stat = ?, cd = ?, text = ?, chgdt = ?, chgby = ?, disp_cd = ? " +
+:       "where " +
+:       "badg = ? and ptdt = ?"
+
+    INSERT_SINGLE_PTS_RECORD_STMT$ =
+:       "insert into atnd " +
+:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
+:       "values " +
+:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+    DELETE_SINGLE_PTS_RECORD_STMT$ =
+:       "delete from atnd " +
+:       "where " +
+:       "badg = ? and ptdt = ?"
+
+    GET_ZERO_PTS_FOR_DATE_RANGE_STMT$ =
+:       "select employ.badg, sum(atnd.pts) as total_pts " +
+:       "from employ " +
+:       "left join atnd on '0' + employ.badg = atnd.badg and atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ? " +
+:       "where " + 
+:       "employ.termdt = '' and " + 
+:       "employ.salhr = 'H' and " +
+:       cvs(jobareasWhereClause$, 2) + " " +
+:       "group by employ.badg " +
+:       "having sum(atnd.pts) = 0"
+    
+    return
+    

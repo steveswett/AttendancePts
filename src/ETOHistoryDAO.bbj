@@ -4,6 +4,12 @@ REM  * @author stevett
 REM  *
 REM  */
 
+use java.util.HashSet
+use java.util.LinkedHashSet
+
+declare java.util.HashSet employeesWithAwardsSet!
+declare java.util.LinkedHashSet employeesEarningNewETOSet!
+
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
@@ -33,13 +39,24 @@ get_most_recent_award_date_on_before:
     exit
 
 
-add_award_date:
+add_award_records:
 
-    enter badge5In$, awardDateIn$, awardHrsIn
+    enter employeesEarningNewETOSet!, awardDateIn$, awardHrsIn
     
     gosub setup_constants
     
-    gosub insert_award_date
+    gosub insert_award_records
+    
+    exit
+    
+
+get_employees_with_awards_during_date_range:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, employeesWithAwardsSet!
+    
+    gosub setup_constants
+    
+    gosub get_employees_with_awards
     
     exit
 
@@ -64,6 +81,8 @@ setup_constants:
     RECENT_AWARD_DATE_STMT$ = "select award_date from eto_history where badge = ? and award_date <= ? order by AWARD_DATE desc"
     
     INSERT_AWARD_DATE_STMT$ = "insert into eto_history (badge, award_date, award_hours) values (?, ?, ?)"
+
+    AWARDS_FOR_DATE_RANGE_STMT$ = "select badge from eto_history where award_date >= ? and award_date <= ?"
     
     return
 
@@ -95,16 +114,51 @@ get_most_recent_award_date:
 
 
 REM  ------------------------------------------------------------------------------------------
-REM  Add an award date
+REM  Add award records for all employees in employeesEarningNewETOSet!
 REM  ------------------------------------------------------------------------------------------
 
-insert_award_date:
+
+insert_award_records:
 
     historyChannel = sqlunt
     sqlopen(historyChannel) attendPtsDataSource$
 
     sqlprep(historyChannel) INSERT_AWARD_DATE_STMT$
-    sqlexec(historyChannel) badge5In$, awardDateIn$, awardHrsIn
+    
+    iter! = employeesEarningNewETOSet!.iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        sqlexec(historyChannel) badgeKey!, awardDateIn$, awardHrsIn
+    
+    wend
+    
+    sqlclose(historyChannel)
+
+    return
+
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Get list of employees with awards during date range and return in employeesWithAwardsSet!
+REM  ------------------------------------------------------------------------------------------
+
+
+get_employees_with_awards:
+
+    employeesWithAwardsSet!.clear()
+    
+    historyChannel = sqlunt
+    sqlopen(historyChannel) attendPtsDataSource$
+
+    sqlprep(historyChannel) AWARDS_FOR_DATE_RANGE_STMT$
+    sqlexec(historyChannel) yyyymmddFromIn$, yyyymmddToIn$
+    dim resultRow$:sqltmpl(historyChannel)
+    
+    while TRUE
+        resultRow$ = sqlfetch(historyChannel,err=*break)
+        employeesWithAwardsSet!.add(cvs(resultRow.badge$, 2))
+    wend
     
     sqlclose(historyChannel)
 
