@@ -7,8 +7,15 @@ REM  */
 use java.util.HashSet
 use java.util.LinkedHashSet
 
+use java.util.HashMap
+use java.util.LinkedHashMap
+
+
 declare java.util.HashSet employeesWithAwardsSet!
 declare java.util.LinkedHashSet employeesEarningNewETOSet!
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -57,6 +64,17 @@ get_employees_with_awards_during_date_range:
     gosub setup_constants
     
     gosub get_employees_with_awards
+    
+    exit
+    
+    
+compute_award_history_for_90_day_window_for_employees:
+
+    enter employeeRecordsMap!, yyyymmddUpThroughIn$
+    
+    gosub setup_constants
+    
+    gosub compute_and_store_recent_award_date_for_employees
     
     exit
 
@@ -163,3 +181,37 @@ get_employees_with_awards:
     sqlclose(historyChannel)
 
     return
+    
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Compute the most recent award history date for each employee in employeeRecordsMap!.  
+REM  ------------------------------------------------------------------------------------------
+
+
+compute_and_store_recent_award_date_for_employees:
+
+    historyChannel = sqlunt
+    sqlopen(historyChannel) attendPtsDataSource$
+    sqlprep(historyChannel) RECENT_AWARD_DATE_STMT$
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+        
+        sqlexec(historyChannel) badgeKey!, yyyymmddUpThroughIn$
+        dim resultRow$:sqltmpl(historyChannel)
+        
+        resultRow$ = sqlfetch(historyChannel,err=no_award_date_found)
+        employeeDataMap!.put("award_date", resultRow.award_date$)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
+        
+        no_award_date_found:
+    
+    wend
+
+    sqlclose(historyChannel)
+
+    return    

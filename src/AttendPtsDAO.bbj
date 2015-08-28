@@ -33,6 +33,9 @@ declare java.util.HashMap pointDataMap!
 
 declare java.util.HashSet employeesWithZeroPtsSet!
 
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -126,6 +129,17 @@ get_employees_with_zero_pts_for_date_range:
     
     gosub get_employees_with_zero_pts
     
+    exit
+    
+    
+compute_pts_for_90_day_window_for_employees:
+
+    enter employeeRecordsMap!, yyyymmddToIn$
+    
+    gosub setup_constants
+    
+    gosub compute_and_store_90_day_pts
+
     exit
     
     
@@ -1059,6 +1073,43 @@ setup_constants:
 :       cvs(jobareasWhereClause$, 2) + " " +
 :       "group by employ.badg " +
 :       "having sum(atnd.pts) = 0"
+
+    GET_PTS_TOTAL_RANGE_STMT$ =
+:       "select sum(pts) as pts_total " +
+:       "from atnd " +
+:       "where badg = ? and ptdt >= ? and ptdt <= ? and stat = 'A'"
     
     return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Compute the number of attendance pts for each employee in employeeRecordsMap!.  The 
+REM  "from date" is inside the map as "start_date".  The "to date" is argument "yyyymmddToIn$"
+REM  ------------------------------------------------------------------------------------------
+
+
+compute_and_store_90_day_pts:
+
+    ptsChannel = sqlunt
+    sqlopen(ptsChannel) attendPtsDataSource$
+    sqlprep(ptsChannel) GET_PTS_TOTAL_RANGE_STMT$
     
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+        
+        sqlexec(ptsChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
+        dim resultRow$:sqltmpl(ptsChannel)
+        
+        resultRow$ = sqlfetch(ptsChannel,err=*next)
+        employeeDataMap!.put("attend_pts", resultRow.pts_total)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
+    
+    wend
+
+    sqlclose(relativeDayChannel)
+
+    return

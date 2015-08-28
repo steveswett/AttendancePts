@@ -39,6 +39,28 @@ get_employees_with_no_time_off:
     exit
 
 
+get_employees_with_some_time_off:
+
+    enter employeeRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub load_records_for_employees_with_some_time_off
+    
+    exit
+
+
+compute_start_date_for_90_day_window_for_employees:
+
+    enter employeeRecordsMap!, defaultStartDateIn$
+    
+    gosub setup_constants
+    
+    gosub compute_and_store_90_day_start_date
+    
+    exit
+
+
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 subroutines:
@@ -57,7 +79,7 @@ setup_constants:
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
     
-    REM  The following query grabs employees with no time off requests in the past 90 days.  If we need to filter out
+    REM  The following query grabs employees with NO time off requests in the past 90 days.  If we need to filter out
     REM  certain time off requests, the "select" stmt inside the "in" clause can be modified.  The "lab_pay_adjustment"
     REM  table could be used for that.  Would need to join it.
     
@@ -89,11 +111,71 @@ setup_constants:
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
     
+    REM  The following query grabs employees with SOME time off requests in the past 90 days.  If we need to filter out
+    REM  certain time off requests, the "select" stmt inside the "in" clause can be modified.  The "lab_pay_adjustment"
+    REM  table could be used for that.  Would need to join it.
+    
+    REM  --join lab_pay_adjustment on lab_employee_time_off.pay_adjustment_id = lab_pay_adjustment.pay_adjustment_id
+    
+    EMPLOYEES_WITH_SOME_TIME_OFF_STMT$ = 
+:       "select " +
+:       "rad_sys_user.last_name, " +
+:       "rad_sys_user.first_name, " +
+:       "employee.employee_id, " +
+:       "employee.badge_number " +
+:       "from employee " +
+:       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
+:       "where employee.home_business_unit_id = ? " +
+:       "and employee.manager_level_flag <> 'y' " +
+:       "and rad_sys_user.status_code = 'a' " +
+:       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
+:       "and employee.employee_id " +
+:       "in(" +
+:           "select " + 
+:           "lab_employee_time_off.employee_id " +
+:           "from lab_employee_time_off " + 
+:           "join employee on employee.employee_id = lab_employee_time_off.employee_id " +
+:           "where " + 
+:           "employee.home_business_unit_id = ? and " +
+:           "lab_employee_time_off.status_code = 'a' and " +
+:           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
+:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' " +
+:       ") " +
+:       "order by rad_sys_user.last_name, rad_sys_user.first_name"
+    
+    REM  If we need to filter out certain time off requests, the "lab_pay_adjustment" table could be used for that.  
+    REM  Would need to join it.
+    
+    REM  --join lab_pay_adjustment on lab_employee_time_off.pay_adjustment_id = lab_pay_adjustment.pay_adjustment_id
+
+    ONE_EMPLOYEE_TIME_OFF_RECORDS_STMT$ =
+:       "select " +
+:       "lab_employee_time_off.employee_id, " +
+:       "convert(varchar(10), lab_employee_time_off.start_timestamp, 120) as start_date, " +
+:       "convert(varchar(10), lab_employee_time_off.end_timestamp, 120) as end_date " +
+:       "from lab_employee_time_off " + 
+:       "where " + 
+:       "lab_employee_time_off.employee_id = ? and " +
+:       "lab_employee_time_off.status_code = 'a' and " +
+:       "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
+:       "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' " +
+:       "order by lab_employee_time_off.employee_id, lab_employee_time_off.start_timestamp"
+    
+    FIND_ONE_EMPLOYEE_ONE_DATE_STMT$ =
+:       "select " + 
+:       "count(*) as hit_count, convert(varchar(10), dateadd(day, ?, getdate()), 120) as find_date " +
+:       "from lab_employee_time_off " + 
+:       "where " + 
+:       "lab_employee_time_off.employee_id = ? " +
+:       "and lab_employee_time_off.status_code = 'a' " +
+:       "and convert(varchar(10), dateadd(day, ?, getdate()), 120) >= lab_employee_time_off.start_timestamp " +
+:       "and convert(varchar(10), dateadd(day, ?, getdate()), 120) <= lab_employee_time_off.end_timestamp"
+
     return
 
 
 REM  ------------------------------------------------------------------------------------------
-REM  Load records for employees with no time off requests in the past 90 days
+REM  Load records for employees with NO time off requests in the past 90 days
 REM  ------------------------------------------------------------------------------------------
 
 load_records_for_employees_with_no_time_off:
@@ -119,6 +201,127 @@ load_records_for_employees_with_no_time_off:
         
     wend
     
+    sqlclose(timeOffChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Load records for employees with SOME time off requests in the past 90 days
+REM  ------------------------------------------------------------------------------------------
+
+load_records_for_employees_with_some_time_off:
+
+    employeeRecordsMap!.clear()
+
+    timeOffChannel = sqlunt
+    sqlopen(timeOffChannel) wfmrDataSource$
+
+    sqlprep(timeOffChannel) EMPLOYEES_WITH_SOME_TIME_OFF_STMT$
+
+    sqlexec(timeOffChannel) opsBusinessUnit$, opsBusinessUnit$
+    dim resultRow$:sqltmpl(timeOffChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(timeOffChannel,err=*break)
+        employeeDataMap! = new java.util.HashMap()
+        employeeDataMap!.put("last_name", cvs(resultRow.last_name$, 2))
+        employeeDataMap!.put("first_name", cvs(resultRow.first_name$, 2))
+        employeeDataMap!.put("employee_id", resultRow.employee_id)
+        employeeRecordsMap!.put(cvs(resultRow.badge_number$, 2), employeeDataMap! )
+        
+    wend
+    
+    sqlclose(timeOffChannel)
+
+    return
+
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Compute and store the start date for 90-day window per employee.  Store inside employeeRecordsMap!
+REM  ------------------------------------------------------------------------------------------
+
+
+compute_and_store_90_day_start_date:
+
+    timeOffChannel = sqlunt
+    sqlopen(timeOffChannel) wfmrDataSource$
+    sqlprep(timeOffChannel) ONE_EMPLOYEE_TIME_OFF_RECORDS_STMT$
+
+    relativeDayChannel = sqlunt
+    sqlopen(relativeDayChannel) wfmrDataSource$
+    sqlprep(relativeDayChannel) FIND_ONE_EMPLOYEE_ONE_DATE_STMT$
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+        
+        employeeId! = employeeRecordsMap!.get("employee_id")
+        
+        
+        REM  Step 1. Compute number of days off for one employee
+        
+        daysOff = 0
+        
+        sqlexec(timeOffChannel) employeeId!
+        dim resultRow$:sqltmpl(timeOffChannel)
+        
+        while TRUE
+            resultRow$ = sqlfetch(timeOffChannel,err=*break)
+            yyyymmddStart$ = resultRow.start_date$(1,4) + resultRow.start_date$(6,2) + resultRow.start_date$(9,2)  
+            yyyymmddEnd$ = resultRow.end_date$(1,4) + resultRow.end_date$(6,2) + resultRow.end_date$(9,2)  
+            call "DateUtilities.bbj::get_days_between_inclusive", yyyymmddStart$, yyyymmddEnd$, noOfDays
+            daysOff = daysOff + noOfDays  
+        wend
+        
+        
+        REM  Step 2. Compute start date for one employee
+        
+        startDate$ = defaultStartDateIn$
+        
+        if daysOff > 0 then
+        
+            relativeDayNumber = -90
+            daysOn = 0
+            
+            REM  Look back up to 365 days prior to standard 90-day window.  This is mostly a protection to avoid an endless loop.  
+            REM  Normally shouldn't have to read back very many days.
+            
+            for dayNumber = 1 to 365
+                
+                relativeDayNumber = relativeDayNumber - 1
+                sqlexec(relativeDayChannel) relativeDayNumber, employeeId!, relativeDayNumber, relativeDayNumber
+                dim resRow$:sqltmpl(relativeDayChannel)
+                resRow$ = sqlfetch(relativeDayChannel,err=*break)
+                
+                if resRow.hit_count = 0 then
+                    daysOn = daysOn + 1
+                    
+                    if daysOn = daysOff then
+                    
+                        REM  We have read far enough back and have a valid start date.
+                        
+                        startDate$ = resRow.find_date$(1,4) + resRow.find_date$(6,2) + resRow.find_date$(9,2)
+                        break
+                        
+                    endif
+                    
+                endif
+                 
+            next dayNumber
+        
+        endif
+        
+        employeeDataMap!.put("start_date", startDate$)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
+    
+    wend
+
+    sqlclose(relativeDayChannel)
     sqlclose(timeOffChannel)
 
     return

@@ -97,26 +97,26 @@ REM  ---------------------------------------------------------------------------
 
 do_standard_90_day_window_group:
 
-    REM  Step 1. Get a list of employees having NO attendance pts in the past 90 days
+    REM  Step 1. Get a list of employees having NO time off requests in the past 90 days
+    
+    noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
+
+    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!
+
+    
+    REM  Step 2. Get a list of employees having NO attendance pts in the past 90 days
     
     employeesWithZeroPtsSet! = new java.util.HashSet()
     
     call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithZeroPtsSet!
 
     
-    REM  Step 2. Get a list of employees having any ETO awards in the past 90 days
+    REM  Step 3. Get a list of employees having any ETO awards in the past 90 days
     
     employeesWithETOAwardsSet! = new java.util.HashSet()
     
     call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithETOAwardsSet!
     
-    
-    REM  Step 3. Get a list of employees having NO time off requests in the past 90 days
-    
-    noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
-
-    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!
-
     
     REM Step 4. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
 
@@ -141,14 +141,62 @@ do_standard_90_day_window_group:
 
 
 REM  --------------------------------------------------------------------------------
-REM  Do processing for employees who have time off requests and more than 90 days need to be considered
+REM  Do processing for employees who have SOME time off requests and more than 90 days need to be considered
 REM  --------------------------------------------------------------------------------
 
 
 do_non_standard_90_plus_day_window_group:
 
+    REM  Step 1. Get a list of employees having NO time off requests in the past 90 days
+    
     someTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
+    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", someTimeOffEmployeeRecordsMap!
+    
+    
+    REM  Step 2. Compute and tack on "custom" start date (prior to the standard 90-day window) for each employee -- 
+    REM          depending on how much time off they had.  Each start date is stored as an entry with key "start_date"
+    REM          in the HashMap within someTimeOffEmployeeRecordsMap! 
+    
+    call "WFMREmployeeTimeOffDAO.bbj::compute_start_date_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddNinetyDaysAgo$
+
+
+    REM  Step 3. Compute and tack on attendance pts during the 90-day+ custom window for each employee.  The number of
+    REM          attendance points is stored as an entry with key "attend_pts"
+    REM          in the HashMap within someTimeOffEmployeeRecordsMap!   
+    
+    call "AttendPtsDAO.bbj::compute_pts_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddCurrent$
+
+
+    REM  Step 4. Compute and tack on most recent ETO award history date for each employee.  The date is stored 
+    REM          as an entry with key "award_history_date"
+    REM          in the HashMap within someTimeOffEmployeeRecordsMap!   
+
+    call "ETOHistoryDAO.bbj::compute_award_history_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddCurrent$
+
+
+    REM Step 5. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
+
+    iter! = someTimeOffEmployeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, someTimeOffEmployeeRecordsMap!.get(badgeKey!) )
+        
+        attendPts! = employeeDataMap!.get("attend_pts")
+        if attendPts! > 0 then continue
+
+        if employeeDataMap!.containsKey("award_date") then
+            awardDate$ = employeeDataMap!.get("award_date")
+            startDate90DayWindow$ = employeeDataMap!.get("start_date")
+            if awardDate$ >= startDate90DayWindow$ then continue
+        endif
+        
+        employeeDataMap!.put("qualifies", TRUE)
+        someTimeOffEmployeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
+    
+    wend
 
     return
     
@@ -163,7 +211,6 @@ combine_and_process_qualified_eto_awardees:
     combinedEmployeeRecordsMap! = new java.util.LinkedHashMap()
     combinedEmployeeRecordsMap!.putAll(noTimeOffEmployeeRecordsMap!)
     combinedEmployeeRecordsMap!.putAll(someTimeOffEmployeeRecordsMap!)
-
     
     employeesEarningNewETOSet! = new java.util.LinkedHashSet()
     
@@ -184,6 +231,9 @@ combine_and_process_qualified_eto_awardees:
     if employeesEarningNewETOSet!.size() > 0 then
         call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
     endif     
+
+    
+    REM  TODO: The following print statement is temporary; remove it after testing
     
     print "Number of ETO awardees = ", employeesEarningNewETOSet!.size()
      

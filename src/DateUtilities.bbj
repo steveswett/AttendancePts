@@ -49,6 +49,18 @@ REM     tmpDate$ = date(tmpJulDate,tmpTotalHrs:"%Mz/%Dz/%Yz %h:%mz:%sz%p")
 fnend
 
 
+def fnGetJulianDateFromYYYYMMDD(aYYYYMMDD$)
+
+    tmpYr = num(aYYYYMMDD$(1,4))
+    tmpMo = num(aYYYYMMDD$(5,2))
+    tmpDay = num(aYYYYMMDD$(7,2))
+    tmpResult = jul(tmpYr, tmpMo, tmpDay)
+
+    return tmpResult
+
+fnend
+
+
 rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 
@@ -132,6 +144,20 @@ is_valid_yyyymmdd_date:
     isValidDate = FALSE
     
     good_jul_date:
+    
+    exit
+    
+    
+get_days_between_inclusive:
+
+    enter yyyymmddFrom$, yyyymmddTo$, daysBetween
+    
+    gosub setup_constants
+    
+    tmpFromJul = fnGetJulianDateFromYYYYMMDD(yyyymmddFrom$)
+    tmpToJul = fnGetJulianDateFromYYYYMMDD(yyyymmddTo$)
+    
+    daysBetween = tmpToJul - tmpFromJul + 1
     
     exit
     
