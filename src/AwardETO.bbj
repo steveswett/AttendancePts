@@ -231,11 +231,6 @@ combine_and_process_qualified_eto_awardees:
     if employeesEarningNewETOSet!.size() > 0 then
         call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
     endif     
-
-    
-    REM  TODO: The following print statement is temporary; remove it after testing
-    
-    print "Number of ETO awardees = ", employeesEarningNewETOSet!.size()
      
 
     return

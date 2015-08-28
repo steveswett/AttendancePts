@@ -1110,6 +1110,6 @@ compute_and_store_90_day_pts:
     
     wend
 
-    sqlclose(relativeDayChannel)
+    sqlclose(ptsChannel)
 
     return
