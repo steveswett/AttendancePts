@@ -27,6 +27,13 @@ begin
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
+constants:
+
+TRUE = 1
+FALSE = 0
+
+OUTPUT_FILE_MIME_TYPE$ = "text/csv"
+
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
@@ -36,6 +43,8 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
     gosub init
     
     gosub award_eto
+    
+    release
 
 end
 
@@ -50,6 +59,13 @@ REM  ---------------------------------------------------------------------------
 init:
 
     call "ConfigVarsDAO.bbj::get_value", "eto.first.eligible.award.date", configVarFound, configVarDataType$, firstEligibleAwardDate$
+
+    call "ConfigVarsDAO.bbj::get_value", "eto.award.hours", configVarFound, configVarDataType$, etoAwardHrs$
+    
+    call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
+    useWindowsMailSend = num(useWindowsMailSend$)
+    
+    call "ConfigVarsDAO.bbj::get_value", "mail.recipients.eto.awards", configVarFound, configVarDataType$, mailRecipients$
 
     return
 
@@ -194,6 +210,7 @@ do_non_standard_90_plus_day_window_group:
         endif
         
         employeeDataMap!.put("qualifies", TRUE)
+        employeeDataMap!.put("non_std_window", TRUE)
         someTimeOffEmployeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
     
     wend
@@ -214,6 +231,14 @@ combine_and_process_qualified_eto_awardees:
     
     employeesEarningNewETOSet! = new java.util.LinkedHashSet()
     
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddNinetyDaysAgo$, FALSE, formattedFromDate$
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddCurrent$, FALSE, formattedToDate$
+
+    call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", yyyymmddCurrent$, FALSE, formattedADPDate$
+    
+    lineFeed$ = iff(useWindowsMailSend, "<br/>", $0A$)
+    bodyDetail$ = ""
+    
     iter! = combinedEmployeeRecordsMap!.keySet().iterator()
     
     while iter!.hasNext()
@@ -223,14 +248,82 @@ combine_and_process_qualified_eto_awardees:
         employeeDataMap! = cast( java.util.HashMap, combinedEmployeeRecordsMap!.get(badgeKey!) )
         
         if employeeDataMap!.containsKey("qualifies") then
+
             employeesEarningNewETOSet!.add(badgeKey!)
+            
+            bodyDetail$ = bodyDetail$ + cvs(employeeDataMap!.get("last_name"), 2) + ", " + 
+:               cvs(employeeDataMap!.get("first_name"), 2) + "(" + badgeKey! + ") has no attend pts from " 
+            
+            if employeeDataMap!.containsKey("non_std_window") then
+                yyyymmddStartDate$ = employeeDataMap!.get("start_date")
+                call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddStartDate$, FALSE, formattedStartDate$
+                bodyDetail$ = bodyDetail$ + formattedStartDate$ + " through " + formattedToDate$
+            else
+                bodyDetail$ = bodyDetail$ + formattedFromDate$ + " through " + formattedToDate$
+            endif
+            
+            bodyDetail$ = bodyDetail$ + lineFeed$
+             
         endif
     
     wend
     
-    if employeesEarningNewETOSet!.size() > 0 then
-        call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
-    endif     
-     
+    numberOfEmployeesEarningNewETO = employeesEarningNewETOSet!.size() 
+    
+    if numberOfEmployeesEarningNewETO > 0 then
+    
+        REM  Step 1. Write output file for ADP 
+
+        outputFileName$="/usr/tmpfiles/eto_awards_" + yyyymmddCurrent$ + ".csv"
+        erase outputFileName$,ERR=*next
+        string outputFileName$
+        
+        outputFileChannel = unt
+        open(outputFileChannel) outputFileName$
+        
+        print(outputFileChannel) "TransactionType,PositionID,TimeOffPolicyName,ReasonCodes,TransactionStartDate,TransactionStartTime,TransactionAmount,TransactonUnit,SendToPayroll"
+
+        iter! = employeesEarningNewETOSet!.iterator()
+        
+        while iter!.hasNext()
+        
+            badgeKey! = iter!.next()
+            print(outputFileChannel) "External Awards,", badgeKey!, ",ETO,,", formattedADPDate$, ",," + etoAwardHrs$ + ",hours,"
+        
+        wend
+
+        close(outputFileChannel)
+        
+        
+        REM  Step 2. Write award history records
+        
+        REM  TODO: Temporarily skip writing to history **********************************************************
+        
+        REM call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
+
+    endif
+
+    
+    REM  Send an e-mail -- even if nobody qualifies.
+        
+    subject$ = "ETO awards for " + formattedDate$ + iff(numberOfEmployeesEarningNewETO = 0, " (none)", "")
+    
+    if numberOfEmployeesEarningNewETO > 0 then
+        body$ = "The following " + str(numberOfEmployeesEarningNewETO) + " employee(s) were awarded ETO.  " 
+        body$ = body$ + "Please use the attached file to import these awards into ADP." + lineFeed$ + lineFeed$ + bodyDetail$
+    else
+        body$ = "No employees were awarded ETO."
+    endif
+        
+    body$ = body$ + lineFeed$ + lineFeed$ + "Generated from ETO Awards program (" + pgm(-2) + ") by user " + info(3, 2) + "."
+
+    if numberOfEmployeesEarningNewETO > 0 then
+        REM  TODO -- temporarily write out a short body$ -- because 15,776 chars appears to be too much ***********************
+        body$ = "temporary body"
+        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
+    else
+        call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$
+    endif
+    
 
     return
