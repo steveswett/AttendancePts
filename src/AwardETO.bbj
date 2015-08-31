@@ -148,6 +148,7 @@ do_standard_90_day_window_group:
         
         employeeDataMap! = cast( java.util.HashMap, noTimeOffEmployeeRecordsMap!.get(badgeKey!) )
         employeeDataMap!.put("qualifies", TRUE)
+        employeeDataMap!.put("std", TRUE)
         noTimeOffEmployeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
     
     wend
@@ -210,7 +211,7 @@ do_non_standard_90_plus_day_window_group:
         endif
         
         employeeDataMap!.put("qualifies", TRUE)
-        employeeDataMap!.put("non_std_window", TRUE)
+        employeeDataMap!.put("std", FALSE)
         someTimeOffEmployeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
     
     wend
@@ -238,6 +239,7 @@ combine_and_process_qualified_eto_awardees:
     
     lineFeed$ = iff(useWindowsMailSend, "<br/>", $0A$)
     bodyDetail$ = ""
+    prevStd = -1
     
     iter! = combinedEmployeeRecordsMap!.keySet().iterator()
     
@@ -248,18 +250,24 @@ combine_and_process_qualified_eto_awardees:
         employeeDataMap! = cast( java.util.HashMap, combinedEmployeeRecordsMap!.get(badgeKey!) )
         
         if employeeDataMap!.containsKey("qualifies") then
+            std = employeeDataMap!.get("std")
 
             employeesEarningNewETOSet!.add(badgeKey!)
             
-            bodyDetail$ = bodyDetail$ + cvs(employeeDataMap!.get("last_name"), 2) + ", " + 
-:               cvs(employeeDataMap!.get("first_name"), 2) + "(" + badgeKey! + ") has no attend pts from " 
+            if std <> prevStd then
+                bodyDetail$ = bodyDetail$ + lineFeed$ + "The following employees had " + iff(std, "NO", "SOME") + " time off requests during the 90-day period" + iff(std, "", " (and therefore have various ""from"" dates)") + ":" + lineFeed$ + lineFeed$
+                prevStd = std
+            endif
             
-            if employeeDataMap!.containsKey("non_std_window") then
+            bodyDetail$ = bodyDetail$ + cvs(employeeDataMap!.get("last_name"), 2) + ", " + 
+:               cvs(employeeDataMap!.get("first_name"), 2) + " (" + badgeKey! + ") has no attend pts from " 
+
+            if std then
+                bodyDetail$ = bodyDetail$ + formattedFromDate$ + " through " + formattedToDate$
+            else
                 yyyymmddStartDate$ = employeeDataMap!.get("start_date")
                 call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddStartDate$, FALSE, formattedStartDate$
                 bodyDetail$ = bodyDetail$ + formattedStartDate$ + " through " + formattedToDate$
-            else
-                bodyDetail$ = bodyDetail$ + formattedFromDate$ + " through " + formattedToDate$
             endif
             
             bodyDetail$ = bodyDetail$ + lineFeed$
@@ -306,11 +314,11 @@ combine_and_process_qualified_eto_awardees:
     
     REM  Send an e-mail -- even if nobody qualifies.
         
-    subject$ = "ETO awards for " + formattedDate$ + iff(numberOfEmployeesEarningNewETO = 0, " (none)", "")
+    subject$ = "ETO awards for " + formattedADPDate$ + iff(numberOfEmployeesEarningNewETO = 0, " (none)", "")
     
     if numberOfEmployeesEarningNewETO > 0 then
         body$ = "The following " + str(numberOfEmployeesEarningNewETO) + " employee(s) were awarded ETO.  " 
-        body$ = body$ + "Please use the attached file to import these awards into ADP." + lineFeed$ + lineFeed$ + bodyDetail$
+        body$ = body$ + "Please use the attached file to import these awards into ADP." + lineFeed$ + bodyDetail$
     else
         body$ = "No employees were awarded ETO."
     endif
@@ -318,8 +326,6 @@ combine_and_process_qualified_eto_awardees:
     body$ = body$ + lineFeed$ + lineFeed$ + "Generated from ETO Awards program (" + pgm(-2) + ") by user " + info(3, 2) + "."
 
     if numberOfEmployeesEarningNewETO > 0 then
-        REM  TODO -- temporarily write out a short body$ -- because 15,776 chars appears to be too much ***********************
-        body$ = "temporary body"
         call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
     else
         call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$

@@ -113,16 +113,23 @@ send_email_with_attachment:
     if useWindowsMailSend then
 
         bodyFileName$ = "/usr/tmpfiles/" + pgm(-2) + "-" + FID(0) + ".txt"
-        setupCmd$ = "cmd /c echo """ + body$ + """ > " + bodyFileName$
-        returnCode = scall(setupCmd$)
+        
+        REM  NOTE: for some reason echo (to build a file) doesn't work, so use language constructs
+        
+        erase bodyFileName$,ERR=*next
+        string bodyFileName$
+        bodyFileChannel = unt
+        open(bodyFileChannel) bodyFileName$
+        print(bodyFileChannel) body$
+        close(bodyFileChannel)
     
         REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
         REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
         
 REM  The -smtp row WAS like this: "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + body$ + """ "+
         
-    
-        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + resolvedRecipients$ + " " + "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth " + "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -msg-body """ + bodyFileName$ + """ " + "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$ + " " + "-attach """ + attachmentFileName$ + """,""" + attachmentMimeType$ + """,a"   
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + resolvedRecipients$ + " " + "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth " + "-smtp " + windowsMailSendSMTPServer$ + " -sub " + $22$ + subject$ + $22$ + " -user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$ + " -attach " + $22$ + attachmentFileName$ + $22$ + "," + $22$ + attachmentMimeType$ + $22$ + ",a" + " -attach " + $22$ + bodyFileName$ + $22$ + "," + $22$ + "text/html" + $22$ + ",i"   
+
     else
         spaceDelimitedRecipients$ = resolvedRecipients$
         call "_repl.utl", spaceDelimitedRecipients$,","," "
