@@ -305,9 +305,7 @@ combine_and_process_qualified_eto_awardees:
         
         REM  Step 2. Write award history records
         
-        REM  TODO: Temporarily skip writing to history **********************************************************
-        
-        REM call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
+        call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
 
     endif
 

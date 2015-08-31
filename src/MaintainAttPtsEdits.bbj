@@ -234,8 +234,6 @@ display_data:
     
     gosub display_screen_headings
     
-    REM  TODO: Need to set to editable or not depending on user's capabilities (or perhaps whether called as inquiry):
-    
     isRecordEditable = !(isInquiryMode)
     
     if isRecordEditable then
