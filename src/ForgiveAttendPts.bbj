@@ -76,7 +76,7 @@ main_routine:
     eoj:
     RELEASE
     
-    if trimmedAttendPolicyCode$ = "2015 Aug Before" then
+    if trimmedAttendPolicyCode$ = "2015 Aug Before" or forgivePtsOldWayDuringTransition then
         gosub old_policy_close_files
     endif
     
