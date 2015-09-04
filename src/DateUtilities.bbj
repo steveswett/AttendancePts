@@ -17,6 +17,13 @@ def fnGetCurrentTimestamp$(aDoIt)
 fnend
 
 
+def fnGetCurrentYYYYMMDD$(aDoIt)
+
+    return date(0:"%Y%Mz%Dz")
+
+fnend
+
+
 def fnGetYYMDasMDYwithDayAbbrev$(aYYYYMMDD$)
     
     tmpJul = jul( num(aYYYYMMDD$(1,4)), num(aYYYYMMDD$(5,2)), num(aYYYYMMDD$(7,2)) )
@@ -122,6 +129,17 @@ get_current_timestamp:
     gosub setup_constants
     
     yyyymmddhhmmss$ = fnGetCurrentTimestamp$(TRUE)
+    
+    exit
+    
+    
+get_current_yyyymmdd:
+
+    enter yyyymmdd$
+    
+    gosub setup_constants
+    
+    yyyymmdd$ = fnGetCurrentYYYYMMDD$(TRUE)
     
     exit
     

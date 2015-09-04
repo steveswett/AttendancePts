@@ -1,0 +1,32 @@
+REM /**
+REM  * TestPageDown.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
+
+PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
+
+print 'ET'
+
+print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
+print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
+
+pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
+pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
+
+resultIgnored$ = stbl("!TERMS", pageupPair$ + pagedownPair$ + stbl("!TERMS"))
+resultIgnored$ = stbl("!EDIT", pageupPair$ + pagedownPair$ + stbl("!EDIT"))
+
+print "TERM = ", env("TERM"), "  TERMCAP = ", env("TERMCAP"), "  BBTERM = ", env("BBTERM")
+print "Expecting 28 for page down and 27 for page up.  Terminal ID = ", fid(0)
+
+while 1
+    input "Press any key, q to quit", ch$
+    print " ch$=", ch$
+    print " ctl=", ctl
+    if ch$="q" then break
+wend

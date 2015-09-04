@@ -55,7 +55,7 @@ main_routine:
 
     gosub common_init
     
-    if trimmedAttendPolicyCode$ = "2015 Aug Before" then
+    if trimmedAttendPolicyCode$ = "2015 Aug Before" or forgivePtsOldWayDuringTransition then
         gosub old_policy_init
         gosub old_policy_open_files
         gosub old_policy_process_employees
@@ -96,6 +96,12 @@ subroutines:
 common_init:
 
     call "ConfigVarsDAO.bbj::get_value", "mail.recipients.forgive.attend.pts", configVarFound, configVarDataType$, mailRecipients$
+
+    call "ConfigVarsDAO.bbj::get_value", "forgive.attend.pts.old.way.through", configVarFound, configVarDataType$, forgivePtsOldWayThroughYYYYMMDD$
+    
+    call "DateUtilities.bbj::get_current_yyyymmdd", currentYMD$
+    
+    forgivePtsOldWayDuringTransition = currentYMD$ <= forgivePtsOldWayThroughYYYYMMDD$ 
 
     call "ConfigVarsDAO.bbj::get_value", "current.attend.pts.policy.code", configVarFound, configVarDataType$, attendPtsPolicyCode$
     trimmedAttendPolicyCode$ = cvs(attendPtsPolicyCode$, 2)
