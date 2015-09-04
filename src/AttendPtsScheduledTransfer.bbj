@@ -37,9 +37,15 @@ fnend
 
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
+main_routine:
+
+
     gosub init
     
     gosub mass_load
+
+    eoj:
+    release
 
 end
 
