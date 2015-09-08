@@ -231,12 +231,9 @@ setup_constants:
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
+
+    call "ConfigVarsDAO.bbj::get_value", "eto.time.off.ids", configVarFound, configVarDataType$, timeOffIdsNoETO$
     
-    REM  The following query grabs employees with NO time off requests in the past 90 days.  If we need to filter out
-    REM  certain time off requests, the "select" stmt inside the "in" clause can be modified.  The "lab_pay_adjustment"
-    REM  table could be used for that.  Would need to join it.
-    
-    REM  --join lab_pay_adjustment on lab_employee_time_off.pay_adjustment_id = lab_pay_adjustment.pay_adjustment_id
     
     EMPLOYEES_WITH_NO_TIME_OFF_STMT$ = 
 :       "select " +
@@ -260,15 +257,10 @@ setup_constants:
 :           "employee.home_business_unit_id = ? and " +
 :           "lab_employee_time_off.status_code = 'a' and " +
 :           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
-:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' " +
+:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
+:           "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
-    
-    REM  The following query grabs employees with SOME time off requests in the past 90 days.  If we need to filter out
-    REM  certain time off requests, the "select" stmt inside the "in" clause can be modified.  The "lab_pay_adjustment"
-    REM  table could be used for that.  Would need to join it.
-    
-    REM  --join lab_pay_adjustment on lab_employee_time_off.pay_adjustment_id = lab_pay_adjustment.pay_adjustment_id
     
     EMPLOYEES_WITH_SOME_TIME_OFF_STMT$ = 
 :       "select " +
@@ -292,15 +284,11 @@ setup_constants:
 :           "employee.home_business_unit_id = ? and " +
 :           "lab_employee_time_off.status_code = 'a' and " +
 :           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
-:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' " +
+:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
+:           "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
     
-    REM  If we need to filter out certain time off requests, the "lab_pay_adjustment" table could be used for that.  
-    REM  Would need to join it.
-    
-    REM  --join lab_pay_adjustment on lab_employee_time_off.pay_adjustment_id = lab_pay_adjustment.pay_adjustment_id
-
     ONE_EMPLOYEE_TIME_OFF_RECORDS_STMT$ =
 :       "select " +
 :       "lab_employee_time_off.employee_id, " +
@@ -311,7 +299,8 @@ setup_constants:
 :       "lab_employee_time_off.employee_id = ? and " +
 :       "lab_employee_time_off.status_code = 'a' and " +
 :       "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
-:       "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' " +
+:       "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
+:       "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       "order by lab_employee_time_off.employee_id, lab_employee_time_off.start_timestamp"
     
     FIND_ONE_EMPLOYEE_ONE_DATE_STMT$ =
@@ -322,7 +311,8 @@ setup_constants:
 :       "lab_employee_time_off.employee_id = ? " +
 :       "and lab_employee_time_off.status_code = 'a' " +
 :       "and convert(varchar(10), dateadd(day, ?, getdate()), 120) >= lab_employee_time_off.start_timestamp " +
-:       "and convert(varchar(10), dateadd(day, ?, getdate()), 120) <= lab_employee_time_off.end_timestamp"
+:       "and convert(varchar(10), dateadd(day, ?, getdate()), 120) <= lab_employee_time_off.end_timestamp and " +
+:       "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") "
 
     return
     
