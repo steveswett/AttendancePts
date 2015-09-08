@@ -2,6 +2,10 @@ REM /**
 REM  * ApproveAttPtsEmpSel.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Employee selection screen for Supervisor Approval of Attendance Points.
+REM  *
 REM  */
 
 use java.util.LinkedHashMap

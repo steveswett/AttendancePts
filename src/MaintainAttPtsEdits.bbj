@@ -2,6 +2,10 @@ REM /**
 REM  * MaintainAttPtsEdits.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Edits (record changes) screen of Attendance Pts Maintenance/Inquiry.
+REM  *
 REM  */
 
 use java.util.LinkedHashMap

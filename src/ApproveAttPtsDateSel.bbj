@@ -1,7 +1,11 @@
 REM /**
-REM  * ApproveAttendPts02.bbj
+REM  * ApproveAttendPtsDateSel.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Date selection screen for Supervisor Approval of Attendance Points.
+REM  * 
 REM  */
 
 

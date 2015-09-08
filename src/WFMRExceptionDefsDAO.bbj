@@ -2,6 +2,10 @@ REM /**
 REM  * WFMRExceptionDefsDAO.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Data Access Object for WFMR table lab_exception_definition
+REM  *
 REM  */
 
 

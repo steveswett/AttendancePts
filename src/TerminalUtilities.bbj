@@ -1,7 +1,11 @@
 REM /**
 REM  * TerminalUtilities.bbj
 REM  * @author steve
-REM  * written May 2015
+REM  *
+REM  * Written: May 2015
+REM  * 
+REM  * Description: Miscellaneous terminal utilities.
+REM  * 
 REM  */
 
 

@@ -1,6 +1,10 @@
 REM /**
 REM  * ConfigVarsDAO.bbj
 REM  * @author stevett
+REM  * 
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Data Access Object for table CONFIG_VARS
 REM  *
 REM  */
 

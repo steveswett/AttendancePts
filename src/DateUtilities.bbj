@@ -1,6 +1,10 @@
 REM /**
 REM  * DateUtilities.bbj
 REM  * @author stevett
+REM  * 
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Miscellaneous date utilities
 REM  *
 REM  */
 

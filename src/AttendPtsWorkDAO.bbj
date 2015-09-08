@@ -1,7 +1,10 @@
 REM /**
 REM  * AttendPtsWorkDAO.bbj
 REM  * @author stevett
-REM  * Written July 2015
+REM  * 
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Data Access Object for table ATTEND_PTS_WORK
 REM  *
 REM  */
 

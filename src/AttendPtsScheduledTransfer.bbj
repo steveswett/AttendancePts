@@ -1,6 +1,10 @@
 REM /**
 REM  * AttendPtsScheduledTransfer.bbj
 REM  * @author stevett
+REM  * 
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Scheduled job used to transfer data from WFMR to table ATTEND_PTS_WORK
 REM  *
 REM  */
 

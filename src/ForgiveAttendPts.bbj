@@ -2,6 +2,11 @@ REM /**
 REM  * ForgiveAttendPts.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Inactivate attendance point records, whether using old or new policy.
+REM  *
+REM  *
 REM  *  This program originated from the ATND20 BBx program.
 REM  * 
 REM  *  Old policy: Inactivates a certain number of points (1?) after 30 days of perfect attendance.

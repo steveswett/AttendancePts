@@ -2,6 +2,10 @@ REM /**
 REM  * AttendPtsLevDAO.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Data Access Object for table ATTEND_PTS_LEV
+REM  *
 REM  */
 
 

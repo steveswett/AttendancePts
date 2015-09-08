@@ -1,6 +1,10 @@
 REM /**
 REM  * AttendPtsReasnDAO.bbj
 REM  * @author stevett
+REM  * 
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Data Access Object for table ATTEND_PTS_REASN
 REM  *
 REM  */
 

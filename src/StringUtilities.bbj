@@ -2,6 +2,10 @@ REM /**
 REM  * StringUtilities.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Miscellaneous string utilities.
+REM  *
 REM  */
 
 

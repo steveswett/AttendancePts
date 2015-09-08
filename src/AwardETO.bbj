@@ -1,6 +1,10 @@
 REM /**
 REM  * AwardETO.bbj
 REM  * @author stevett
+REM  * 
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Scheduled job used to award Earned Time Off.
 REM  *
 REM  */
 

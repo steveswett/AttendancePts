@@ -2,6 +2,10 @@ REM /**
 REM  * WFMRJobDAO.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: July 2015
+REM  * 
+REM  * Description: Data Access Object for WFMR table lab_job
+REM  *
 REM  */
 
 

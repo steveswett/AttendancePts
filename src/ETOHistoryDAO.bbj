@@ -2,6 +2,10 @@ REM /**
 REM  * ETOHistoryDAO.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: August 2015
+REM  * 
+REM  * Description: Data Access Object for table ETO_HISTORY
+REM  *
 REM  */
 
 use java.util.HashSet
