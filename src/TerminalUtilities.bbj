@@ -110,10 +110,20 @@ display_screen_headings:
     gosub setup_constants
     
     trimmedProgramName$ = fnGetUnqualifiedProgramName$(programNameIn$)
+    termIdAndType$ = fid(0)
+    lcOS$ = cvs(info(0,0), 8)
+
+    if DISPLAY_DEVICE_NAME and pos("win" = lcOS$) = 0 then
+        call "TERM90", device$, term$
+        
+        if len(device$) > 0 then
+            termIdAndType$ = termIdAndType$ + "=" + device$
+        endif 
+    endif
     
     print @(0,0), pad(day, 20, "L", " ")
     print @(20,0), pad("NOTIONS MARKETING", 50, "L", " ")
-    print @(70,0), pad( fid(0) , 10, "R", " ")
+    print @(50,0), pad( termIdAndType$ , 30, "R", " ")
     
     print 'BU'
     print @(0,1), pad( fnGetCurrentTime$(TRUE) , 20, "L", " ")
@@ -133,5 +143,7 @@ setup_constants:
 
     TRUE = 1
     FALSE = 0
+    
+    DISPLAY_DEVICE_NAME = FALSE
 
     return
