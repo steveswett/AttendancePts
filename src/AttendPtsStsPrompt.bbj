@@ -28,10 +28,14 @@ FALSE = 0
 
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
-DEPT_FIELD_NO = 1
-SHIFT_FIELD_NO = 2
-PTS_FIELD_NO = 3
-ORDER_BY_FIELD_NO = 4
+SHIFT_FIELD_NO = 1
+PTS_FIELD_NO = 2
+ORDER_BY_FIELD_NO = 3
+
+FIRST_FIELD_NO = SHIFT_FIELD_NO
+LAST_FIELD_NO =  ORDER_BY_FIELD_NO
+
+F2_PROMPT$ = "F2=Prompt"
 
 
 REM     Note about INPUTE:
@@ -39,20 +43,20 @@ REM
 REM     Any value less than 63 will cause the input function to exit setting the CTL value to the function value. 
 REM     The "help" function causes an exit with CTL=-1.
 
+REM     For consistency across programs regarding function keys (not edit keys):
+REM     Input values: F1, F2, F3 ... F10 = $11$, $12$, $13$ ... $1A$
+REM     Output values: F1, F2, F3 ... F10 = $01$, $02$, $03$ ... $0A$
 
-F2_CUSTOM_INPUT_VALUE$ = $81$
+F2_CUSTOM_INPUT_VALUE$ = $12$
 F2_CTL_OUTPUT_VALUE$ = $02$
 
-F4_CUSTOM_INPUT_VALUE$ = $82$
+F4_CUSTOM_INPUT_VALUE$ = $14$
 F4_CTL_OUTPUT_VALUE$ = $04$
-
-F6_CUSTOM_INPUT_VALUE$ = $83$
-F6_CTL_OUTPUT_VALUE$ = $06$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
 
-BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
+BACKTAB_CUSTOM_INPUT_VALUE$ = $83$
 BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
 
 PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
@@ -91,8 +95,7 @@ main_routine:
     
     gosub display_data
     
-    input "Hit any key to continue", ignoreInput$
-    rem gosub handle_input
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -147,22 +150,19 @@ init:
 rem    Try Unix ($0B$ instead of $3C$) -- didn't work              
 rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
 
-    rem  In below, "chr(10)" refers to key number 10 -- which is the first extra key defined in termcap
-    print 'EL', "2", chr(10), chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
-        
+    print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
     print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
     print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
     
     f2Pair$ = F2_CUSTOM_INPUT_VALUE$ + F2_CTL_OUTPUT_VALUE$
     f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
-    f6Pair$ = F6_CUSTOM_INPUT_VALUE$ + F6_CTL_OUTPUT_VALUE$
     pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
     pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
     tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
     backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
     
-    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
-    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
     
     deptsMap! = new java.util.LinkedHashMap()
     call "WFMRDeptDAO.bbj::get_ids_and_names", deptsMap!
@@ -170,9 +170,9 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     levelsMap! = new java.util.LinkedHashMap()
     call "AttendPtsLevDAO.bbj::get_thresholds_and_descrs", levelsMap! 
     
-    dept$ = "  "
+    deptDescr$ = ""
     shift$ = " "
-    pts$ = " 0"
+    pts$ = "0 "
     orderBy$ = "1"
     
     return
@@ -203,7 +203,7 @@ display_data:
     
     print @(2, 3), "Records to list:"
     
-    print @(20, 4), "Dept:   ", 'BU', dept$, 'EU'
+    print @(20, 4), "Dept:   ", cvs(deptDescr$, 2), "    (F2=prompt)"
     
     print @(20, 5), "Shift:  ", 'BU', shift$, 'EU'
     print @(32, 5), "(1, 2, 3)"
@@ -251,20 +251,26 @@ display_data:
     
 handle_input:
 
-    currentFieldNo = DEPT_FIELD_NO
+    currentFieldNo = SHIFT_FIELD_NO
 
     while TRUE
         
-        if currentFieldNo = DEPT_FIELD_NO then
-            print @(6, 3), 'BU'
-            inpute 6, 3, 2, "", dept$ 
-            print @(8, 3), 'EU' 
-        endif
-        
         if currentFieldNo = SHIFT_FIELD_NO then
-            print @(18, 3), 'BU'
-            inpute 18, 3, 1, "", shift$
-            print @(19, 3), 'EU'
+            print @(28, 5), 'BU'
+            inpute 28, 5, 1, "", shift$
+            print @(29, 5), 'EU'
+        endif 
+        
+        if currentFieldNo = PTS_FIELD_NO then
+            print @(28, 6), 'BU'
+            inpute 28, 6, 2, "", pts$
+            print @(30, 6), 'EU'
+        endif 
+        
+        if currentFieldNo = ORDER_BY_FIELD_NO then
+            print @(20, 10), 'BU'
+            inpute 20, 10, 1, "", orderBy$
+            print @(21, 10), 'EU'
         endif 
             
         gosub clear_err_msg
@@ -280,20 +286,6 @@ handle_input:
         
                     break
         
-            case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
-                    if canPageUp then
-                        gosub set_top_left_map_index_for_page_up
-                    endif
-        
-                    break
-                    
-            case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
-                    if canPageDown then
-                        gosub set_top_left_map_index_for_page_down
-                    endif
-                    
-                    break
-                    
             case ASC(TAB_CTL_OUTPUT_VALUE$)
                     isTabbing = TRUE
                     gosub set_field_no_after_tabbing
@@ -312,9 +304,10 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        tmpDeptId = deptIdsArray[ num(dept$) ]
-                        tmpDeptName$ = deptsMap!.get(tmpDeptId)
-                        call "ApproveAttPtsDateSel.bbj", shift$, tmpDeptId, tmpDeptName$
+                        input "Enter processing, hit any key", ignoreInput$
+REM                         tmpDeptId = deptIdsArray[ num(dept$) ]
+REM                         tmpDeptName$ = deptsMap!.get(tmpDeptId)
+REM                         call "ApproveAttPtsDateSel.bbj", shift$, tmpDeptId, tmpDeptName$
                     endif
                     
                     break
@@ -336,34 +329,6 @@ handle_input:
 
     
     rem ------------------------------------------------------------------------------------------
-    rem  When Page Up is pressed, calculate a new topLeftMapIndex
-    rem ------------------------------------------------------------------------------------------
-    
-    
-set_top_left_map_index_for_page_up:
-
-    topLeftMapIndex = topLeftMapIndex - RECORDS_PER_PAGE
-    
-    if topLeftMapIndex < 1 then topLeftMapIndex = 1
-
-    return
-
-    
-    rem ------------------------------------------------------------------------------------------
-    rem  When Page Down is pressed, calculate a new topLeftMapIndex
-    rem ------------------------------------------------------------------------------------------
-    
-    
-set_top_left_map_index_for_page_down:
-
-    topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
-    
-    if topLeftMapIndex > deptsMapSize then topLeftMapIndex = deptsMapSize
-
-    return    
-    
-    
-    rem ------------------------------------------------------------------------------------------
     rem  set_field_no_after_tabbing
     rem ------------------------------------------------------------------------------------------
     
@@ -371,7 +336,7 @@ set_top_left_map_index_for_page_down:
 set_field_no_after_tabbing:
 
     currentFieldNo = currentFieldNo + 1
-    if currentFieldNo > 2 then currentFieldNo = 1
+    if currentFieldNo > LAST_FIELD_NO then currentFieldNo = FIRST_FIELD_NO
     
     return
     
@@ -384,7 +349,7 @@ set_field_no_after_tabbing:
 set_field_no_after_back_tabbing:
 
     currentFieldNo = currentFieldNo - 1
-    if currentFieldNo < 1 then currentFieldNo = 2
+    if currentFieldNo < FIRST_FIELD_NO then currentFieldNo = LAST_FIELD_NO
     
     return
     
@@ -421,43 +386,53 @@ display_err_msg:
     
 validate_input:
 
-    REM  Validate Dept
-    
-    hasDeptErr = FALSE
-    
-    dept = num(dept$,err=invalid_dept_no_format)
-    
-    if dept < 1 or dept > displayedCount then
-        hasDeptErr = TRUE
-    endif
-    
-    remainder = mod(dept, 1)
-    
-    if remainder <> 0 then
-        hasDeptErr = TRUE
-    endif
-    
-    goto skip_dept_no_format
-    
-    invalid_dept_no_format:
-        hasDeptErr = TRUE
-    
-    skip_dept_no_format:
-    
-    if hasDeptErr then
-        errMsg$ = "Invalid department number."
-        currentFieldNo = DEPT_FIELD_NO
-        goto end_validate
-    endif
-    
-    
     REM  Validate Shift
 
-    if shift$ <> "1" and shift$ <> "2" and shift$ <> "3" then
+    if len( cvs(shift$, 3) ) > 0 and shift$ <> "1" and shift$ <> "2" and shift$ <> "3" then
         errMsg$ = "Shift must be 1, 2 or 3."
         currentFieldNo = SHIFT_FIELD_NO
         goto end_validate
     endif
+    
+    
+    REM  Validate Points
+
+    hasPtsErr = FALSE
+    
+    pts = num(pts$,err=invalid_pts_no_format)
+    
+    if pts < 0 or pts > 99 then
+        hasPtsErr = TRUE
+    endif
+    
+    remainder = mod(pts, 1)
+    
+    if remainder <> 0 then
+        hasPtsErr = TRUE
+    endif
+    
+    goto skip_pts_no_format
+    
+    invalid_pts_no_format:
+        hasPtsErr = TRUE
+    
+    skip_pts_no_format:
+    
+    if hasPtsErr then
+        errMsg$ = "Points must be a value between 0 and 99."
+        currentFieldNo = PTS_FIELD_NO
+        goto end_validate
+    endif
+    
+    
+    REM  Validate Order By
+
+    if orderBy$ <> "1" and orderBy$ <> "2" then
+        errMsg$ = "Order by must be 1 or 2."
+        currentFieldNo = ORDER_BY_FIELD_NO
+        goto end_validate
+    endif
+    
   
     end_validate:
         
