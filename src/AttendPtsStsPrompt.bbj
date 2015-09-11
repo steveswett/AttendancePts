@@ -170,7 +170,7 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     levelsMap! = new java.util.LinkedHashMap()
     call "AttendPtsLevDAO.bbj::get_thresholds_and_descrs", levelsMap! 
     
-    deptDescr$ = ""
+    deptName$ = ""
     shift$ = " "
     pts$ = "0 "
     orderBy$ = "1"
@@ -203,7 +203,7 @@ display_data:
     
     print @(2, 3), "Records to list:"
     
-    print @(20, 4), "Dept:   ", cvs(deptDescr$, 2), "    (F2=prompt)"
+    print @(20, 4), "Dept:   ", cvs(deptName$, 2), "    (F2=prompt)"
     
     print @(20, 5), "Shift:  ", 'BU', shift$, 'EU'
     print @(32, 5), "(1, 2, 3)"
@@ -281,6 +281,13 @@ handle_input:
         
         switch savedCTL
         
+            case ASC(F2_CTL_OUTPUT_VALUE$)
+
+                    call "WFMRDeptPopup.bbj::show_popup", 3, 5, tmpDeptId, deptName$
+                    print @(32, 4), cvs(deptName$, 2), "    (F2=prompt)"
+        
+                    break
+
             case ASC(F4_CTL_OUTPUT_VALUE$)
                     needToBreak = TRUE
         

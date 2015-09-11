@@ -4,6 +4,8 @@ REM  * @author stevett
 REM  *
 REM  */
 
+pageDown = asc($1C$)
+
 print "Logged in user = ", info(3,2)
 
 timestamp$ = date(0:"%Y%Mz%Dz%hz%mz%sz")

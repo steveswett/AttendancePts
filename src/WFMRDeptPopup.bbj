@@ -1,0 +1,395 @@
+REM /**
+REM  * WFMRDeptPopup.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: September 2015
+REM  * 
+REM  * Description: WFMR Departments popup window.
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap deptsMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+def fnHasRecordsBefore%(aDoIt)
+
+    return topLeftMapIndex > 1
+
+fnend
+
+
+def fnHasRecordsAfter%(aDoIt)
+
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < deptsMapSize
+
+fnend
+    
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+    
+    
+show_popup:
+
+    enter upperLeftColumn, upperLeftRow, deptIdInOut, deptDescrOut$
+    
+    gosub setup_constants
+
+    print 'push'
+
+    gosub init
+
+    gosub display_popup
+    
+    gosub handle_input
+    
+    print 'pop'
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  setup_constants
+    rem ------------------------------------------------------------------------------------------
+
+    
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+    
+    RECORDS_PER_PAGE = 22
+    COLUMNS_PER_PAGE = 2
+    RECORDS_PER_COLUMN = 11
+    START_ROW_FOR_LIST = 1
+    END_ROW_FOR_LIST = START_ROW_FOR_LIST + RECORDS_PER_COLUMN - 1 
+    
+    WINDOW_OUTER_HEIGHT_IN_ROWS = 18
+    START_ROW_FOR_CLEAR = 0
+    END_ROW_FOR_CLEAR = WINDOW_OUTER_HEIGHT_IN_ROWS - 4
+
+    SHOW_FIELD_TERMINATOR_PRESSED = TRUE
+    
+    PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+    PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
+    
+    PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+    PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+    
+        rem For info on function key programming, see this article: http://www.basis.com/kb00025
+        rem Also see Basis help: PRO/5 > User's Ref > Character Devices > Terminals > Function and Edit Keys
+    
+        rem Below is how 'EL' (edit keys) mnemonics are used to assign a key a value
+        
+        rem "2" - load only one key
+        rem $02$ - means the up arrow key (see the documentation)
+        rem chr(1) - means the custom value of the key is 1 byte long
+        rem UP_ARROW_CUSTOM_INPUT_VALUE$ - is the custom INPUT value of the key
+        
+    print 'EL', "2", $06$, chr(1), PAGE_UP_CUSTOM_INPUT_VALUE$,
+    print 'EL', "2", $07$, chr(1), PAGE_DOWN_CUSTOM_INPUT_VALUE$,
+
+    pageupPair$ = PAGE_UP_CUSTOM_INPUT_VALUE$ + PAGE_UP_CTL_OUTPUT_VALUE$
+    pagedownPair$ = PAGE_DOWN_CUSTOM_INPUT_VALUE$ + PAGE_DOWN_CTL_OUTPUT_VALUE$
+    
+    resultIgnored$ = stbl("!TERMS", pageupPair$ + pagedownPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", pageupPair$ + pagedownPair$ + stbl("!EDIT"))
+    
+    deptsMap! = new java.util.LinkedHashMap()
+    call "WFMRDeptDAO.bbj::get_ids_and_names", deptsMap! 
+
+    topLeftMapIndex = 1
+    deptsMapSize = deptsMap!.size()
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the popup window
+    rem ------------------------------------------------------------------------------------------
+
+    
+display_popup:
+
+    print 'window' (upperLeftColumn, upperLeftRow, 74, WINDOW_OUTER_HEIGHT_IN_ROWS, "Choose Department",'br'),
+    
+    rem The row and column values used here are relative to inside the window
+    
+    print 'er',
+    
+    gosub display_window_guts
+    
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the guts of the window
+    rem ------------------------------------------------------------------------------------------
+
+    
+display_window_guts:
+
+    rem  It doesn't work to use print 'CS' because we lose the background color.  Use 'CL' instead.
+    
+    for row = START_ROW_FOR_CLEAR to END_ROW_FOR_CLEAR
+        print @(0,row), 'CL'
+    next row
+
+    count = 0
+    displayedCount = 0
+    
+    dim deptIdsArray[1:RECORDS_PER_PAGE]
+
+    iter! = deptsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+      deptId! = iter!.next()
+      count = count + 1
+      
+      if count < topLeftMapIndex then continue
+      if count > topLeftMapIndex + RECORDS_PER_PAGE - 1 then break
+      
+      displayedCount = displayedCount + 1
+      deptName$ = deptsMap!.get(deptId!)
+      if len(deptName$) > 29 then deptName$ = deptName$(1, 29)
+      
+      deptIdsArray[displayedCount] = deptId!
+      
+      REM  First column:
+      
+      if displayedCount <= RECORDS_PER_COLUMN then 
+          colEdge = 1
+          row = START_ROW_FOR_LIST + displayedCount - 1
+          print @(colEdge, row), str(displayedCount:"#0"), ". ", deptName$ 
+
+      REM  Second column:
+      
+      else
+          colEdge = 36
+          row = START_ROW_FOR_LIST + displayedCount - 1 - RECORDS_PER_COLUMN
+          print @(colEdge, row), displayedCount, ". ", deptName$ 
+      endif
+      
+    wend
+
+    
+    canPageUp = fnHasRecordsBefore%(TRUE)
+    canPageDown = fnHasRecordsAfter%(TRUE)
+    
+    actionLabel$ = ""
+    
+    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page   " 
+    if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Page   "
+    
+    actionLabel$ = actionLabel$ + "Enter=Select"
+    
+    print @(1,13), "Dept: ", 'BU', dept$, 'EU', "     " + actionLabel$
+    
+    if SHOW_FIELD_TERMINATOR_PRESSED then print @(15,12), 'CL', "Field terminator (savedCTL): ", savedCTL
+
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Handle input: Up Arrow, Down Arrow, Enter
+    rem ------------------------------------------------------------------------------------------
+
+    
+handle_input:
+
+    while TRUE
+            
+        print @(7, 13), 'BU'
+        inpute 7, 13, 2, "", dept$
+        rem input @(7,13), dept$ 
+        print @(9, 13), 'EU' 
+
+        gosub clear_err_msg
+        
+        savedCTL = CTL
+        
+        needToBreak = FALSE
+
+        switch savedCTL
+        
+            case ASC(PAGE_UP_CTL_OUTPUT_VALUE$)
+
+                    if canPageUp then
+                        gosub set_top_left_map_index_for_page_up
+                    endif
+        
+                    break
+
+            case ASC(PAGE_DOWN_CTL_OUTPUT_VALUE$)
+
+                    if canPageDown then
+                        gosub set_top_left_map_index_for_page_down
+                    endif
+        
+                    break
+        
+            case 0
+                    gosub validate_input
+                    
+                    if len(errMsg$) > 0 then
+                        gosub display_err_msg
+                    else
+                        if len( cvs(dept$,3) ) = 0 then
+                            deptIdInOut = 0
+                            deptDescrOut$ = ""
+                        else
+                            deptIdInOut = deptIdsArray[ num(dept$) ]
+                            deptDescrOut$ = deptsMap!.get(deptIdInOut)
+                        endif
+                        
+                        needToBreak = TRUE
+                    endif
+                    
+                    break
+        swend
+
+        if needToBreak then break
+        
+        gosub display_window_guts
+        
+        
+    wend
+    
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Up is pressed, calculate a new topLeftMapIndex
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_top_left_map_index_for_page_up:
+
+    topLeftMapIndex = topLeftMapIndex - RECORDS_PER_PAGE
+    
+    if topLeftMapIndex < 1 then topLeftMapIndex = 1
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  When Page Down is pressed, calculate a new topLeftMapIndex
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_top_left_map_index_for_page_down:
+
+    topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
+    
+    if topLeftMapIndex > deptsMapSize then topLeftMapIndex = deptsMapSize
+
+    return    
+    
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  validate_input
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_input:
+
+    REM  Validate Dept#
+    
+    hasDeptErr = FALSE
+    
+    if len( cvs(dept$,3) ) = 0 then
+        goto skip_dept_validation
+    endif
+    
+    dept = num(dept$,err=invalid_dept_no_format)
+    
+    if dept < 1 or dept > displayedCount then
+        hasDeptErr = TRUE
+    endif
+    
+    remainder = mod(dept, 1)
+    
+    if remainder <> 0 then
+        hasDeptErr = TRUE
+    endif
+    
+    goto skip_dept_no_format
+    
+    invalid_dept_no_format:
+        hasDeptErr = TRUE
+    
+    skip_dept_no_format:
+    
+    if hasDeptErr then
+        errMsg$ = "Invalid department number."
+        goto end_validate
+    endif
+    
+    skip_dept_validation:
+    
+  
+    end_validate:
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  clear_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+clear_err_msg:
+
+    print @(1,14), 'CL'
+    errMsg$ = ""
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  display_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+display_err_msg:
+
+    print @(1,14), 'CL', 'BR', pad(errMsg$, 70, "L", " "), 'ER'
+        
+    return
+    
