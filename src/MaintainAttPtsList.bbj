@@ -127,6 +127,17 @@ init:
     isInquiryMode = num( argv(1) )
     badge5In$ = argv(2)
     
+    if isInquiryMode then
+        begUnLin$ = ""
+        endUnLin$ = ""
+        lineNoInputCol = 10
+    else
+        begUnLin$ = begUnLin$
+        endUnLin$ = endUnLin$
+        lineNoInputCol = 6
+    endif
+    
+    
     
     call "EmployeeMasterDAO.bbj::get_name_last_first_mi", badge5In$, employeeName$
     
@@ -299,28 +310,45 @@ display_data:
       print @(26,row + 1), text1$ 
       
     wend
-
-    print @(0, 21), "Line: ", 'BU', " ", 'EU'
     
-    canPageUp = fnHasRecordsBefore%(TRUE)
-    canPageDown = fnHasRecordsAfter%(TRUE)
+    if isInquiryMode then
+        print @(0, 21), "Line/Cmd: ", begUnLin$, " ", endUnLin$
+        
+        canPageUp = fnHasRecordsBefore%(TRUE)
+        canPageDown = fnHasRecordsAfter%(TRUE)
+        
+        actionLabel$ = "Quit, Jump to"
     
-    actionLabel$ = "F6=Jump To  "
+        if showZeroPtRecords then
+            actionLabel$ = actionLabel$ + ", Hide zero pt rows"
+        else
+            actionLabel$ = actionLabel$ + ", Show zero pt rows"
+        endif
+        
+        if canPageUp then actionLabel$ = actionLabel$ + ", page Up" 
+        if canPageDown then actionLabel$ = actionLabel$ + ", page Down"
     
-    if !(isInquiryMode) then
-        actionLabel$ = actionLabel$ + "F8=Add  "
-    endif
-
-    if showZeroPtRecords then
-        actionLabel$ = actionLabel$ + "F10=Hide Zero Pt Rows  "
+        print @(13,21), actionLabel$ 
     else
-        actionLabel$ = actionLabel$ + "F10=Show Zero Pt Rows  "
+        print @(0, 21), "Line: ", begUnLin$, " ", endUnLin$
+        
+        canPageUp = fnHasRecordsBefore%(TRUE)
+        canPageDown = fnHasRecordsAfter%(TRUE)
+        
+        actionLabel$ = "F6=Jump To  F8=Add  "
+    
+        if showZeroPtRecords then
+            actionLabel$ = actionLabel$ + "F10=Hide Zero Pt Rows  "
+        else
+            actionLabel$ = actionLabel$ + "F10=Show Zero Pt Rows  "
+        endif
+        
+        if canPageUp then actionLabel$ = actionLabel$ + "PgUp=Prev Pg  " 
+        if canPageDown then actionLabel$ = actionLabel$ + "PgDn=Next Pg  "
+    
+        print @(9,21), actionLabel$ 
     endif
-    
-    if canPageUp then actionLabel$ = actionLabel$ + "PgUp=Prev Pg  " 
-    if canPageDown then actionLabel$ = actionLabel$ + "PgDn=Next Pg  "
-    
-    print @(9,21), actionLabel$ 
+
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
 
@@ -339,9 +367,9 @@ handle_input:
     while TRUE
         
         if currentFieldNo = LINE_FIELD_NO then
-            print @(6, 21), 'BU'
-            inpute 6, 21, 1, "", line$ 
-            print @(7, 21), 'EU' 
+            print @(lineNoInputCol, 21), begUnLin$
+            inpute lineNoInputCol, 21, 1, "", line$ 
+            print @(lineNoInputCol + 1, 21), endUnLin$ 
         endif
             
         gosub clear_err_msg
@@ -418,6 +446,11 @@ handle_input:
             case 0
                     REM  For backwards compatibility, an Enter without a line # will page forward (if more lines available)
                     
+                    if line$ = "Q" then
+                        needToBreak = TRUE
+                        goto done_handling_enter
+                    endif
+                    
                     if len(cvs(line$, 2)) = 0 and canPageDown then
                         gosub set_top_left_map_index_for_page_down
                     else
@@ -437,6 +470,8 @@ handle_input:
                             
                         endif
                     endif
+                    
+                    done_handling_enter:
                     
                     break
         swend
@@ -544,6 +579,10 @@ validate_input:
 
     hasLineErr = FALSE
     
+    if line$ = "Q" or line$ = "J" or line$ = "S" or line$ = "H" or line$ = "U" or line$ = "D" then
+        goto skip_line_no_edit
+    endif
+    
     line = num(line$,err=invalid_line_no_format)
     
     if line < 1 or line > displayedCount then
@@ -568,6 +607,7 @@ validate_input:
         currentFieldNo = LINE_FIELD_NO
     endif
   
+    skip_line_no_edit:
         
     return
     
@@ -582,9 +622,9 @@ handle_jump_to:
     jumpToDate$ = ""
     
     print @(0,22), "Date to jump to (MM/DD/YY):"
-    print @(27, 22), 'BU' 
+    print @(27, 22), begUnLin$ 
     inpute 27, 22, "00/00/00", "", jumpToDate$ 
-    print @(35, 22), 'EU' 
+    print @(35, 22), endUnLin$ 
 
     REM  Only do the "jump to" if all 6 digits entered for date
     
