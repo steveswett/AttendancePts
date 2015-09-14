@@ -1,0 +1,32 @@
+REM /**
+REM  * TestGetEmployeeTimeOffWithDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.HashMap
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+
+employeeRecordsMap! = new java.util.LinkedHashMap()
+
+deptId = 1000106
+shift$ = "1"
+
+call "WFMREmployeeDAO.bbj::get_operations_employees_by_dept_shift", deptId, shift$,  employeeRecordsMap!
+
+iter! = employeeRecordsMap!.keySet().iterator()
+
+while iter!.hasNext()
+
+    badgeKey! = iter!.next()
+    employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+    
+    print "badge, last_name, first_name, employee_id = ", badgeKey!, ", ", employeeDataMap!.get("last_name"), ", ",  
+:       employeeDataMap!.get("first_name"), ", ", employeeDataMap!.get("employee_id")
+
+wend
+
+print $0A$, "Number of rows: ", employeeRecordsMap!.size()

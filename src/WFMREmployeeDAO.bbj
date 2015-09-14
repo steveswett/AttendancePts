@@ -1,0 +1,138 @@
+REM /**
+REM  * WFMREmployeeDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: September 2015
+REM  * 
+REM  * Description: Data Access Object for WFMR table Employee
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+get_operations_employees_by_dept_shift:
+
+    enter deptId, shift$, employeeRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub load_operations_employees_by_dept_shift
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    wfmrDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
+    
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  load_operations_employees_by_dept_shift
+REM  ------------------------------------------------------------------------------------------
+
+
+load_operations_employees_by_dept_shift:
+
+    employeeRecordsMap!.clear()
+    
+    
+    employeesByDeptShiftStmt$ = 
+:       "select " +
+:       "employee.employee_id, " + 
+:       "employee.badge_number, " +
+:       "Rad_Sys_User.last_name, " +
+:       "Rad_Sys_User.first_name, " +
+:       "lab_employee_primary_job.department_id, " +
+:       "Lab_Employee_Attribute.attribute_code as shift " +
+:       "from employee " +
+:       "join lab_employee_primary_job on lab_employee_primary_job.employee_id = employee.employee_id " +
+:       "inner join Rad_Sys_User on employee.employee_id = Rad_Sys_User.user_id " +
+:       "inner join Lab_Employee_Attribute_List on employee.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:       "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:       "where " + 
+:       "employee.home_business_unit_id = ? " +
+:       "and employee.manager_level_flag <> 'y' " +
+:       "and rad_sys_user.status_code = 'a' " +
+:       "and lab_employee_primary_job.department_id is not null " +
+:       "and Lab_Employee_Attribute_List.employee_attribute_id in " +
+:       "  (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute " +
+:       "   where Lab_Employee_Attribute.attribute_code in ('1','2','3')" +
+:       "  ) " +
+:       "and lab_employee_attribute_list.end_date is null "
+
+    if deptId > 0 then
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ + "and lab_employee_primary_job.department_id = " + str(deptId) + " "
+    endif
+    
+    trimmedShift$ = cvs(shift$,3)
+     
+    if len(trimmedShift$) > 0 then
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ + "and Lab_Employee_Attribute.attribute_code = '" + trimmedShift$ + "' " 
+    endif
+    
+
+    employeeChannel = sqlunt
+    sqlopen(employeeChannel) wfmrDataSource$
+    sqlprep(employeeChannel) employeesByDeptShiftStmt$
+
+    sqlexec(employeeChannel) opsBusinessUnit$ 
+
+    dim resultRow$:sqltmpl(employeeChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(employeeChannel,err=*break)
+        
+        employeeDataMap! = new java.util.HashMap()
+        employeeDataMap!.put("employee_id", resultRow.employee_id)
+        employeeDataMap!.put("last_name", cvs(resultRow.last_name$, 2))
+        employeeDataMap!.put("first_name", cvs(resultRow.first_name$, 2))
+        employeeDataMap!.put("department_id", resultRow.department_id)
+        employeeDataMap!.put("shift", cvs(resultRow.shift$, 2))
+        
+        employeeRecordsMap!.put(cvs(resultRow.badge_number$, 2), employeeDataMap! )
+        
+    wend
+    
+    sqlclose(employeeChannel)
+
+    return
