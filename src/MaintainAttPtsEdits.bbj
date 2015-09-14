@@ -348,11 +348,17 @@ display_data:
         saveCaption$ = "Enter=Save"
         deleteCaption$ = "F9=Delete  "
     endif
+    
+    if isInquiryMode then
+        exitCaption$ = ""
+    else
+        exitCaption$ = "F4=Exit  "
+    endif
       
     if isAddMode then
-        actionLabel$ = "F4=Exit  " + saveCaption$
+        actionLabel$ = exitCaption$ + saveCaption$
     else
-        actionLabel$ = "F4=Exit  " + deleteCaption$ + saveCaption$
+        actionLabel$ = exitCaption$ + deleteCaption$ + saveCaption$
     endif
     
     

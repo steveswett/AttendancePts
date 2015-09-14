@@ -126,14 +126,14 @@ init:
 
     isInquiryMode = num( argv(1) )
     badge5In$ = argv(2)
-    
+
+    rem  These are variables only because I was experimenting.  But even dumb terminals can underline.
+    begUnLin$ = 'BU'
+    endUnLin$ = 'EU'
+
     if isInquiryMode then
-        begUnLin$ = ""
-        endUnLin$ = ""
         lineNoInputCol = 10
     else
-        begUnLin$ = begUnLin$
-        endUnLin$ = endUnLin$
         lineNoInputCol = 6
     endif
     
@@ -199,6 +199,25 @@ REM     print "length of editBefore$ = ", len(editBefore$)
 REM     print "length of editAfter$ = ", len(editAfter$)
 REM     input "hit any key", ignoreInput$
     
+    gosub load_point_records_map
+    topLeftMapIndex = 1
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Show or hide rows that have point values of zero
+    rem ------------------------------------------------------------------------------------------
+
+
+show_hide_zero_pt_rows:
+
+    if showZeroPtRecords then
+        showZeroPtRecords = FALSE
+    else
+        showZeroPtRecords = TRUE
+    endif    
+
     gosub load_point_records_map
     topLeftMapIndex = 1
     
@@ -311,8 +330,10 @@ display_data:
       
     wend
     
+    line$ = " "
+    
     if isInquiryMode then
-        print @(0, 21), "Line/Cmd: ", begUnLin$, " ", endUnLin$
+        print @(0, 21), "Line/Cmd: ", begUnLin$, line$, endUnLin$
         
         canPageUp = fnHasRecordsBefore%(TRUE)
         canPageDown = fnHasRecordsAfter%(TRUE)
@@ -330,7 +351,7 @@ display_data:
     
         print @(13,21), actionLabel$ 
     else
-        print @(0, 21), "Line: ", begUnLin$, " ", endUnLin$
+        print @(0, 21), "Line: ", begUnLin$, line$, endUnLin$
         
         canPageUp = fnHasRecordsBefore%(TRUE)
         canPageDown = fnHasRecordsAfter%(TRUE)
@@ -368,7 +389,13 @@ handle_input:
         
         if currentFieldNo = LINE_FIELD_NO then
             print @(lineNoInputCol, 21), begUnLin$
-            inpute lineNoInputCol, 21, 1, "", line$ 
+            
+            if isInquiryMode then
+                input (0,siz=1) @(lineNoInputCol, 21), line$ 
+            else
+                inpute lineNoInputCol, 21, 1, "", line$ 
+            endif
+            
             print @(lineNoInputCol + 1, 21), endUnLin$ 
         endif
             
@@ -406,14 +433,7 @@ handle_input:
                     break
         
             case ASC(F10_CTL_OUTPUT_VALUE$)
-                    if showZeroPtRecords then
-                        showZeroPtRecords = FALSE
-                    else
-                        showZeroPtRecords = TRUE
-                    endif    
-
-                    gosub load_point_records_map
-                    topLeftMapIndex = 1
+                    gosub show_hide_zero_pt_rows
         
                     break
         
@@ -444,36 +464,15 @@ handle_input:
                     break
                     
             case 0
-                    REM  For backwards compatibility, an Enter without a line # will page forward (if more lines available)
-                    
-                    if line$ = "Q" then
-                        needToBreak = TRUE
-                        goto done_handling_enter
-                    endif
-                    
-                    if len(cvs(line$, 2)) = 0 and canPageDown then
-                        gosub set_top_left_map_index_for_page_down
-                    else
-                        gosub validate_input
-                        
-                        if len(errMsg$) > 0 then
-                            gosub display_err_msg
-                        else
-                            tmpDate! = datesArray![ num(line$) ]
-                            pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
-                            call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
-                            line$ = " "
-                            
-                            if anyDataChanged then
-                                gosub load_point_records_map
-                            endif 
-                            
-                        endif
-                    endif
-                    
-                    done_handling_enter:
+                    gosub handle_ctl_0_or_5
                     
                     break
+                    
+            case 5
+                    gosub handle_ctl_0_or_5
+                    
+                    break
+                    
         swend
 
         if needToBreak then break
@@ -489,6 +488,99 @@ handle_input:
     wend
     
     return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Handle when Enter key pressed or a single keystroke is pressed with "auto advance" (siz=1)
+    rem ------------------------------------------------------------------------------------------
+    
+
+handle_ctl_0_or_5:
+
+    REM  For backwards compatibility, an Enter without a line # will page forward (if more lines available)
+    
+    if len(cvs(line$, 2)) = 0 then
+
+        if canPageDown then
+            gosub set_top_left_map_index_for_page_down
+        endif
+        
+        goto done_handling_enter
+    endif
+    
+    
+    ascLine = asc(line$)
+
+    usedLetterShortcut = FALSE
+    
+    switch ascLine
+    
+        case asc("Q")
+            usedLetterShortcut = TRUE
+            needToBreak = TRUE
+            break
+            
+        case asc("J")
+            usedLetterShortcut = TRUE
+            gosub handle_jump_to
+            break
+            
+        case asc("S")
+            usedLetterShortcut = TRUE
+            gosub show_hide_zero_pt_rows
+            break
+            
+        case asc("H")
+            usedLetterShortcut = TRUE
+            gosub show_hide_zero_pt_rows
+            break
+            
+        case asc("U")
+            usedLetterShortcut = TRUE
+
+            if canPageUp then
+                gosub set_top_left_map_index_for_page_up
+            endif
+            
+            break
+            
+        case asc("D")
+            usedLetterShortcut = TRUE
+
+            if canPageDown then
+                gosub set_top_left_map_index_for_page_down
+            endif
+            
+            break
+        
+    swend
+    
+    if usedLetterShortcut then
+        goto done_handling_enter
+    endif
+    
+    
+    gosub validate_input
+    
+    if len(errMsg$) > 0 then
+        gosub display_err_msg
+    else
+        tmpDate! = datesArray![ num(line$) ]
+        pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
+        call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
+        line$ = " "
+        
+        if anyDataChanged then
+            gosub load_point_records_map
+        endif 
+        
+    endif
+    
+    done_handling_enter:
+
+
+    return
+    
 
     
     rem ------------------------------------------------------------------------------------------
@@ -603,7 +695,7 @@ validate_input:
     skip_line_no_format:
     
     if hasLineErr then
-        errMsg$ = "Invalid line number."
+        errMsg$ = "Invalid line number or command."
         currentFieldNo = LINE_FIELD_NO
     endif
   
