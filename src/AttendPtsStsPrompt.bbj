@@ -29,8 +29,9 @@ FALSE = 0
 SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 
 SHIFT_FIELD_NO = 1
-PTS_FIELD_NO = 2
-ORDER_BY_FIELD_NO = 3
+PTS_FROM_FIELD_NO = 2
+PTS_TO_FIELD_NO = 3
+ORDER_BY_FIELD_NO = 4
 
 FIRST_FIELD_NO = SHIFT_FIELD_NO
 LAST_FIELD_NO =  ORDER_BY_FIELD_NO
@@ -172,7 +173,8 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     
     deptName$ = ""
     shift$ = " "
-    pts$ = "0 "
+    ptsFrom = .1
+    ptsTo = 10
     orderBy$ = "1"
     
     return
@@ -208,8 +210,7 @@ display_data:
     print @(20, 5), "Shift:  ", 'BU', shift$, 'EU'
     print @(32, 5), "(1, 2, 3)"
     
-    print @(20, 6), "Points: ", 'BU', pts$, 'EU'
-    print @(32, 6), "(or more)"
+    print @(20, 6), "Points: ", 'BU', str(ptsFrom:"##.0"), 'EU', " - ", 'BU', str(ptsTo:"##.0"), 'EU'
     
     print @(20, 8), "(Can leave above fields blank to list all records.)"
     
@@ -255,23 +256,33 @@ handle_input:
 
     while TRUE
         
-        if currentFieldNo = SHIFT_FIELD_NO then
-            print @(28, 5), 'BU'
-            inpute 28, 5, 1, "", shift$
-            print @(29, 5), 'EU'
-        endif 
-        
-        if currentFieldNo = PTS_FIELD_NO then
-            print @(28, 6), 'BU'
-            inpute 28, 6, 2, "", pts$
-            print @(30, 6), 'EU'
-        endif 
-        
-        if currentFieldNo = ORDER_BY_FIELD_NO then
-            print @(20, 10), 'BU'
-            inpute 20, 10, 1, "", orderBy$
-            print @(21, 10), 'EU'
-        endif 
+        switch currentFieldNo
+
+            case SHIFT_FIELD_NO
+                print @(28, 5), 'BU'
+                inpute 28, 5, 1, "", shift$
+                print @(29, 5), 'EU'
+                break
+            
+            case PTS_FROM_FIELD_NO
+                print @(28, 6), 'BU'
+                inputn 28, 6, "##.0", "##.0", "", 5, ptsFrom
+                print @(32, 6), 'EU'
+                break
+            
+            case PTS_TO_FIELD_NO
+                print @(35, 6), 'BU'
+                inputn 35, 6, "##.0", "##.0", "", 5, ptsTo
+                print @(39, 6), 'EU'
+                break
+            
+            case ORDER_BY_FIELD_NO
+                print @(20, 10), 'BU'
+                inpute 20, 10, 1, "", orderBy$
+                print @(21, 10), 'EU'
+                break
+
+        swend
             
         gosub clear_err_msg
 
@@ -404,30 +415,21 @@ validate_input:
     
     REM  Validate Points
 
-    hasPtsErr = FALSE
-    
-    pts = num(pts$,err=invalid_pts_no_format)
-    
-    if pts < 0 or pts > 99 then
-        hasPtsErr = TRUE
+    if ptsFrom < 0 or ptsFrom > 99 then
+        errMsg$ = "Points (from) must be a value between 0 and 99."
+        currentFieldNo = PTS_FROM_FIELD_NO
+        goto end_validate
+    endif
+
+    if ptsTo < 0 or ptsTo > 99 then
+        errMsg$ = "Points (to) must be a value between 0 and 99."
+        currentFieldNo = PTS_TO_FIELD_NO
+        goto end_validate
     endif
     
-    remainder = mod(pts, 1)
-    
-    if remainder <> 0 then
-        hasPtsErr = TRUE
-    endif
-    
-    goto skip_pts_no_format
-    
-    invalid_pts_no_format:
-        hasPtsErr = TRUE
-    
-    skip_pts_no_format:
-    
-    if hasPtsErr then
-        errMsg$ = "Points must be a value between 0 and 99."
-        currentFieldNo = PTS_FIELD_NO
+    if ptsFrom > ptsTo then
+        errMsg$ = "The points ""from"" value cannot be greater than the ""to"" value."
+        currentFieldNo = PTS_FROM_FIELD_NO
         goto end_validate
     endif
     
