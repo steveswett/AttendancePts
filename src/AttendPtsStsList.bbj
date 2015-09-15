@@ -96,9 +96,7 @@ main_routine:
     
     gosub display_data
     
-    rem  gosub handle_input
-    
-    input @(0,22),'CL', "Press ENTER to continue", ignoreInput$
+    gosub handle_input
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -366,8 +364,8 @@ handle_input:
         
         if currentFieldNo = LINE_FIELD_NO then
             print @(lineNoInputCol, 21), begUnLin$
-            inpute lineNoInputCol, 21, 1, "", line$ 
-            print @(lineNoInputCol + 1, 21), endUnLin$ 
+            inpute lineNoInputCol, 21, 2, "", line$ 
+            print @(lineNoInputCol + 2, 21), endUnLin$ 
         endif
             
         gosub clear_err_msg
@@ -456,10 +454,9 @@ handle_enter_key:
     else
         key! = keysArray![ num(line$) ]
         employeeDataMap! = cast( java.util.HashMap, sortedEmployeeRecordsMap!.get(key!) )
+        badgeNumber$ = employeeDataMap!.get("badge_number")
         
-        rem call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, employeeDataMap!, anyDataChanged
-        
-        input @(0,22), 'CL', "Enter key processing would run here. Hit Enter for now.", ignoreInput$
+        call "MaintainAttPtsListCalled.bbj", TRUE, badgeNumber$
         
         line$ = " "
         
@@ -559,10 +556,6 @@ display_err_msg:
 validate_input:
 
     hasLineErr = FALSE
-    
-    if line$ = "Q" or line$ = "J" or line$ = "S" or line$ = "H" or line$ = "U" or line$ = "D" then
-        goto skip_line_no_edit
-    endif
     
     line = num(line$,err=invalid_line_no_format)
     

@@ -123,9 +123,6 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 init:
 
-    isInquiryMode = num( argv(1) )
-    badge5In$ = argv(2)
-
     rem  These are variables only because I was experimenting.  But even dumb terminals can underline.
     begUnLin$ = 'BU'
     endUnLin$ = 'EU'
@@ -264,9 +261,19 @@ display_data:
     
     gosub display_screen_headings
     
+    shortEmpName$ = employeeName$
+    if len(shortEmpName$) > 25 then shortEmpName$ = shortEmpName$(1,25)
+
+    call "WFMREmployeeDAO.bbj::get_dept_name_for_employee", badge5In$, deptNameOut$
+
+    shortDeptName$ = deptNameOut$
+    if len(shortDeptName$) > 25 then shortDeptName$ = shortDeptName$(1,25)
+
+    
     print @(0,3), badge5In$
-    print @(7,3), employeeName$
-    print @(49,3), "TOTAL ATTENDANCE POINTS: ", ptsTotal
+    print @(7,3), shortEmpName$
+    print @(35,3), shortDeptName$ 
+    print @(64,3), "TOTAL PTS: ", ptsTotal
 
     print @(65,5), "SYSTEM"
     print @(0,6), "LINE   DATE   PTS  STATUS  CODE  WFMR  DISP  PTS RMVD  RMV DATE  ADJUSTED  RUN"

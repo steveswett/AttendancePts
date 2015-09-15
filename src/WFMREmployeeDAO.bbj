@@ -32,6 +32,7 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
 
+
 get_operations_employees_by_dept_shift:
 
     enter deptId, shift$, employeeRecordsMap!
@@ -39,6 +40,17 @@ get_operations_employees_by_dept_shift:
     gosub setup_constants
     
     gosub load_operations_employees_by_dept_shift
+    
+    exit
+
+
+get_dept_name_for_employee:
+
+    enter badgeIn$, deptNameOut$
+    
+    gosub setup_constants
+    
+    gosub query_for_employee_dept_name
     
     exit
 
@@ -61,6 +73,17 @@ setup_constants:
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
+    
+    GET_DEPT_NAME_STMT$ =
+:       "select " + 
+:       "lab_department.name " +
+:       "from employee " + 
+:       "join lab_employee_primary_job on lab_employee_primary_job.employee_id = employee.employee_id " + 
+:       "inner join Rad_Sys_User on employee.employee_id = Rad_Sys_User.user_id " + 
+:       "inner join lab_department on lab_department.department_id = lab_employee_primary_job.department_id " +
+:       "where " + 
+:       "employee.badge_number = ? " +
+:       "and lab_employee_primary_job.department_id is not null"
     
     return
 
@@ -137,3 +160,30 @@ load_operations_employees_by_dept_shift:
     sqlclose(employeeChannel)
 
     return
+
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Given a badge number, get the department name
+REM  ------------------------------------------------------------------------------------------
+
+query_for_employee_dept_name:
+
+    employeeChannel = sqlunt
+    sqlopen(employeeChannel) wfmrDataSource$
+
+    sqlprep(employeeChannel) GET_DEPT_NAME_STMT$
+
+    deptNameOut$ = ""
+
+    sqlexec(employeeChannel) badgeIn$
+    dim resultRow$:sqltmpl(employeeChannel)
+    
+    resultRow$ = sqlfetch(employeeChannel,err=dept_name_not_found)
+    deptNameOut$ = cvs(resultRow.name$, 2)
+    
+    dept_name_not_found:
+    
+    sqlclose(employeeChannel)
+
+    return
+    
