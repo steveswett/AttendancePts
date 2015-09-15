@@ -123,12 +123,12 @@ display_screen_headings:
     
     print @(0,0), pad(day, 20, "L", " ")
     print @(20,0), pad("NOTIONS MARKETING", 50, "L", " ")
-    print @(50,0), pad( termIdAndType$ , 30, "R", " ")
+    print @(50,0), pad(trimmedProgramName$, 30, "R", " ")
     
     print 'BU'
     print @(0,1), pad( fnGetCurrentTime$(TRUE) , 20, "L", " ")
     print @(20,1), pad(screenTitleIn$, 35, "L", " ")
-    print @(55,1), pad(trimmedProgramName$, 25, "R", " ")
+    print @(55,1), pad( termIdAndType$ , 25, "R", " ")
     print 'EU' 
 
     exit

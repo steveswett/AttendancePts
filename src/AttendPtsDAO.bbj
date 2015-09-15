@@ -1182,7 +1182,7 @@ setup_constants:
     GET_NEXT_DROP_DATE_INFO_STMT$ =
 :       "select top 1 ptdt, pts " + 
 :       "from atnd " +
-:       "where badg = ? and ptdt >= ? and stat = 'A' " +
+:       "where badg = ? and ptdt >= ? and stat = 'A' and pts > 0 " +
 :       "order by ptdt"
     
     return

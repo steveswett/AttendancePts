@@ -323,7 +323,7 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$
+                        call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$, levelsMap!
                     endif
                     
                     break
