@@ -14,9 +14,10 @@ use java.util.HashMap
 
 declare java.util.LinkedHashMap employeeRecordsMap!
 declare java.util.HashMap employeeDataMap!
+declare java.util.TreeMap sortedEmployeeRecordsMap!
 
 
-enter deptIdIn, deptNameIn$, shiftIn$, ptsFromIn, ptsToIn 
+enter deptIdIn, deptNameIn$, shiftIn$, ptsFromIn, ptsToIn, orderByIn$ 
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -79,7 +80,7 @@ fnend
 
 def fnHasRecordsAfter%(aDoIt)
 
-    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < employeeRecordsMapSize
+    return topLeftMapIndex + RECORDS_PER_PAGE - 1 < sortedEmployeeRecordsMapSize
 
 fnend
 
@@ -94,7 +95,9 @@ main_routine:
     
     gosub display_data
     
-    gosub handle_input
+    rem  gosub handle_input
+    
+    input @(0,22),'CL', "Press ENTER to continue", ignoreInput$
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -177,25 +180,6 @@ REM     input "hit any key", ignoreInput$
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  Show or hide rows that have point values of zero
-    rem ------------------------------------------------------------------------------------------
-
-
-show_hide_zero_pt_rows:
-
-    if showZeroPtRecords then
-        showZeroPtRecords = FALSE
-    else
-        showZeroPtRecords = TRUE
-    endif    
-
-    gosub load_employee_records_map
-    topLeftMapIndex = 1
-    
-    return
-
-
-    rem ------------------------------------------------------------------------------------------
     rem  Load the employeeRecordsMap! -- which holds a row of data per employee
     rem ------------------------------------------------------------------------------------------
 
@@ -206,9 +190,35 @@ load_employee_records_map:
     
     call "WFMREmployeeDAO.bbj::get_operations_employees_by_dept_shift", deptIdIn, shiftIn$, employeeRecordsMap!
     
-    employeeRecordsMapSize = employeeRecordsMap!.size()
-    
     call "AttendPtsDAO.bbj::add_pts_and_next_drop_info_to_map", employeeRecordsMap!
+    
+    sortedEmployeeRecordsMap! = new java.util.TreeMap()
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+        ptsTotal = employeeDataMap!.get("pts_total")
+
+        if ptsTotal < ptsFromIn or ptsTotal > ptsToIn then continue
+        
+        fmtPtsTotal$ = str(ptsTotal:"000.0")
+        
+        if orderByIn$ = "1" then
+            sortKey$ = fmtPtsTotal$ + employeeDataMap!.get("last_name") + ", " + employeeDataMap!.get("first_name") + badgeKey! 
+        else
+            sortKey$ = employeeDataMap!.get("last_name") + ", " + employeeDataMap!.get("first_name") + fmtPtsTotal$ + badgeKey! 
+        endif
+        
+        sortedEmployeeRecordsMap!.put(sortKey$, employeeDataMap!)
+
+    wend
+    
+    employeeRecordsMap!.clear()
+    
+    sortedEmployeeRecordsMapSize = sortedEmployeeRecordsMap!.size()
 
     return
 
@@ -236,23 +246,32 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0,3), badge5In$
-    print @(7,3), employeeName$
-    print @(49,3), "TOTAL ATTENDANCE POINTS: ", ptsTotal
-
-    print @(65,5), "SYSTEM"
-    print @(0,6), "LINE   DATE   PTS  STATUS  CODE  WFMR  DISP  PTS RMVD  RMV DATE  ADJUSTED  RUN"
+    print @(0,3), "Points: ", str(ptsFromIn:"##.0"), " - ", str(ptsToIn:"##.0")
+    
+    if deptIdIn > 0 then
+        print @(22,3), "Dept: ", deptNameIn$
+    endif
+    
+    print @(48,4), "CURR  WARN  NEXT PTS   PTS AFTER"
+    
+    print @(0,5), "LINE  DEPT  SHIFT  NAME"
+    print @(48,5), "PTS   LEV   DROP DATE  DROP DATE"
     
     count = 0
     displayedCount = 0
     
-    dim datesArray![1:RECORDS_PER_PAGE]
+    dim keysArray![1:RECORDS_PER_PAGE]
 
-    iter! = employeeRecordsMap!.keySet().iterator()
+    if orderByIn$ = "1" then
+        iter! = sortedEmployeeRecordsMap!.descendingKeySet().iterator()
+    else
+        iter! = sortedEmployeeRecordsMap!.keySet().iterator()
+    endif
+    
     
     while iter!.hasNext()
     
-      dateKey! = iter!.next()
+      key! = iter!.next()
       count = count + 1
       
       if count < topLeftMapIndex then continue
@@ -260,86 +279,62 @@ display_data:
       
       displayedCount = displayedCount + 1
       
-      datesArray![displayedCount] = dateKey!
-      
-      unformattedDate$ = dateKey!
+      keysArray![displayedCount] = key!
 
-      call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, formattedDate$ 
+      employeeDataMap! = cast( java.util.HashMap, sortedEmployeeRecordsMap!.get(key!) )
+      
+      fmtName$ = employeeDataMap!.get("last_name") + ", " + employeeDataMap!.get("first_name")
+      
+      if len(fmtName$) > 28 then fmtName$ = fmtName$(1,28)
+      
+      totalPts =  employeeDataMap!.get("pts_total")
 
-      employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(dateKey!) )
+      rawNextPtsDropDate! = employeeDataMap!.get("ptdt")
       
-      system$ = iff( cvs(employeeDataMap!.get("chgby"), 2) = "cpu", "Y", "N")
-      
-      text1$ = employeeDataMap!.get("text1")
-      text2$ = employeeDataMap!.get("text2")
-      text3$ = employeeDataMap!.get("text3")
-      
-      if len(text1$) > 0 then
-        if len(text2$) > 0 or len(text3$) > 0 then
-            text1$ = cvs(text1$, 2) + " ..."
-        endif
+      if rawNextPtsDropDate! = null() then
+          fmtNextPtsDropDate$ = ""
+          fmtPtsAfterDropDate$ = ""
+      else
+          unformattedDate$ = rawNextPtsDropDate! 
+          call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, fmtNextPtsDropDate$
+          ptsToDrop = employeeDataMap!.get("pts")
+          ptsAfterDropDate = totalPts - ptsToDrop
+          
+          if ptsAfterDropDate < 0 then ptsAfterDropDate = 0
+          
+          fmtPtsAfterDropDate$ =  str(ptsAfterDropDate:"##.0")
       endif
       
       row = START_ROW_FOR_LIST + displayedCount * ROWS_PER_RECORD - ROWS_PER_RECORD
       
-      runningTotal = employeeDataMap!.get("running_total")
+      print @(0, row), str(displayedCount:"#0"), "." 
+      print @(4, row), employeeDataMap!.get("department_id")
+      print @(14,row), employeeDataMap!.get("shift")
+      print @(19,row), fmtName$
+      print @(48,row), str(totalPts:"##.0")
       
-      print @(1, row), displayedCount, "." 
-      print @(5, row), formattedDate$
-      print @(14,row), str(employeeDataMap!.get("pts"):"#.0")
-      print @(21,row), employeeDataMap!.get("stat")
-      print @(29,row), employeeDataMap!.get("cd")
-      print @(33,row), str(employeeDataMap!.get("wfmr_exc_def_id"):"####")
-      print @(40,row), employeeDataMap!.get("disp_cd")
-      print @(45,row), employeeDataMap!.get("pts_removed")
-      print @(55,row), employeeDataMap!.get("pts_removal_date")
-
-      print @(67,row), system$
-      print @(74,row), str(runningTotal:"##.0")
+      print @(55,row), "?"
       
-      print @(26,row + 1), text1$ 
+      print @(60,row), fmtNextPtsDropDate$
+      print @(72,row), fmtPtsAfterDropDate$
       
     wend
     
-    line$ = " "
+    line$ = "  "
     
-    if isInquiryMode then
-        print @(0, 21), "Line/Cmd: ", begUnLin$, line$, endUnLin$
-        
-        canPageUp = fnHasRecordsBefore%(TRUE)
-        canPageDown = fnHasRecordsAfter%(TRUE)
-        
-        actionLabel$ = "Quit, Jump to"
+    print @(0,21), "Line: ", begUnLin$, line$, endUnLin$
     
-        if showZeroPtRecords then
-            actionLabel$ = actionLabel$ + ", Hide zero pt rows"
-        else
-            actionLabel$ = actionLabel$ + ", Show zero pt rows"
-        endif
-        
-        if canPageUp then actionLabel$ = actionLabel$ + ", page Up" 
-        if canPageDown then actionLabel$ = actionLabel$ + ", page Down"
+    canPageUp = fnHasRecordsBefore%(TRUE)
+    canPageDown = fnHasRecordsAfter%(TRUE)
     
-        print @(13,21), actionLabel$ 
-    else
-        print @(0, 21), "Line: ", begUnLin$, line$, endUnLin$
-        
-        canPageUp = fnHasRecordsBefore%(TRUE)
-        canPageDown = fnHasRecordsAfter%(TRUE)
-        
-        actionLabel$ = "F6=Jump To  F8=Add  "
+    actionLabel$ = "F4=Exit  "
+
+    if canPageUp then actionLabel$ = actionLabel$ + "Page Up=Prev Page  " 
+    if canPageDown then actionLabel$ = actionLabel$ + "Page Down=Next Page  "
     
-        if showZeroPtRecords then
-            actionLabel$ = actionLabel$ + "F10=Hide Zero Pt Rows  "
-        else
-            actionLabel$ = actionLabel$ + "F10=Show Zero Pt Rows  "
-        endif
-        
-        if canPageUp then actionLabel$ = actionLabel$ + "PgUp=Prev Pg  " 
-        if canPageDown then actionLabel$ = actionLabel$ + "PgDn=Next Pg  "
-    
-        print @(9,21), actionLabel$ 
-    endif
+    actionLabel$ = actionLabel$ + "Enter=Select"
+
+    print @(13,21), actionLabel$ 
 
     
     if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
@@ -360,13 +355,7 @@ handle_input:
         
         if currentFieldNo = LINE_FIELD_NO then
             print @(lineNoInputCol, 21), begUnLin$
-            
-            if isInquiryMode then
-                input (0,siz=1) @(lineNoInputCol, 21), line$ 
-            else
-                inpute lineNoInputCol, 21, 1, "", line$ 
-            endif
-            
+            inpute lineNoInputCol, 21, 1, "", line$ 
             print @(lineNoInputCol + 1, 21), endUnLin$ 
         endif
             
@@ -380,31 +369,6 @@ handle_input:
         
             case ASC(F4_CTL_OUTPUT_VALUE$)
                     needToBreak = TRUE
-        
-                    break
-        
-            case ASC(F6_CTL_OUTPUT_VALUE$)
-                    gosub handle_jump_to
-        
-                    break
-        
-            case ASC(F8_CTL_OUTPUT_VALUE$)
-                    if !(isInquiryMode) then
-                        employeeDataMap! = new java.util.HashMap()
-                        call "AttendPtsDAO.bbj::get_default_pt_data_map_for_add", employeeDataMap!
-                        tmpDate! = employeeDataMap!.get("ptdt")
-                        call "MaintainAttPtsEdits.bbj", isInquiryMode, TRUE, badge5In$, employeeName$, tmpDate!, employeeDataMap!, anyDataChanged
-                        line$ = " "
-                        
-                        if anyDataChanged then
-                            gosub load_employee_records_map
-                        endif
-                    endif 
-        
-                    break
-        
-            case ASC(F10_CTL_OUTPUT_VALUE$)
-                    gosub show_hide_zero_pt_rows
         
                     break
         
@@ -435,12 +399,7 @@ handle_input:
                     break
                     
             case 0
-                    gosub handle_ctl_0_or_5
-                    
-                    break
-                    
-            case 5
-                    gosub handle_ctl_0_or_5
+                    gosub handle_enter_key
                     
                     break
                     
@@ -462,11 +421,11 @@ handle_input:
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  Handle when Enter key pressed or a single keystroke is pressed with "auto advance" (siz=1)
+    rem  Handle when Enter key pressed
     rem ------------------------------------------------------------------------------------------
     
 
-handle_ctl_0_or_5:
+handle_enter_key:
 
     REM  For backwards compatibility, an Enter without a line # will page forward (if more lines available)
     
@@ -479,71 +438,19 @@ handle_ctl_0_or_5:
         goto done_handling_enter
     endif
     
-    
-    ascLine = asc(line$)
-
-    usedLetterShortcut = FALSE
-    
-    switch ascLine
-    
-        case asc("Q")
-            usedLetterShortcut = TRUE
-            needToBreak = TRUE
-            break
-            
-        case asc("J")
-            usedLetterShortcut = TRUE
-            gosub handle_jump_to
-            break
-            
-        case asc("S")
-            usedLetterShortcut = TRUE
-            gosub show_hide_zero_pt_rows
-            break
-            
-        case asc("H")
-            usedLetterShortcut = TRUE
-            gosub show_hide_zero_pt_rows
-            break
-            
-        case asc("U")
-            usedLetterShortcut = TRUE
-
-            if canPageUp then
-                gosub set_top_left_map_index_for_page_up
-            endif
-            
-            break
-            
-        case asc("D")
-            usedLetterShortcut = TRUE
-
-            if canPageDown then
-                gosub set_top_left_map_index_for_page_down
-            endif
-            
-            break
-        
-    swend
-    
-    if usedLetterShortcut then
-        goto done_handling_enter
-    endif
-    
-    
     gosub validate_input
     
     if len(errMsg$) > 0 then
         gosub display_err_msg
     else
-        tmpDate! = datesArray![ num(line$) ]
-        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(tmpDate!) )
-        call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, employeeDataMap!, anyDataChanged
-        line$ = " "
+        key! = keysArray![ num(line$) ]
+        employeeDataMap! = cast( java.util.HashMap, sortedEmployeeRecordsMap!.get(key!) )
         
-        if anyDataChanged then
-            gosub load_employee_records_map
-        endif 
+        rem call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, employeeDataMap!, anyDataChanged
+        
+        input @(0,22), 'CL', "Enter key processing would run here. Hit Enter for now.", ignoreInput$
+        
+        line$ = " "
         
     endif
     
@@ -577,7 +484,7 @@ set_top_left_map_index_for_page_down:
 
     topLeftMapIndex = topLeftMapIndex + RECORDS_PER_PAGE
     
-    if topLeftMapIndex > employeeRecordsMapSize then topLeftMapIndex = employeeRecordsMapSize
+    if topLeftMapIndex > sortedEmployeeRecordsMapSize then topLeftMapIndex = sortedEmployeeRecordsMapSize
 
     return    
     
@@ -666,60 +573,10 @@ validate_input:
     skip_line_no_format:
     
     if hasLineErr then
-        errMsg$ = "Invalid line number or command."
+        errMsg$ = "Invalid line number."
         currentFieldNo = LINE_FIELD_NO
     endif
   
     skip_line_no_edit:
         
-    return
-    
-    
-    rem ------------------------------------------------------------------------------------------
-    rem  Prompt for date to jump to -- and go there
-    rem ------------------------------------------------------------------------------------------
-    
-    
-handle_jump_to:
-
-    jumpToDate$ = ""
-    
-    print @(0,22), "Date to jump to (MM/DD/YY):"
-    print @(27, 22), begUnLin$ 
-    inpute 27, 22, "00/00/00", "", jumpToDate$ 
-    print @(35, 22), endUnLin$ 
-
-    REM  Only do the "jump to" if all 6 digits entered for date
-    
-    if len(jumpToDate$) = 6 then
-        positionToDate$ = "20" + jumpToDate$(5,2) + jumpToDate$(1,4)
-        gosub position_list_to_date 
-    endif
-
-    return
-    
-    
-    rem ------------------------------------------------------------------------------------------
-    rem  Position the list to the "positionToDate$"
-    rem ------------------------------------------------------------------------------------------
-    
-    
-position_list_to_date:
-
-    iter! = employeeRecordsMap!.keySet().iterator()
-    count = 0
-    
-    while iter!.hasNext()
-    
-      dateKey! = iter!.next()
-      count = count + 1
-      unformattedDate$ = dateKey!
-      
-      if unformattedDate$ >= positionToDate$ then
-          topLeftMapIndex = count
-          break
-      endif 
-      
-    wend
-
     return

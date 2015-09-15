@@ -244,6 +244,13 @@ append_pts_and_next_drop_date_info:
 
     REM  Step 2. Get next drop date info and put in EmployeeRecordsMap!
 
+    REM  For performance reasons, a date-related query is repeated here (directly) using a prepared
+    REM  statement.
+    
+    wfmrDataChannel = sqlunt
+    sqlopen(wfmrDataChannel) wfmrDataSource$
+    sqlprep(wfmrDataChannel) "select convert(varchar(10), dateadd(month, 12, ?), 120) as relative_date"
+
     sqlprep(ptsChannel) GET_NEXT_DROP_DATE_INFO_STMT$
     
     iter! = employeeRecordsMap!.keySet().iterator()
@@ -256,14 +263,32 @@ append_pts_and_next_drop_date_info:
         dim resultRow$:sqltmpl(ptsChannel)
         
         resultRow$ = sqlfetch(ptsChannel,err=*next)
+        
+        if len(resultRow.ptdt$) = 0 then continue
+        
         employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
-        employeeDataMap!.put("ptdt", resultRow.ptdt$)
+        
+        REM Actual date loaded needs to be 12 months in the future of the one found
+        
+        sqlFormattedDate$ = resultRow.ptdt$(1,4) + "-" + resultRow.ptdt$(5,2) + "-" + resultRow.ptdt$(7,2)
+        sqlexec(wfmrDataChannel) sqlFormattedDate$
+
+        dim resRow$:sqltmpl(wfmrDataChannel)
+        resRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
+        
+        yyyymmddFuture$ = resRow.relative_date$(1,4) + resRow.relative_date$(6,2) + resRow.relative_date$(9,2) 
+
+        employeeDataMap!.put("ptdt", yyyymmddFuture$)
+
         employeeDataMap!.put("pts", resultRow.pts)
         employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
+            
+        row_not_found:
     
     wend
 
     sqlclose(ptsChannel)
+    sqlclose(wfmrDataChannel)
 
     return
 

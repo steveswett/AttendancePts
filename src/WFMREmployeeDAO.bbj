@@ -124,6 +124,7 @@ load_operations_employees_by_dept_shift:
         
         employeeDataMap! = new java.util.HashMap()
         employeeDataMap!.put("employee_id", resultRow.employee_id)
+        employeeDataMap!.put("badge_number", resultRow.badge_number$)
         employeeDataMap!.put("last_name", cvs(resultRow.last_name$, 2))
         employeeDataMap!.put("first_name", cvs(resultRow.first_name$, 2))
         employeeDataMap!.put("department_id", resultRow.department_id)

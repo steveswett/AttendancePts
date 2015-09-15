@@ -172,7 +172,8 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     call "AttendPtsLevDAO.bbj::get_thresholds_and_descrs", levelsMap! 
     
     deptName$ = ""
-    shift$ = " "
+    deptId = 0
+    shift$ = "1"
     ptsFrom = .1
     ptsTo = 10
     orderBy$ = "1"
@@ -294,7 +295,7 @@ handle_input:
         
             case ASC(F2_CTL_OUTPUT_VALUE$)
 
-                    call "WFMRDeptPopup.bbj::show_popup", 3, 5, tmpDeptId, deptName$
+                    call "WFMRDeptPopup.bbj::show_popup", 3, 5, deptId, deptName$
                     print @(32, 4), cvs(deptName$, 2), "    (F2=prompt)"
         
                     break
@@ -322,10 +323,7 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        input "Enter processing, hit any key", ignoreInput$
-REM                         tmpDeptId = deptIdsArray[ num(dept$) ]
-REM                         tmpDeptName$ = deptsMap!.get(tmpDeptId)
-REM                         call "ApproveAttPtsDateSel.bbj", shift$, tmpDeptId, tmpDeptName$
+                        call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$
                     endif
                     
                     break
