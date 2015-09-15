@@ -227,6 +227,8 @@ show_hide_zero_pt_rows:
 
 load_point_records_map:
 
+    call "TerminalUtilities.bbj::display_please_wait", "loading"
+
     pointRecordsMap! = new java.util.LinkedHashMap()
 
     call "AttendPtsDAO.bbj::get_pts_records_for_employee", badge5In$, showZeroPtRecords, pointRecordsMap!
@@ -248,7 +250,7 @@ display_screen_headings:
     call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "ATTENDANCE POINTS" 
 
     return
-
+    
     
     rem ------------------------------------------------------------------------------------------
     rem  Display data on page, besides page headings

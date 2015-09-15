@@ -183,6 +183,8 @@ init:
 
 load_employees_map:
 
+    call "TerminalUtilities.bbj::display_please_wait", "loading"
+
     employeesMap! = new java.util.LinkedHashMap()
     call "AttendPtsWorkDAO.bbj::get_employees_for_date", shiftIn$, deptIdIn, dateIn!, employeesMap!
     employeesMapSize = employeesMap!.size()

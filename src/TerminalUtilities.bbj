@@ -40,8 +40,7 @@ def fnGetUnqualifiedProgramName$(aProgramName$)
     programNameSlashTrim$ = fnTrimProgramName$(aProgramName$, "/") 
     programNameBackSlashTrim$ = fnTrimProgramName$(aProgramName$, "\")
     
-    if len(programNameSlashTrim$) < len(programNameBackSlashTrim$) then
-:       return programNameSlashTrim$
+    if len(programNameSlashTrim$) < len(programNameBackSlashTrim$) then return programNameSlashTrim$
 
     return programNameBackSlashTrim$
 
@@ -57,8 +56,9 @@ def fnTrimProgramName$(aProgramName$, aFileSeparator$)
     separatorCount = pos(aFileSeparator$ = program$, 1, 0)
     
     if separatorCount > 0 then
-:       lastSeparatorPos = pos(aFileSeparator$ = program$, 1, separatorCount);
-:       program$ = program$(lastSeparatorPos + 1)
+        lastSeparatorPos = pos(aFileSeparator$ = program$, 1, separatorCount)
+        program$ = program$(lastSeparatorPos + 1)
+    endif
 
     return program$
 
@@ -68,6 +68,17 @@ fnend
 rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
 entry_points:
+
+
+display_please_wait:
+
+    enter actionWord$
+
+    gosub setup_constants
+
+    gosub write_please_wait
+    
+    exit
 
 
 get_current_time:
@@ -109,6 +120,23 @@ display_screen_headings:
     
     gosub setup_constants
     
+    gosub write_screen_headings
+    
+    exit
+
+
+rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Write screen headings
+    rem ------------------------------------------------------------------------------------------
+
+    
+write_screen_headings:
+
     trimmedProgramName$ = fnGetUnqualifiedProgramName$(programNameIn$)
     termIdAndType$ = fid(0)
     lcOS$ = cvs(info(0,0), 8)
@@ -131,12 +159,24 @@ display_screen_headings:
     print @(55,1), pad( termIdAndType$ , 25, "R", " ")
     print 'EU' 
 
-    exit
+    return
 
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display "<action word> ... please wait"
+    rem ------------------------------------------------------------------------------------------
 
-rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+    
+write_please_wait:
 
-subroutines:
+    print @(0,0), 'CE', 'UC'
+    
+    gosub write_screen_headings
+    
+    print @(20,10), actionWord$ + " ... please wait"
+
+    return
+
 
 
 setup_constants:

@@ -172,6 +172,8 @@ init:
 
 load_dates_map:
 
+    call "TerminalUtilities.bbj::display_please_wait", "loading"
+
     datesMap! = new java.util.LinkedHashMap()
     
     tmpFromDate = num( date(0:"%Y%Mz%Dz") )

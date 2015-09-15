@@ -162,6 +162,8 @@ init:
 
 run_posting:
 
+    call "TerminalUtilities.bbj::display_please_wait", "posting"
+
     postingStatsMap! = new java.util.HashMap()
     call "AttendPtsDAO.bbj::post_work_records", attPtsWorkRecordsMap!, postingStatsMap! 
 

@@ -185,6 +185,8 @@ REM     input "hit any key", ignoreInput$
 
 load_employee_records_map:
 
+    call "TerminalUtilities.bbj::display_please_wait", "loading"
+
     employeeRecordsMap! = new java.util.LinkedHashMap()
     
     call "WFMREmployeeDAO.bbj::get_operations_employees_by_dept_shift", deptIdIn, shiftIn$, employeeRecordsMap!
@@ -244,6 +246,8 @@ display_data:
     print @(0,0), 'CE', 'UC'
     
     gosub display_screen_headings
+    
+    print @(48,2), "Employees: ", sortedEmployeeRecordsMapSize
     
     print @(0,3), "Points: ", str(ptsFromIn:"##.0"), " - ", str(ptsToIn:"##.0")
     
