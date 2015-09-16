@@ -14,52 +14,6 @@ rem * - - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 functions:
 
 
-def fnGetCurrentTimestamp$(aDoIt)
-
-    return date(0:"%Y%Mz%Dz%Hz%mz%sz")
-
-fnend
-
-
-def fnGetCurrentYYYYMMDD$(aDoIt)
-
-    return date(0:"%Y%Mz%Dz")
-
-fnend
-
-
-def fnGetYYMDasMDYwithDayAbbrev$(aYYYYMMDD$)
-    
-    tmpJul = jul( num(aYYYYMMDD$(1,4)), num(aYYYYMMDD$(5,2)), num(aYYYYMMDD$(7,2)) )
-    tmpDate$ = date(tmpJul:"%Mz/%Dz/%Yz %Ds")
-    if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
-    return tmpDate$
-      
-fnend
-
-
-def fnGetYYMDHMSasMDYwithTime$(aYYYYMMDDHHMMSS$)
-    
-    tmpJulDate = jul( num(aYYYYMMDDHHMMSS$(1,4)), num(aYYYYMMDDHHMMSS$(5,2)), num(aYYYYMMDDHHMMSS$(7,2)) )
-    tmpHrs = num(aYYYYMMDDHHMMSS$(9,2))
-    tmpMins$ = aYYYYMMDDHHMMSS$(11,2)
-    tmpSecs$ = aYYYYMMDDHHMMSS$(13,2)
-    tmpDate$ = date(tmpJulDate,tmpHrs:"%Mz/%D/%Yz %h:" + tmpMins$ + "." + tmpSecs$ + "%p")
-
-REM  The following was expected to work, but doesn't:
-REM      
-REM     tmpHrsFromMins = num(aYYYYMMDDHHMMSS$(11,2)) / 60
-REM     tmpHrsFromSecs = num(aYYYYMMDDHHMMSS$(13,2)) / 360
-REM     tmpTotalHrs = tmpHrs + tmpHrsFromMins + tmpHrsFromSecs
-REM     tmpDate$ = date(tmpJulDate,tmpTotalHrs:"%Mz/%Dz/%Yz %h:%mz:%sz%p")
-
-
-    if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
-    return tmpDate$
-      
-fnend
-
-
 def fnGetJulianDateFromYYYYMMDD(aYYYYMMDD$)
 
     tmpYr = num(aYYYYMMDD$(1,4))
@@ -84,7 +38,7 @@ get_yymd_as_mdy_with_day_name:
     
     gosub setup_constants
     
-    mdyDayAbbrevOut$ = fnGetYYMDasMDYwithDayAbbrev$(yyyymmddIn$)
+    gosub sub_get_yymd_as_mdy_with_day_name
     
     exit
     
@@ -93,11 +47,9 @@ get_yymd_as_mdyy_with_slashes:
 
     enter yyyymmddIn$, trimLeadingZeroIn, mdyyWithSlashesOut$
     
-    mdyyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(1,4)
+    gosub setup_constants
     
-    if trimLeadingZeroIn and mdyyWithSlashesOut$(1,1) = "0" then
-        mdyyWithSlashesOut$ = " " + mdyyWithSlashesOut$(2)
-    endif
+    gosub sub_get_yymd_as_mdyy_with_slashes
     
     exit
     
@@ -106,11 +58,9 @@ get_yymd_as_mdy_with_slashes:
 
     enter yyyymmddIn$, trimLeadingZeroIn, mdyWithSlashesOut$
     
-    mdyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(3,2)
+    gosub setup_constants
     
-    if trimLeadingZeroIn and mdyWithSlashesOut$(1,1) = "0" then
-        mdyWithSlashesOut$ = " " + mdyWithSlashesOut$(2)
-    endif
+    gosub sub_get_yymd_as_mdy_with_slashes
     
     exit
 
@@ -121,7 +71,7 @@ get_yymdhms_as_mdy_with_time:
     
     gosub setup_constants
     
-    mdyDayWithTimeOut$ = fnGetYYMDHMSasMDYwithTime$(yyyymmddhhmmssIn$)
+    gosub sub_get_yymdhms_as_mdy_with_time
     
     exit
     
@@ -132,7 +82,7 @@ get_current_timestamp:
     
     gosub setup_constants
     
-    yyyymmddhhmmss$ = fnGetCurrentTimestamp$(TRUE)
+    yyyymmddhhmmss$ = date(0:"%Y%Mz%Dz%Hz%mz%sz")
     
     exit
     
@@ -143,7 +93,7 @@ get_current_yyyymmdd:
     
     gosub setup_constants
     
-    yyyymmdd$ = fnGetCurrentYYYYMMDD$(TRUE)
+    yyyymmdd$ = date(0:"%Y%Mz%Dz")
     
     exit
     
@@ -153,6 +103,60 @@ is_valid_yyyymmdd_date:
     enter yyyymmddTemp$, isValidDate
     
     gosub setup_constants
+    
+    gosub sub_is_valid_yyyymmdd_date
+    
+    exit
+    
+    
+get_days_between_inclusive:
+
+    enter yyyymmddFrom$, yyyymmddTo$, daysBetween
+    
+    gosub setup_constants
+    
+    gosub sub_get_days_between_inclusive
+    
+    exit
+    
+    
+get_yyyymmdd_relative_to_today:
+
+    enter daysBeforeMinusOrAfterPlusIn, yyyymmddOut$
+    
+    gosub setup_constants
+    
+    gosub sub_get_yyyymmdd_relative_to_today
+    
+    exit
+
+
+rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ----------------------------------------------------------------------
+REM  Get the number of days, inclusive, between 2 YYYYMMDD dates
+REM  ----------------------------------------------------------------------
+
+
+sub_get_days_between_inclusive:
+    
+    tmpFromJul = fnGetJulianDateFromYYYYMMDD(yyyymmddFrom$)
+    tmpToJul = fnGetJulianDateFromYYYYMMDD(yyyymmddTo$)
+    
+    daysBetween = tmpToJul - tmpFromJul + 1
+
+    return
+
+
+REM  ----------------------------------------------------------------------
+REM  Is YYYYMMDD a valid date?
+REM  ----------------------------------------------------------------------
+
+
+sub_is_valid_yyyymmdd_date:
 
     isValidDate = TRUE
     
@@ -166,41 +170,88 @@ is_valid_yyyymmdd_date:
     isValidDate = FALSE
     
     good_jul_date:
-    
-    exit
-    
-    
-get_days_between_inclusive:
 
-    enter yyyymmddFrom$, yyyymmddTo$, daysBetween
-    
-    gosub setup_constants
-    
-    tmpFromJul = fnGetJulianDateFromYYYYMMDD(yyyymmddFrom$)
-    tmpToJul = fnGetJulianDateFromYYYYMMDD(yyyymmddTo$)
-    
-    daysBetween = tmpToJul - tmpFromJul + 1
-    
-    exit
-    
-    
-get_yyyymmdd_relative_to_today:
-
-    enter daysBeforeMinusOrAfterPlusIn, yyyymmddOut$
-    
-    gosub get_relative_yyyymmdd
-    
-    exit
+    return
 
 
-rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+REM  ----------------------------------------------------------------------
+REM  Get YYYYMMDD as MM/DD/YY
+REM  ----------------------------------------------------------------------
 
-subroutines:
+
+sub_get_yymd_as_mdy_with_slashes:
+    
+    mdyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(3,2)
+    
+    if trimLeadingZeroIn and mdyWithSlashesOut$(1,1) = "0" then
+        mdyWithSlashesOut$ = " " + mdyWithSlashesOut$(2)
+    endif
+
+    return
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
+REM  Get YYYYMMDD as MM/DD/YYYY
+REM  ----------------------------------------------------------------------
+
+
+sub_get_yymd_as_mdyy_with_slashes:
+    
+    mdyyWithSlashesOut$ = yyyymmddIn$(5,2) + "/" + yyyymmddIn$(7,2) + "/" + yyyymmddIn$(1,4)
+    
+    if trimLeadingZeroIn and mdyyWithSlashesOut$(1,1) = "0" then
+        mdyyWithSlashesOut$ = " " + mdyyWithSlashesOut$(2)
+    endif
+
+
+    return
+    
+
+REM  ----------------------------------------------------------------------
+REM  Get YYYYMMDD as MM/DD/YY Tue
+REM  ----------------------------------------------------------------------
+
+
+sub_get_yymd_as_mdy_with_day_name:
+
+    tmpJul = jul( num(yyyymmddIn$(1,4)), num(yyyymmddIn$(5,2)), num(yyyymmddIn$(7,2)) )
+    tmpDate$ = date(tmpJul:"%Mz/%Dz/%Yz %Ds")
+    if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
+    mdyDayAbbrevOut$ = tmpDate$
+
+    return
+    
+    
+REM  ----------------------------------------------------------------------
+REM  Get YYYYMMDDHHMMSS as MM/DD/YY hh:mm.sspm
+REM  ----------------------------------------------------------------------
+
+
+sub_get_yymdhms_as_mdy_with_time:
+
+    tmpJulDate = jul( num(yyyymmddhhmmssIn$(1,4)), num(yyyymmddhhmmssIn$(5,2)), num(yyyymmddhhmmssIn$(7,2)) )
+    tmpHrs = num(yyyymmddhhmmssIn$(9,2))
+    tmpMins$ = yyyymmddhhmmssIn$(11,2)
+    tmpSecs$ = yyyymmddhhmmssIn$(13,2)
+    tmpDate$ = date(tmpJulDate,tmpHrs:"%Mz/%D/%Yz %h:" + tmpMins$ + "." + tmpSecs$ + "%p")
+
+REM  The following was expected to work, but doesn't:
+REM      
+REM     tmpHrsFromMins = num(yyyymmddhhmmssIn$(11,2)) / 60
+REM     tmpHrsFromSecs = num(yyyymmddhhmmssIn$(13,2)) / 360
+REM     tmpTotalHrs = tmpHrs + tmpHrsFromMins + tmpHrsFromSecs
+REM     tmpDate$ = date(tmpJulDate,tmpTotalHrs:"%Mz/%Dz/%Yz %h:%mz:%sz%p")
+
+
+    if tmpDate$(1,1) = "0" then tmpDate$(1,1) = " "
+    mdyDayWithTimeOut$ = tmpDate$
+
+    return
+
+
+REM  ----------------------------------------------------------------------
 REM  Setup constants
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 
 setup_constants:
@@ -211,14 +262,14 @@ setup_constants:
     return
 
     
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Get date relative to today
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 
 REM  TODO: This could be replaced in the future with a Java time library like JODA
 
-get_relative_yyyymmdd:
+sub_get_yyyymmdd_relative_to_today:
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
