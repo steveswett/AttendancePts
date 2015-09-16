@@ -1,0 +1,43 @@
+REM /**
+REM  * TestJavaDates.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.Calendar
+use java.util.Date
+use java.text.SimpleDateFormat
+
+declare java.util.Calendar cal!
+declare java.util.Date date!
+declare java.text.SimpleDateFormat format!
+
+cal! = Calendar.getInstance()
+
+rem Month is 0-based
+rem cal!.set(2015, 11, 16)
+
+rem cal!.add(Calendar.MONTH, 12)
+
+rem cal!.add(Calendar.DAY_OF_MONTH, 21);   rem works!
+
+cal!.add(Calendar.DAY_OF_YEAR, 21)
+
+rem print cal!.toString()
+
+date! = cal!.getTime()
+
+print date!.toString()
+
+format! = new SimpleDateFormat("yyyyMMdd")
+print format!.format(date!)
+
+print "---------------------"
+
+call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", +5, computedDate$
+
+print "Java computed date (plus 5 days) = ", computedDate$
+
+call "DateUtilities.bbj::get_relative_yyyymmdd_in_months", "20150916", +12, computedDate$
+
+print "Java computed date (plus 12 months) = ", computedDate$

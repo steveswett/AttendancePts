@@ -217,7 +217,7 @@ append_pts_and_next_drop_date_info:
 
     REM  Step 1. Get total attendance points and put in EmployeeRecordsMap!
 
-    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today", -365, yyyymmddOneYearAgo$
+    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", -365, yyyymmddOneYearAgo$
 
     call "DateUtilities.bbj::get_current_yyyymmdd", yyyymmddToday$
 
@@ -244,13 +244,6 @@ append_pts_and_next_drop_date_info:
 
     REM  Step 2. Get next drop date info and put in EmployeeRecordsMap!
 
-    REM  For performance reasons, a date-related query is repeated here (directly) using a prepared
-    REM  statement.
-    
-    wfmrDataChannel = sqlunt
-    sqlopen(wfmrDataChannel) wfmrDataSource$
-    sqlprep(wfmrDataChannel) "select convert(varchar(10), dateadd(month, 12, ?), 120) as relative_date"
-
     sqlprep(ptsChannel) GET_NEXT_DROP_DATE_INFO_STMT$
     
     iter! = employeeRecordsMap!.keySet().iterator()
@@ -270,13 +263,7 @@ append_pts_and_next_drop_date_info:
         
         REM Actual date loaded needs to be 12 months in the future of the one found
         
-        sqlFormattedDate$ = resultRow.ptdt$(1,4) + "-" + resultRow.ptdt$(5,2) + "-" + resultRow.ptdt$(7,2)
-        sqlexec(wfmrDataChannel) sqlFormattedDate$
-
-        dim resRow$:sqltmpl(wfmrDataChannel)
-        resRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
-        
-        yyyymmddFuture$ = resRow.relative_date$(1,4) + resRow.relative_date$(6,2) + resRow.relative_date$(9,2) 
+        call "DateUtilities.bbj::get_relative_yyyymmdd_in_months", resultRow.ptdt$, +12, yyyymmddFuture$ 
 
         employeeDataMap!.put("ptdt", yyyymmddFuture$)
 
@@ -288,7 +275,6 @@ append_pts_and_next_drop_date_info:
     wend
 
     sqlclose(ptsChannel)
-    sqlclose(wfmrDataChannel)
 
     return
 

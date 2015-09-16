@@ -8,6 +8,14 @@ REM  * Description: Miscellaneous date utilities
 REM  *
 REM  */
 
+use java.util.Calendar
+use java.util.Date
+use java.text.SimpleDateFormat
+
+declare java.util.Calendar calendar!
+declare java.util.Date date!
+declare java.text.SimpleDateFormat formatter!
+
 
 rem * - - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
@@ -120,13 +128,24 @@ get_days_between_inclusive:
     exit
     
     
-get_yyyymmdd_relative_to_today:
+get_yyyymmdd_relative_to_today_in_days:
 
     enter daysBeforeMinusOrAfterPlusIn, yyyymmddOut$
     
     gosub setup_constants
     
-    gosub sub_get_yyyymmdd_relative_to_today
+    gosub sub_get_yyyymmdd_relative_to_today_in_days
+    
+    exit
+    
+    
+get_relative_yyyymmdd_in_months:
+
+    enter yyyymmddIn$, monthsBeforeMinusOrAfterPlusIn, yyyymmddOut$
+    
+    gosub setup_constants
+    
+    gosub sub_get_relative_yyyymmdd_in_months
     
     exit
 
@@ -248,6 +267,66 @@ REM     tmpDate$ = date(tmpJulDate,tmpTotalHrs:"%Mz/%Dz/%Yz %h:%mz:%sz%p")
 
     return
 
+    
+REM  ----------------------------------------------------------------------
+REM  Get YYYYMMDD date relative to today using months (plus/minus)
+REM  ----------------------------------------------------------------------
+
+
+sub_get_relative_yyyymmdd_in_months:
+
+        calendar! = Calendar.getInstance()
+        
+        tmpYr = num(yyyymmddIn$(1,4))
+        tmpMo = num(yyyymmddIn$(5,2))
+        tmpDay = num(yyyymmddIn$(7,2))
+        
+        calendar!.set(tmpYr, tmpMo - 1, tmpDay)
+        calendar!.add(Calendar.MONTH, monthsBeforeMinusOrAfterPlusIn)
+
+        date! = calendar!.getTime()
+        formatter! = new SimpleDateFormat("yyyyMMdd")
+        yyyymmddOut$ = formatter!.format(date!)
+
+        return
+    
+REM  ----------------------------------------------------------------------
+REM  Get YYYYMMDD date relative to today using days (plus/minus)
+REM  ----------------------------------------------------------------------
+
+
+sub_get_yyyymmdd_relative_to_today_in_days:
+
+REM     New Way:
+
+        calendar! = Calendar.getInstance()
+        calendar!.add(Calendar.DAY_OF_YEAR, daysBeforeMinusOrAfterPlusIn)
+
+        date! = calendar!.getTime()
+        formatter! = new SimpleDateFormat("yyyyMMdd")
+        yyyymmddOut$ = formatter!.format(date!)
+
+REM     Old Way:
+
+REM     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+REM 
+REM     wfmrDataChannel = sqlunt
+REM     sqlopen(wfmrDataChannel) wfmrDataSource$
+REM 
+REM     sqlprep(wfmrDataChannel) "select convert(varchar(10), dateadd(day, ?, getdate()), 120) as relative_date"
+REM     sqlexec(wfmrDataChannel) daysBeforeMinusOrAfterPlusIn
+REM     
+REM     dim resultRow$:sqltmpl(wfmrDataChannel)
+REM     resultRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
+REM     
+REM     yyyymmddOut$ = resultRow.relative_date$(1,4) + resultRow.relative_date$(6,2) + resultRow.relative_date$(9,2) 
+REM     
+REM     row_not_found:
+REM     
+REM     sqlclose(wfmrDataChannel)
+
+    return
+
 
 REM  ----------------------------------------------------------------------
 REM  Setup constants
@@ -260,32 +339,4 @@ setup_constants:
     FALSE = 0
 
     return
-
     
-REM  ----------------------------------------------------------------------
-REM  Get date relative to today
-REM  ----------------------------------------------------------------------
-
-
-REM  TODO: This could be replaced in the future with a Java time library like JODA
-
-sub_get_yyyymmdd_relative_to_today:
-
-    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
-
-    wfmrDataChannel = sqlunt
-    sqlopen(wfmrDataChannel) wfmrDataSource$
-
-    sqlprep(wfmrDataChannel) "select convert(varchar(10), dateadd(day, ?, getdate()), 120) as relative_date"
-    sqlexec(wfmrDataChannel) daysBeforeMinusOrAfterPlusIn
-    
-    dim resultRow$:sqltmpl(wfmrDataChannel)
-    resultRow$ = sqlfetch(wfmrDataChannel,err=row_not_found)
-    
-    yyyymmddOut$ = resultRow.relative_date$(1,4) + resultRow.relative_date$(6,2) + resultRow.relative_date$(9,2) 
-    
-    row_not_found:
-    
-    sqlclose(wfmrDataChannel)
-
-    return

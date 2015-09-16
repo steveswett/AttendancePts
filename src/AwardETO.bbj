@@ -95,7 +95,7 @@ award_eto:
     
     REM  Get "90 days ago" date
 
-    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today", -90, yyyymmddNinetyDaysAgo$
+    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", -90, yyyymmddNinetyDaysAgo$
     
     
     gosub do_standard_90_day_window_group
