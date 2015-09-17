@@ -94,7 +94,6 @@ setup_constants:
     SHOW_FIELD_TERMINATOR_PRESSED = FALSE
     
     START_ROW_FOR_LIST = 1
-    END_ROW_FOR_LIST = 6
     
     UP_ARROW_CUSTOM_INPUT_VALUE$ = $86$
     UP_ARROW_CTL_OUTPUT_VALUE$ = $1D$
@@ -138,6 +137,13 @@ init:
     dispCodesMap!.put("F", "FMLA Pending")
     dispCodesMap!.put("P", "FMLA Approved")
     dispCodesMap!.put("D", "FMLA Denied")
+
+    if isFMLAMode then
+        endRowForList = 3
+    else
+        endRowForList = 4
+    endif
+
     
     return
 
@@ -208,27 +214,42 @@ handle_input:
         savedCTL = CTL
         
         isArrowing = FALSE
+        needsBreak = FALSE
+    
+        switch CTL
         
-        if CTL = ASC(UP_ARROW_CTL_OUTPUT_VALUE$) then 
-:           cursorRow = cursorRow - 1;
-:           isArrowing = TRUE
-:       else if CTL = ASC(DOWN_ARROW_CTL_OUTPUT_VALUE$) then 
-:           cursorRow = cursorRow + 1;
-:           isArrowing = TRUE
-:       else if CTL = 0  then
-:           exitto done_handling_input
+            case ASC(UP_ARROW_CTL_OUTPUT_VALUE$)
+                cursorRow = cursorRow - 1
+                isArrowing = TRUE
+            
+                break
+
+            case ASC(DOWN_ARROW_CTL_OUTPUT_VALUE$)
+                cursorRow = cursorRow + 1
+                isArrowing = TRUE
+            
+                break
+
+            case 0
+                needsBreak = TRUE
+            
+                break
+             
+        swend
+        
+        if needsBreak then break
 
         if cursorRow < START_ROW_FOR_LIST then
-:           cursorRow = START_ROW_FOR_LIST
-:       else if cursorRow > END_ROW_FOR_LIST then
-:           cursorRow = END_ROW_FOR_LIST
+            cursorRow = START_ROW_FOR_LIST
+        else 
+            if cursorRow > endRowForList then cursorRow = endRowForList
+        endif
 
         if isArrowing and SHOW_FIELD_TERMINATOR_PRESSED then
-:           print @(2, END_ROW_FOR_LIST + 1), 'CL', "CTL, savedCTL: ", CTL, " ", savedCTL
+            print @(2, endRowForList + 1), 'CL', "CTL, savedCTL: ", CTL, " ", savedCTL
+        endif
         
     wend
-    
-    done_handling_input:
     
     iter! = dispCodesMap!.keySet().iterator()
     x = 0
