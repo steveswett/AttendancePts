@@ -50,8 +50,8 @@ SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 ERP_CODE_FIELD_NO = 1
 ERP_DESCR_FIELD_NO = 2
 ERP_PTS_FIELD_NO = 3
-ERP_STS_FIELD_NO = 4
-HIDDEN_FIELD_NO = 5
+
+HIDDEN_FIELD_NO = 4
 
 
 REM     Note about INPUTE:
@@ -337,9 +337,9 @@ display_data:
     
     print @(2, 15), "Pts:"
     print @(14,15), begUnLin$, str( attPtsWorkDataMap!.get("erp_pts_assessed"):"#.0" ), endUnLin$
-    
+
     print @(2,16), "Status:"
-    print @(14,16), begUnLin$, attPtsWorkDataMap!.get("erp_sts_cd"), endUnLin$
+    print @(14,16), attPtsWorkDataMap!.get("erp_sts_cd")
     print @(17,16), "(A=Active, I=Inactive)"
     
     if len(postedTimestamp$) > 0 then     
@@ -447,20 +447,6 @@ handle_input:
                 endif
                 
                 break
-        
-            case ERP_STS_FIELD_NO
-                beforeValue$ = attPtsWorkDataMap!.get("erp_sts_cd")
-                afterValue$ = beforeValue$ 
-                print @(14, 16), 'BU'
-                inpute 14, 16, 1, "", afterValue$
-                print @(15, 16), 'EU' 
-                
-                if !(afterValue$ = beforeValue$) then 
-                    attPtsWorkDataMap!.put("changed", TRUE)
-                    attPtsWorkDataMap!.put("erp_sts_cd", afterValue$)
-                endif
-                
-                break
             
         swend
 
@@ -489,6 +475,8 @@ handle_input:
                             
                             if afterValue$ = "F" then
                                 attPtsWorkDataMap!.put("erp_sts_cd", "I")
+                            else
+                                attPtsWorkDataMap!.put("erp_sts_cd", "A")
                             endif
     
                             attPtsWorkDataMap!.put("changed", TRUE)
@@ -670,7 +658,7 @@ set_field_no_after_tabbing:
 
     if !(currentFieldNo = HIDDEN_FIELD_NO) then
         currentFieldNo = currentFieldNo + 1
-        if currentFieldNo > ERP_STS_FIELD_NO then currentFieldNo = ERP_CODE_FIELD_NO
+        if currentFieldNo > ERP_PTS_FIELD_NO then currentFieldNo = ERP_CODE_FIELD_NO
     endif
         
     return
@@ -685,7 +673,7 @@ set_field_no_after_back_tabbing:
 
     if !(currentFieldNo = HIDDEN_FIELD_NO) then
         currentFieldNo = currentFieldNo - 1
-        if currentFieldNo < ERP_CODE_FIELD_NO then currentFieldNo = ERP_STS_FIELD_NO
+        if currentFieldNo < ERP_CODE_FIELD_NO then currentFieldNo = ERP_PTS_FIELD_NO
     endif
     
     return
@@ -833,14 +821,6 @@ validate_input:
     if (erpPts < 0 or erpPts > 3) then
         errMsg$ = "A value between 0 and 3 is required in the ""Pts"" field."
         currentFieldNo = ERP_PTS_FIELD_NO
-        goto end_validate_input
-    endif
-    
-    erpSts$ = attPtsWorkDataMap!.get("erp_sts_cd") 
-
-    if erpSts$ <> "A" and erpSts$ <> "I" then
-        errMsg$ = "Invalid Status code."
-        currentFieldNo = ERP_STS_FIELD_NO
         goto end_validate_input
     endif
  
