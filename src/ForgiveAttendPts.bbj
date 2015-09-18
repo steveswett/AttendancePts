@@ -64,11 +64,13 @@ main_routine:
         gosub old_policy_init
         gosub old_policy_open_files
         gosub old_policy_process_employees
+        emailAttachmentFileName$ = oldPolicyOutputFileName$
         gosub common_send_results_email
     endif
     
     if trimmedAttendPolicyCode$ = "2015 Aug After" then
         gosub new_policy_process_employees
+        emailAttachmentFileName$ = newPolicyOutputFileName$
         gosub common_send_results_email
     endif
 
@@ -120,12 +122,15 @@ common_init:
     
     call "TerminalUtilities.bbj::get_unqualified_program_name", pgm(-2), P$
 
-    REM  Erase and re-create output file 
+    REM  Erase and re-create output files 
 
-    LET outputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+".csv"
-    ERASE outputFileName$,ERR=*next
+    LET oldPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-oldpol.csv"
+    ERASE oldPolicyOutputFileName$,ERR=*next
+    STRING oldPolicyOutputFileName$
 
-    STRING outputFileName$
+    LET newPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-newpol.csv"
+    ERASE newPolicyOutputFileName$,ERR=*next
+    STRING newPolicyOutputFileName$
 
     return
 
@@ -163,8 +168,8 @@ old_policy_open_files:
 
     dim atndRecord$ : atndTemplate$
     
-    outputFileChannel = unt
-    OPEN (outputFileChannel)outputFileName$
+    oldPolicyOutputFileChannel = unt
+    OPEN (oldPolicyOutputFileChannel)oldPolicyOutputFileName$
 
     return
     
@@ -176,7 +181,7 @@ old_policy_open_files:
 
 old_policy_process_employees:
 
-    PRINT (outputFileChannel)"employee,name,total points,total entries,last point date,"
+    PRINT (oldPolicyOutputFileChannel)"employee,name,total points,total entries,last point date,"
     
     REM  Loop through all employees
     
@@ -238,7 +243,7 @@ old_policy_process_employees:
     CALL "_repl.utl", STR$, ",", ""
     
     LET R$=K$+","+NM$+","+STR(TP)+","+STR(CNTR)+","+X$+","
-    PRINT (outputFileChannel)R$
+    PRINT (oldPolicyOutputFileChannel)R$
     LET workFileLines=workFileLines+1
     LET RC=0,XT=0
     CALL "BINSRT",ZX$,11
@@ -276,7 +281,7 @@ old_policy_process_employees:
 
     IF PTS+XT>1 THEN GOTO try_next_zx_entry
 
-    PRINT (outputFileChannel)",inactivated,"+STR(PTS)+",,"+XD$(5,2)+"/"+XD$(7,2)+"/"+XD$(3,2)+","
+    PRINT (oldPolicyOutputFileChannel)",inactivated,"+STR(PTS)+",,"+XD$(5,2)+"/"+XD$(7,2)+"/"+XD$(3,2)+","
     
     REM JUST REMOVED THIS MANY POINTS
     LET JR=PTS
@@ -292,7 +297,7 @@ old_policy_process_employees:
     
     finished_with_this_employee:
     
-    PRINT (outputFileChannel)""
+    PRINT (oldPolicyOutputFileChannel)""
     GOTO read_another_employ_record
     
     eof_on_employ_file:
@@ -508,7 +513,7 @@ old_policy_close_files:
 
     CLOSE (employChannel)
     CLOSE (atndChannel)
-    CLOSE (outputFileChannel)
+    CLOSE (oldPolicyOutputFileChannel)
 
     return
     
@@ -528,7 +533,7 @@ common_send_results_email:
         WAIT 2
         subject$ = "attendance points file"
         body$ = "The attached file contains a list of employees and inactivated attendance points."
-        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$
+        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, emailAttachmentFileName$, OUTPUT_FILE_MIME_TYPE$
     endif
 
     return
@@ -550,16 +555,16 @@ new_policy_process_employees:
     
     if workFileLines > 0 then
 
-        outputFileChannel = unt
-        OPEN (outputFileChannel)outputFileName$
+        newPolicyOutputFileChannel = unt
+        open (newPolicyOutputFileChannel) newPolicyOutputFileName$
         
-        print(outputFileChannel) "Employee,Name,Pts Date,Pts Inactivated"
+        print(newPolicyOutputFileChannel) "Employee,Name,Pts Date,Pts Inactivated"
         
-        for x = 0 to workFileLines -1
-            print(outputFileChannel) inactivatedPtsRecordsList!.get(x)
+        for x = 0 to workFileLines - 1
+            print(newPolicyOutputFileChannel) inactivatedPtsRecordsList!.get(x)
         next x
 
-        CLOSE (outputFileChannel)
+        close (newPolicyOutputFileChannel)
 
     endif
     
