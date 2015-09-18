@@ -426,6 +426,9 @@ ml_prepare_sql_stmts:
     sqlprep(attendPtsFindRowChannel) attendPtsFindStmt$
     sqlprep(attendPtsUpdateRowChannel) attendPtsUpdateStmt$
     sqlprep(wfmrSelectRowsChannel) wfmrSelectStmt$
+    
+    print $0A$,"AttendPtsWorkDAO.bbj - ml_prepare_sql_stmts. wfmrSelectStmt$ = "
+    print wfmrSelectStmt$
 
     return; rem 2
 
@@ -447,10 +450,6 @@ ml_process_wfmr_data:
         wfmrResultRow$ = sqlfetch(wfmrSelectRowsChannel,err=*break)
         
         readCount = readCount + 1
-        
-        REM  Only print details for the first record fetch
-        
-        if readCount > 1 then goto skip_print
         
         hits = 0
         
@@ -475,7 +474,7 @@ ml_process_wfmr_data:
         endif
  
         
-        if PRINT_TRACE_INFO then
+        if PRINT_TRACE_INFO and readCount < 2 then
             if fnIsMassLoadingExceptions(TRUE) then 
                 print "exception_id = ", wfmrResultRow.exception_id
                 print "business_unit_id = ", wfmrResultRow.business_unit_id
@@ -505,8 +504,6 @@ ml_process_wfmr_data:
                 print $0A$
             endif
         endif
-        
-        skip_print:
         
         if hits = 0 then
            gosub ml_add_to_insert_batch

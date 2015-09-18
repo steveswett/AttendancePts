@@ -17,6 +17,8 @@ rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
+functions:
+
 
 def fnRunSQL(pStmt$)
 
@@ -44,9 +46,13 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 main_routine:
 
 
+    print "Started at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+
     gosub init
     
     gosub mass_load
+
+    print "Finished at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
 
     eoj:
     release
@@ -92,7 +98,7 @@ init:
 
     REM  Fallback position is to use a range "current date - 7" through "current date - 2"
     
-    daysToGoBackAndFiveMore = daysToGoBack - 5
+    daysToGoBackAndFiveMore = daysToGoBack + 5
 
     fallbackDateRangeSelectStmt$ = 
 :       "select " + 
@@ -107,9 +113,6 @@ init:
     wfmrDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
-    wfmrDataChannel = sqlunt
-    sqlopen(wfmrDataChannel) wfmrDataSource$
-
     return
 
 
@@ -119,13 +122,22 @@ REM  ------------------------------------------------------------
 
 mass_load:
 
-    success = fnRunSQL(preferredDateRangeSelectStmt$)
+    wfmrDataChannel = sqlunt
+    sqlopen(wfmrDataChannel) wfmrDataSource$
+
+    usingPreferred = fnRunSQL(preferredDateRangeSelectStmt$)
     
-    if !(success) then success = fnRunSQL(fallbackDateRangeSelectStmt$) 
+    if !(usingPreferred) then success = fnRunSQL(fallbackDateRangeSelectStmt$) 
 
     sqlclose(wfmrDataChannel)
 
-    REM  print "dates: from, to = ", fromDate$, ", ", toDate$
+    print "Using preferred date range? ", iff(usingPreferred, "yes", "no")
+    print "daysToGoBack = ", daysToGoBack 
+    print "daysToGoBackAndFiveMore = ", daysToGoBackAndFiveMore 
+    print "fromDate$ = ", fromDate$
+    print "toDate$ = ", toDate$
+    print " date range select stmt = "
+    print $0A$, iff(usingPreferred, preferredDateRangeSelectStmt$, fallbackDateRangeSelectStmt$)
     
     call "AttendPtsWorkDAO.bbj::mass_load_wfmr_data", fromDate$, toDate$
 
