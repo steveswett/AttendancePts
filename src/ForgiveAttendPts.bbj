@@ -65,12 +65,14 @@ main_routine:
         gosub old_policy_open_files
         gosub old_policy_process_employees
         emailAttachmentFileName$ = oldPolicyOutputFileName$
+        isNewPolicyRun = FALSE
         gosub common_send_results_email
     endif
     
     if trimmedAttendPolicyCode$ = "2015 Aug After" then
         gosub new_policy_process_employees
         emailAttachmentFileName$ = newPolicyOutputFileName$
+        isNewPolicyRun = TRUE
         gosub common_send_results_email
     endif
 
@@ -526,12 +528,12 @@ old_policy_close_files:
 common_send_results_email:
 
     IF workFileLines < 1 THEN 
-        subject$ = "No Attendance Points file today"
+        subject$ = "No Attendance Points file today " + iff(isNewPolicyRun, "(new policy)", "(old policy)")
         body$ = "No Attendance Points file today - nothing to report."
         call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$
     ELSE
         WAIT 2
-        subject$ = "attendance points file"
+        subject$ = "Attendance Points file " + iff(isNewPolicyRun, "(new policy)", "(old policy)")
         body$ = "The attached file contains a list of employees and inactivated attendance points."
         call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, emailAttachmentFileName$, OUTPUT_FILE_MIME_TYPE$
     endif
