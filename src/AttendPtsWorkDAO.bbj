@@ -24,6 +24,9 @@ declare java.util.HashMap attPtsWorkDataMap!
 
 declare java.util.Vector attPtsWorkIds!
 
+declare java.util.HashMap minimalExceptionRecordsMap!
+declare java.util.HashMap minimalExceptionsDataMap!
+
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
@@ -106,6 +109,17 @@ get_records_by_ids_in_list:
     exit
 
 
+get_records_where_exceptions_no_longer_exist:
+
+    enter attPtsRecordsMapOut!
+    
+    gosub setup_constants
+    
+    gosub get_work_records_map_where_exceptions_no_longer_exist
+    
+    exit
+
+
 save_one_record:
 
     enter attPtsWorkDataMap!
@@ -155,9 +169,9 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 subroutines:
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass load WFMR exception and missed shift data
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 run_mass_load:
 
@@ -170,9 +184,9 @@ run_mass_load:
     return
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Define constants
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 setup_constants:
 
@@ -367,11 +381,14 @@ setup_constants:
 :       "set posted_timestamp = ?, posted_by_user = ?, posted_exc_defid = ? " +
 :       "where id = ?"
 
+    ATTEND_PTS_WORK_GET_MINIMAL_EXCEPTION_INFO_STMT$ =
+:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N'"
+
     return
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load Init
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_init:
 
@@ -396,9 +413,9 @@ ml_init:
     return
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load Open SQL Channels
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_open_sql_channels:
 
@@ -417,9 +434,9 @@ ml_open_sql_channels:
     return; rem 1
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load Prepare SQL Statements
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_prepare_sql_stmts:
 
@@ -433,9 +450,9 @@ ml_prepare_sql_stmts:
     return; rem 2
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load Process WFMR Data
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_process_wfmr_data:
 
@@ -462,7 +479,7 @@ ml_process_wfmr_data:
         
         dim ptsResultRow$:sqltmpl(attendPtsFindRowChannel)
         ptsResultRow$ = sqlfetch(attendPtsFindRowChannel,err=hit_check_bombed)
-        hits = ptsResultRow$.hit_count
+        hits = ptsResultRow.hit_count
         hit_check_bombed:
         
         if !(fnIsMassLoadingExceptions(TRUE)) then
@@ -516,9 +533,9 @@ ml_process_wfmr_data:
     return; rem 3
     
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load Update a Row
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_update_row:
     
@@ -559,9 +576,9 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
     return; rem 4
     
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load: Add a values phrase to an Insert Statement
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_add_to_insert_batch:
 
@@ -652,9 +669,9 @@ ml_add_to_insert_batch:
     return; rem 5
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load: Write the Insert Batch
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_write_batch:
 
@@ -674,9 +691,9 @@ ml_write_batch:
     return; rem 6
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Mass Load: Close SQL Channels
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 
 ml_close_sql_channels:
 
@@ -691,9 +708,9 @@ ml_close_sql_channels:
     return; rem 7    
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Load one set of info per work file date into the datesMapOut!
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
     
 load_dates_map:
     
@@ -775,9 +792,9 @@ load_dates_map:
     return
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  For one date, Load a set of info per employee into the employeesMapOut!
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
     
 load_employees_map:
 
@@ -814,9 +831,70 @@ load_employees_map:
     return
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
+REM  Load a set of info into the attPtsRecordsMapOut! -- but only for
+REM  records that no longer exist in the WFMR Lab_Exceptions table.
+REM  ----------------------------------------------------------------------
+
+
+get_work_records_map_where_exceptions_no_longer_exist:
+
+    REM  Step 1. Get all punch exceptions in the ATTEND_PTS_WORK table
+    
+    minimalExceptionsChannel = sqlunt
+    sqlopen(minimalExceptionsChannel) attendPtsDataSource$
+    
+    sqlprep(minimalExceptionsChannel) ATTEND_PTS_WORK_GET_MINIMAL_EXCEPTION_INFO_STMT$
+
+    sqlexec(minimalExceptionsChannel) 
+    dim resultRow$:sqltmpl(minimalExceptionsChannel)
+        
+    minimalExceptionRecordsMap! = new java.util.HashMap()
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(minimalExceptionsChannel,err=*break)
+        minimalExceptionsDataMap! = new java.util.HashMap()
+        minimalExceptionsDataMap!.put("wfmr_exception_id", resultRow.wfmr_exc_id)
+        minimalExceptionRecordsMap!.put(resultRow.id, minimalExceptionsDataMap!)
+        
+    wend
+    
+    sqlclose(minimalExceptionsChannel)
+
+    
+    REM  Step 2. Check to see if any of the punch exceptions are missing in WFMR.  If so,
+    REM          add ATTEND_PTS_WORK ID to attPtsWorkIds! vector. 
+    
+    call "WFMRExceptionDAO.bbj::append_missing_exception_info_to_map", minimalExceptionRecordsMap!
+    
+    attPtsWorkIds! = new java.util.Vector()
+    
+    iter! = minimalExceptionRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        minimalExceptionsDataMap! = cast( java.util.HashMap, minimalExceptionRecordsMap!.get(idKey!) )
+        
+        if minimalExceptionsDataMap!.containsKey("missing_in_wfmr") then
+            attPtsWorkIds!.add(idKey!)
+        endif
+
+    wend
+    
+    
+    REM  Step 3. For all IDs in the attPtsWorkIds! vector, load the map of attendance point records (to return)
+
+    gosub load_work_records_map
+
+    return
+
+
+REM  ----------------------------------------------------------------------
 REM  For each id in list, load a set of info into the attPtsRecordsMapOut!
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
+
     
 load_work_records_map:
 
@@ -842,6 +920,7 @@ load_work_records_map:
 :       "attend_pts_work.id, " +
 :       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
 :       "attend_pts_work.emp_badge_no, " +
+:       "attend_pts_work.wfmr_exc_id, " +
 :       "attend_pts_work.wfmr_exc_date, " +
 :       "attend_pts_work.job_id, " +
 :       "attend_pts_work.wfmr_exc_def_id, " +
@@ -884,6 +963,7 @@ load_work_records_map:
         attPtsWorkDataMap!.put("id", resultRow.id)
         attPtsWorkDataMap!.put("last_first_mi", resultRow.last_first_mi$)
         attPtsWorkDataMap!.put("emp_badge_no", resultRow.emp_badge_no$)
+        attPtsWorkDataMap!.put("wfmr_exc_id", resultRow.wfmr_exc_id)
         attPtsWorkDataMap!.put("wfmr_exc_date", resultRow.wfmr_exc_date$)
         attPtsWorkDataMap!.put("job_id", resultRow.job_id)
         attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
@@ -921,9 +1001,9 @@ load_work_records_map:
     return
 
 
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Save a single record's data stored in attPtsWorkDataMap!
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
     
 save_record_from_map:
 
@@ -943,9 +1023,9 @@ save_record_from_map:
     return
     
     
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
 REM  Update posted fields: timestamp, by user, WFMR exception def id
-REM  ------------------------------------------------------------
+REM  ----------------------------------------------------------------------
     
 update_posted_flag_on_record:
 

@@ -1,0 +1,33 @@
+REM /**
+REM  * TestGetAttendPtsWorkWithMissingExceptions.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap attPtsWorkRecordsMap!
+declare java.util.HashMap attPtsWorkDataMap!
+ 
+ 
+attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
+
+call "AttendPtsWorkDAO.bbj::get_records_where_exceptions_no_longer_exist", attPtsWorkRecordsMap!
+
+iter! = attPtsWorkRecordsMap!.keySet().iterator()
+
+while iter!.hasNext()
+
+    idKey! = iter!.next()
+    attPtsWorkDataMap! = cast( java.util.HashMap, attPtsWorkRecordsMap!.get(idKey!) )
+
+    wfmrExceptionId = attPtsWorkDataMap!.get("wfmr_exc_id")
+    wfmrExceptionDate$ = attPtsWorkDataMap!.get("wfmr_exc_date")
+    wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
+    name$ = attPtsWorkDataMap!.get("last_first_mi")
+    
+    print "exc id, exc date, exc def id, name = ", wfmrExceptionId, ", ", wfmrExceptionDate$, ", ", wfmrExceptionDefId, ", ", name$   
+  
+wend
+
+print "size of attPtsWorkRecordsMap! = ", attPtsWorkRecordsMap!.size()

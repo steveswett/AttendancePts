@@ -1,0 +1,103 @@
+REM /**
+REM  * WFMRExceptionDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: September 2015
+REM  * 
+REM  * Description: Data Access Object for WFMR table lab_exception
+REM  *
+REM  */
+
+
+declare java.util.HashMap minimalExceptionRecordsMap!
+declare java.util.HashMap minimalExceptionsDataMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+append_missing_exception_info_to_map:
+
+    enter minimalExceptionRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub add_missing_exception_info_to_map
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    wfmrDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+    
+    FIND_EXCEPTION_STMT$ = "select count(*) as hit_count from lab_exception where exception_id = ?"
+    
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  For incoming records map minimalExceptionRecordsMap!, add whether or not the exception
+REM  is missing
+REM  ------------------------------------------------------------------------------------------
+
+
+add_missing_exception_info_to_map:
+
+    exceptionChannel = sqlunt
+    sqlopen(exceptionChannel) wfmrDataSource$
+    sqlprep(exceptionChannel) FIND_EXCEPTION_STMT$
+    
+    iter! = minimalExceptionRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        minimalExceptionsDataMap! = cast( java.util.HashMap, minimalExceptionRecordsMap!.get(idKey!) )
+        
+        hits = 0
+
+        sqlexec(exceptionChannel) minimalExceptionsDataMap!.get("wfmr_exception_id")
+        
+        dim resultRow$:sqltmpl(exceptionChannel)
+        resultRow$ = sqlfetch(exceptionChannel,err=hit_check_bombed)
+        hits = resultRow.hit_count
+        hit_check_bombed:
+        
+        if hits = 0 then
+            minimalExceptionsDataMap!.put("missing_in_wfmr", TRUE)
+            
+            REM  Do we need to push the DataMap back into the RecordsMap?  (assume no)
+        endif
+
+    wend
+    
+    sqlclose(exceptionChannel)
+
+    return

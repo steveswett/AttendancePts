@@ -242,7 +242,7 @@ process_wfmr_data:
         sqlexec(attendPtsFindRowChannel) wfmrResultRow.exception_id
         dim ptsResultRow$:sqltmpl(attendPtsFindRowChannel)
         ptsResultRow$ = sqlfetch(attendPtsFindRowChannel,err=hit_check_bombed)
-        hits = ptsResultRow$.hit_count
+        hits = ptsResultRow.hit_count
         hit_check_bombed: 
          
         print "exception_id = ", wfmrResultRow.exception_id

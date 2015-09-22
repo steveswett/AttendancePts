@@ -221,7 +221,7 @@ process_wfmr_data:
         sqlexec(attendPtsFindRowChannel) wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$ 
         dim ptsResultRow$:sqltmpl(attendPtsFindRowChannel)
         ptsResultRow$ = sqlfetch(attendPtsFindRowChannel,err=hit_check_bombed)
-        hits = ptsResultRow$.hit_count
+        hits = ptsResultRow.hit_count
         hit_check_bombed:
         
         if wfmrResultRow.type_code$ = "n" then 
