@@ -913,7 +913,11 @@ get_work_records_map_where_exceptions_no_longer_exist:
     
     REM  Step 3. For all IDs in the attPtsWorkIds! vector, load the map of attendance point records (to return)
 
-    gosub load_work_records_map
+    attPtsRecordsMapOut!.clear()
+
+    if attPtsWorkIds!.size() > 0 then
+        gosub load_work_records_map
+    endif
 
     return
 
