@@ -139,6 +139,7 @@ mass_load:
     print " date range select stmt = "
     print $0A$, iff(usingPreferred, preferredDateRangeSelectStmt$, fallbackDateRangeSelectStmt$)
     
+    
     call "AttendPtsWorkDAO.bbj::mass_load_wfmr_data", fromDate$, toDate$
 
     return

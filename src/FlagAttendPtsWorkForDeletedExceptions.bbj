@@ -1,0 +1,30 @@
+REM /**
+REM  * FlagAttendPtsWorkForDeletedExceptions.bbj
+REM  * @author stevett
+REM  * 
+REM  * Written: September 2015
+REM  * 
+REM  * Description: For punch exceptions in ATTEND_PTS_WORK, see if exception ID is still in WFMR Lab_Exception.
+REM  *              If not, flag the ATTEND_PTS_WORK record by putting a timestamp in column EXC_GONE_STAMP.
+REM  *
+REM  */
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap attPtsWorkRecordsMap!
+ 
+ 
+begin
+
+    skipAlreadyFlaggedOnes = 1
+    attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
+    
+    call "AttendPtsWorkDAO.bbj::get_records_where_exceptions_no_longer_exist", skipAlreadyFlaggedOnes, attPtsWorkRecordsMap!
+    
+    if attPtsWorkRecordsMap!.size() > 0 then
+        call "AttendPtsWorkDAO.bbj::flag_records_where_exceptions_no_longer_exist", attPtsWorkRecordsMap!
+    endif
+    
+    release
+
+end

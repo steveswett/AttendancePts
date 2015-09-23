@@ -10,9 +10,10 @@ declare java.util.LinkedHashMap attPtsWorkRecordsMap!
 declare java.util.HashMap attPtsWorkDataMap!
  
  
+skipAlreadyFlaggedOnes = 1
 attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
 
-call "AttendPtsWorkDAO.bbj::get_records_where_exceptions_no_longer_exist", attPtsWorkRecordsMap!
+call "AttendPtsWorkDAO.bbj::get_records_where_exceptions_no_longer_exist", skipAlreadyFlaggedOnes, attPtsWorkRecordsMap!
 
 iter! = attPtsWorkRecordsMap!.keySet().iterator()
 
@@ -26,7 +27,7 @@ while iter!.hasNext()
     wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
     name$ = attPtsWorkDataMap!.get("last_first_mi")
     
-    print "exc id, exc date, exc def id, name = ", wfmrExceptionId, ", ", wfmrExceptionDate$, ", ", wfmrExceptionDefId, ", ", name$   
+    print "id, exc: id date defid, name = ", idKey!, ", ", wfmrExceptionId, " ", wfmrExceptionDate$, " ", wfmrExceptionDefId, ", ", name$   
   
 wend
 
