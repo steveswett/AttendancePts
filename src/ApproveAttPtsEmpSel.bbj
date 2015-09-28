@@ -258,7 +258,7 @@ display_data:
     print @(62, 6), "Not Handled:", str(qtyNotHandled:"##0")
     
     print @(0, 8), "LIN  EMPLOYEE"
-    print @(25, 8), "DISPOSITION  SYSTEM  CODE  PTS  DESCRIPTION"
+    print @(24, 8), "DISP  SHIFT   SYSTEM  CODE  PTS  DESCRIPTION"
     print @(74, 8), "POSTED"
     
     count = 0
@@ -301,7 +301,8 @@ display_data:
       
       print @(0, row), pad( str(displayedCount), 2, "R"), "." 
       print @(5, row), empName$
-      print @(32, row), employeeDataMap!.get("disp_cd")
+      print @(27, row), employeeDataMap!.get("disp_cd")
+      print @(29, row), employeeDataMap!.get("sched_shift_id")
       print @(38, row), "WFMR"
       print @(46, row), wfmrExceptionId!
       print @(52, row), str( employeeDataMap!.get("wfmr_pts_assess"):"#.0" )

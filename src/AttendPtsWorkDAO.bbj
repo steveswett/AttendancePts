@@ -244,7 +244,7 @@ setup_constants:
 :        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
 :        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
 :        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid, " +
-:        "wfmr_reason_id, exc_gone_stamp, scheduled_shift_id) " +
+:        "wfmr_reason_id, exc_gone_stamp, sched_shift_id) " +
 :        "values "
 
 
@@ -295,7 +295,7 @@ setup_constants:
     
     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, scheduled_shift_id = ?, job_id = ?, " + 
+:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, sched_shift_id = ?, job_id = ?, " + 
 :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
 :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
 
@@ -344,7 +344,7 @@ setup_constants:
 
     ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_badge_no = ?, scheduled_shift_id = ?, " + 
+:        "set dept_id = ?, shift = ?, emp_badge_no = ?, sched_shift_id = ?, " + 
 :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ?, wfmr_reason_id = ? " +
 :        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
 :        "and wfmr_exc_lastmod < ?"
@@ -374,6 +374,7 @@ setup_constants:
 :       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
 :       "attend_pts_work.disp_cd, " +
 :       "attend_pts_work.WFMR_EXC_DEF_ID, " +
+:       "attend_pts_work.sched_shift_id, " +
 :       "attend_pts_work.WFMR_PTS_ASSESS, " +
 :       "attend_pts_work.POSTED_TIMESTAMP, " +
 :       "attend_pts_work.WFMR_EXC_LASTMOD, " +
@@ -842,6 +843,7 @@ load_employees_map:
         employeeDataMap! = new java.util.HashMap()
         employeeDataMap!.put("last_first_mi", resultRow.last_first_mi$)
         employeeDataMap!.put("disp_cd", resultRow.disp_cd$)
+        employeeDataMap!.put("sched_shift_id", resultRow.sched_shift_id)
         employeeDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
         employeeDataMap!.put("wfmr_pts_assess", resultRow.wfmr_pts_assess)
         employeeDataMap!.put("posted_timestamp", resultRow.posted_timestamp$)
@@ -983,6 +985,7 @@ load_work_records_map:
 :       "attend_pts_work.emp_badge_no, " +
 :       "attend_pts_work.wfmr_exc_id, " +
 :       "attend_pts_work.wfmr_exc_date, " +
+:       "attend_pts_work.sched_shift_id, " +
 :       "attend_pts_work.job_id, " +
 :       "attend_pts_work.wfmr_exc_def_id, " +
 :       "attend_pts_work.wfmr_reason_id, " +
@@ -1026,6 +1029,7 @@ load_work_records_map:
         attPtsWorkDataMap!.put("emp_badge_no", resultRow.emp_badge_no$)
         attPtsWorkDataMap!.put("wfmr_exc_id", resultRow.wfmr_exc_id)
         attPtsWorkDataMap!.put("wfmr_exc_date", resultRow.wfmr_exc_date$)
+        attPtsWorkDataMap!.put("sched_shift_id", resultRow.sched_shift_id)
         attPtsWorkDataMap!.put("job_id", resultRow.job_id)
         attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
         attPtsWorkDataMap!.put("wfmr_reason_id", resultRow.wfmr_reason_id)

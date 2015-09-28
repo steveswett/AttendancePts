@@ -291,8 +291,9 @@ display_data:
     print @(71,3), "Shift: ", shiftIn$
     
     print @(0,5), formattedExcDate$ 
-    print @(15,5), "Emp: ", empName$
-    print @(46,5), "Job: ", jobName$
+    print @(15,5), empName$
+    print @(38,5), jobName$
+    print @(70,5), attPtsWorkDataMap!.get("sched_shift_id")
     
     print @(0,7), 'br', ROW_OF_BLANKS$
     print @(0,7), "INCOMING from WFMR: (modified ", fmtWFMRLastModDate$, ")"
