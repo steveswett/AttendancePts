@@ -244,7 +244,7 @@ setup_constants:
 :        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
 :        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
 :        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid, " +
-:        "wfmr_reason_id, exc_gone_stamp) " +
+:        "wfmr_reason_id, exc_gone_stamp, scheduled_shift_id) " +
 :        "values "
 
 
@@ -258,6 +258,7 @@ setup_constants:
 :        "Lab_Employee_Attribute.attribute_code as shift, " +
 :        "Lab_Exception.employee_id, " +
 :        "Employee.badge_number, " +
+:        "Lab_Exception.scheduled_shift_id, " +
 :        "Lab_Exception.job_id, " +
 :        "convert(varchar(8), Lab_Exception.business_date, 112) as exception_date, " +
 :        "Lab_Exception.exception_definition_id, " +
@@ -294,7 +295,7 @@ setup_constants:
     
     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
+:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, scheduled_shift_id = ?, job_id = ?, " + 
 :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
 :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
 
@@ -309,6 +310,7 @@ setup_constants:
 :        "Lab_Employee_Attribute.attribute_code as shift, " +
 :        "Lab_Employee_Missed_Shifts.employee_id, " +
 :        "Employee.badge_number, " +
+:        "Lab_Employee_Missed_Shifts.scheduled_shift_id, " +
 :        "Lab_Employee_Missed_Shifts.job_id, " +
 :        "convert(varchar(8), Lab_Employee_Missed_Shifts.business_date, 112) as missed_shift_date, " +
 :        "Lab_Employee_Missed_Shifts.type_code, " +
@@ -342,7 +344,7 @@ setup_constants:
 
     ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_badge_no = ?, " + 
+:        "set dept_id = ?, shift = ?, emp_badge_no = ?, scheduled_shift_id = ?, " + 
 :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ?, wfmr_reason_id = ? " +
 :        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
 :        "and wfmr_exc_lastmod < ?"
@@ -575,7 +577,8 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
         tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
     
         sqlexec(attendPtsUpdateRowChannel) 
-:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.job_id,
+:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, 
+:           cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id, wfmrResultRow.job_id,
 :           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, str(erpPts), tempLastModDate$,
 :           wfmrResultRow.exception_id, tempLastModDate$
     else
@@ -587,7 +590,7 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
         tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
     
         sqlexec(attendPtsUpdateRowChannel) 
-:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2),
+:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id,
 :           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$, wfmrResultRow.reason_id,
 :           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
 :           tempLastModDate$  
@@ -638,7 +641,8 @@ ml_add_to_insert_batch:
 :          "'" + DEFAULT_POSTED_USER$ + "', " + 
 :          "0, " +
 :          "0, " +
-:          "''" +
+:          "'', " +
+:          str(wfmrResultRow.scheduled_shift_id) + 
 :          ")"
 
     else
@@ -681,7 +685,8 @@ ml_add_to_insert_batch:
 :          "'" + DEFAULT_POSTED_USER$ + "', " + 
 :          "0, " +
 :          str(wfmrResultRow.reason_id) + ", " +
-:           "''" +
+:          "'', " +
+:          str(wfmrResultRow.scheduled_shift_id) + 
 :          ")"
     endif
     
