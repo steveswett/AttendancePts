@@ -811,7 +811,7 @@ validate_input:
             goto end_validate_input
         endif
         
-        call "AttendPtsDAO.bbj::does_pts_record_exist", badge5In$, yyyymmddTemp$, doesPtsRecordExist
+        call "AttendPtsDAO.bbj::does_pts_record_exist", badge5In$, yyyymmddTemp$, 0, doesPtsRecordExist
         
         if doesPtsRecordExist then
             errMsg$ = "A record with this date is already on file; cannot add."

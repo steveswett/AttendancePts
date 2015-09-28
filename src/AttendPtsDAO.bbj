@@ -182,7 +182,7 @@ delete_pts_record_for_employee:
     
 does_pts_record_exist:
 
-    enter badge5In$, pointsDate$, doesPtsRecordExist
+    enter badge5In$, pointsDate$, workFileIdOrZeroIn, doesPtsRecordExist
     
     gosub setup_constants
     
@@ -786,7 +786,7 @@ check_existence_of_pts_record:
 
     badge6$ = "0" + badge5In$
 
-    sqlexec(existenceChannel) badge6$, pointsDate$
+    sqlexec(existenceChannel) badge6$, pointsDate$, workFileIdOrZeroIn
     dim resultRow$:sqltmpl(existenceChannel)
     resultRow$ = sqlfetch(existenceChannel,err=pts_record_absent)
     
@@ -876,7 +876,8 @@ post_work_records_map:
     call "AttendPtsWorkDAO.bbj::open_and_prep_channel_to_flag_posting", flagPostingChannel
     
     loginUser$ = ""
-    call "TerminalUtilities.bbj::get_login_user", loginUser$ 
+    call "TerminalUtilities.bbj::get_login_user", loginUser$
+    loginUser$ = cvs(loginUser$, 4) 
     
     iter! = attPtsWorkRecordsToPostMap!.keySet().iterator()
     
@@ -900,18 +901,19 @@ post_work_records_map:
         paddedBadge$ = pad(trimmedBadge$, 6, "R", "0" )
         pointsDate$ = attPtsWorkDataMap!.get("wfmr_exc_date")
 
-        sqlexec(postingCheckExistChannel) paddedBadge$, pointsDate$
+        sqlexec(postingCheckExistChannel) paddedBadge$, pointsDate$, idKey!
         dim resultRow$:sqltmpl(postingCheckExistChannel)
         resultRow$ = sqlfetch(postingCheckExistChannel,err=end_check_exist)
         if resultRow.hit_count > 0 then doUpdate = TRUE
         
         end_check_exist:
         
-        lastModTimestamp$ = attPtsWorkDataMap!.get("last_mod")
-        lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
-        lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
+REM         lastModTimestamp$ = attPtsWorkDataMap!.get("last_mod")
+REM         lastModDateMDY$ = lastModTimestamp$(5,2) + "/" + lastModTimestamp$(7,2) + "/" + lastModTimestamp$(3,2)
+REM         lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
         wfmrExceptionDefId = attPtsWorkDataMap!.get("wfmr_exc_def_id")
         wfmrReasonId = attPtsWorkDataMap!.get("wfmr_reason_id")
+        scheduledShiftId = attPtsWorkDataMap!.get("sched_shift_id")
              
         if doUpdate then
         
@@ -920,12 +922,13 @@ post_work_records_map:
 :               attPtsWorkDataMap!.get("erp_cd"),
 :               attPtsWorkDataMap!.get("erp_sts_cd"),
 :               attPtsWorkDataMap!.get("erp_note"), 
-:               lastModDateMDY$, 
-:               lastModByUserUC$,
+:               day, 
+:               loginUser$,
 :               tmpId, 
 :               wfmrExceptionDefId, 
 :               wfmrReasonId, 
-:               dispCode$, 
+:               dispCode$,
+:               scheduledShiftId, 
 :               paddedBadge$,
 :               pointsDate$
 
@@ -944,15 +947,16 @@ post_work_records_map:
 :               attPtsWorkDataMap!.get("erp_cd"),
 :               attPtsWorkDataMap!.get("erp_sts_cd"),
 :               attPtsWorkDataMap!.get("erp_note"), 
-:               lastModDateMDY$, 
+:               day, 
 :               "",        
-:               lastModByUserUC$,
+:               loginUser$,
 :               "",
 :               "",
 :               idKey!,        
 :               wfmrExceptionDefId, 
 :               wfmrReasonId, 
-:               dispCode$ 
+:               dispCode$,
+:               scheduledShiftId 
         
             call "AttendPtsWorkDAO.bbj::flag_posting", flagPostingChannel, tmpId, loginUser$, wfmrExceptionDefId
             
@@ -1084,19 +1088,19 @@ setup_constants:
     call "ConfigVarsDAO.bbj::get_value", "employ.table.ops.jobareas.where.clause", configVarFound, configVarDataType$, jobareasWhereClause$
 
     
-    CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ?"
+    CHECK_EXIST_STMT$ = "select count(*) as hit_count from atnd where badg = ? and ptdt = ? and work_file_id = ?"
     
     POSTING_UPDATE_STMT$ = 
 :       "update atnd " +
 :       "set pts = ?, cd = ?, stat = ?, text = ?, chgdt = ?, chgby = ?, " +
-:       "work_file_id = ?, wfmr_exc_def_id = ?, wfmr_reason_id = ?, disp_cd = ? " +
+:       "work_file_id = ?, wfmr_exc_def_id = ?, wfmr_reason_id = ?, disp_cd = ?, sched_shift_id = ? " +
 :       "where badg = ? and ptdt = ?"
     
     POSTING_INSERT_STMT$ = 
 :       "insert into atnd " +
-:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd) " +
+:       "(badg, ptdt, pts, cd, stat, text, adddt, chgdt, addby, chgby, lvar, work_file_id, wfmr_exc_def_id, wfmr_reason_id, disp_cd, sched_shift_id) " +
 :       "values " +
-:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+:       "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
     GET_DATE_12_MONTHS_AGO_STMT$ = "select convert(varchar(10), dateadd(month, -12, getdate()), 120) as year_ago_date"
     
