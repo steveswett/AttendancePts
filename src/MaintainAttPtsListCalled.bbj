@@ -277,6 +277,7 @@ display_data:
     print @(35,3), shortDeptName$ 
     print @(64,3), "TOTAL PTS: ", ptsTotal
 
+    print @(25,5), "SCHED"
     print @(65,5), "SYSTEM"
     print @(0,6), "LINE   DATE   PTS STS CD SHIFT   WFMR  DISP  PTS RMVD  RMV DATE  ADJUSTED  RUN"
     
