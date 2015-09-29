@@ -251,6 +251,14 @@ display_data:
     print @(0,3), badge5In$
     print @(7,3), employeeNameIn$
     
+    if (isAddMode) then
+        workFileId = 0
+    else
+        workFileId = pointDataMap!.get("work_file_id")
+    endif
+    
+    print @(57,3), "Work File ID: ", str(workFileId)
+    
     unformattedDate$ = pointsDate!
     call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, formattedDate$
     
@@ -325,20 +333,28 @@ display_data:
         print @(36,16), "(", wfmrReasonDescr$, ")"
     endif
     
+    schedShiftId! = pointDataMap!.get("sched_shift_id")
+    print @(0,17), "Scheduled shift ID:"
+    
+    if schedShiftId! > 0 then
+        print @(26,17), str(schedShiftId!)
+    endif
+
+    
     dateAdded$ = pointDataMap!.get("adddt")
-    print @(0,17), "Added date:"
-    print @(26,17), dateAdded$
+    print @(0,18), "Added date:"
+    print @(26,18), dateAdded$
     
     if len( cvs(dateAdded$,2) ) > 0 then
-        print @(36,17), "by ", pointDataMap!.get("addby")
+        print @(36,18), "by ", pointDataMap!.get("addby")
     endif
     
     dateChanged$ = pointDataMap!.get("chgdt")
-    print @(0,18), "Last changed date:"
-    print @(26,18), dateChanged$
+    print @(0,19), "Last changed date:"
+    print @(26,19), dateChanged$
     
     if len( cvs(dateChanged$,2) ) > 0 then
-        print @(36,18), "by ", pointDataMap!.get("chgby")
+        print @(36,19), "by ", pointDataMap!.get("chgby")
     endif
     
     if isInquiryMode then
@@ -814,7 +830,7 @@ validate_input:
         call "AttendPtsDAO.bbj::does_pts_record_exist", badge5In$, yyyymmddTemp$, 0, doesPtsRecordExist
         
         if doesPtsRecordExist then
-            errMsg$ = "A record with this date is already on file; cannot add."
+            errMsg$ = "A record with this date and work file ID is already on file; cannot add."
             currentFieldNo = PTS_DATE_FIELD_NO
             goto end_validate_input
         endif
@@ -877,8 +893,9 @@ handle_delete:
         inpute 59, 22, 1, "", okToDeleteRecord$
         print @(60, 22), 'EU', 'RGB'(RGB_WHITE_ON_BLUE$)
         
-        if okToDeleteRecord$ = "Y" then 
-            call "AttendPtsDAO.bbj::delete_pts_record_for_employee", badge5In$, pointsDate!
+        if okToDeleteRecord$ = "Y" then
+            workFileIdIn = pointDataMap!.get("work_file_id")
+            call "AttendPtsDAO.bbj::delete_pts_record_for_employee", badge5In$, pointsDate!, workFileIdIn
             anyDataSaved = TRUE
             gosub write_deleted_message
             wait .5

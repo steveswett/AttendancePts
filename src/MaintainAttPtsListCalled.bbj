@@ -278,7 +278,7 @@ display_data:
     print @(64,3), "TOTAL PTS: ", ptsTotal
 
     print @(65,5), "SYSTEM"
-    print @(0,6), "LINE   DATE   PTS  STATUS  CODE  WFMR  DISP  PTS RMVD  RMV DATE  ADJUSTED  RUN"
+    print @(0,6), "LINE   DATE   PTS STS CD SHIFT   WFMR  DISP  PTS RMVD  RMV DATE  ADJUSTED  RUN"
     
     count = 0
     displayedCount = 0
@@ -324,8 +324,9 @@ display_data:
       print @(1, row), displayedCount, "." 
       print @(5, row), formattedDate$
       print @(14,row), str(pointDataMap!.get("pts"):"#.0")
-      print @(21,row), pointDataMap!.get("stat")
-      print @(29,row), pointDataMap!.get("cd")
+      print @(19,row), pointDataMap!.get("stat")
+      print @(22,row), pointDataMap!.get("cd")
+      print @(25,row), str(pointDataMap!.get("sched_shift_id"))
       print @(33,row), str(pointDataMap!.get("wfmr_exc_def_id"):"####")
       print @(40,row), pointDataMap!.get("disp_cd")
       print @(45,row), pointDataMap!.get("pts_removed")
