@@ -222,6 +222,7 @@ old_policy_process_employees:
     ACDT$ = atndRecord.ADDDT$ + atndRecord.CHGDT$
     WH$ = atndRecord.ADDBY$ + atndRecord.CHGBY$
     XLV$ = atndRecord.LVAR$
+    workFileID = atndRecord.WORK_FILE_ID
     
     IF EM$<>"0"+K$ THEN GOTO finished_reading_pts_for_employee_main
     
@@ -229,7 +230,13 @@ old_policy_process_employees:
     
     REM XX$ HAS NEWEST DATES FIRST; ZX$ WILL BE SORTED BY POINTS AND DATES FIRST
 
-    LET XX$=DT$+XX$,TP=TP+PTS,CNTR=CNTR+1,ZX$=ZX$+STR(9-PTS:"0.0")+DT$
+    XX$ = DT$ + XX$
+    TP = TP + PTS
+    CNTR = CNTR + 1
+    
+    REM  Each ZX$ "element" is: 3-long points / 8-long date / 20-long work file ID (total = 31 chars)
+    ZX$ = ZX$ + STR(9-PTS:"0.0") + DT$ + str(workFileID:"00000000000000000000")
+    ZX_ELEMENT_LENGTH = 31
 
     GOTO read_attend_pts_record_main
     
@@ -248,18 +255,24 @@ old_policy_process_employees:
     PRINT (oldPolicyOutputFileChannel)R$
     LET workFileLines=workFileLines+1
     LET RC=0,XT=0
-    CALL "BINSRT",ZX$,11
+    
+    CALL "BINSRT",ZX$,ZX_ELEMENT_LENGTH
     
     try_next_zx_entry:
     
     REM PRINT TRANSACTIONS THAT WE'D REMOVE
     
     IF ZX$="" THEN GOTO finished_with_this_employee
-    LET XD$=ZX$(4,8),ZX$=ZX$(12),RC=RC+1
-    LET XEM$="0"+K$
+
+    XEM$ = "0" + K$
+    XD$ = ZX$(4,8)
+    tmpWorkFileId = num(ZX$(12,20))
+    
+    ZX$ = ZX$(ZX_ELEMENT_LENGTH + 1)
+    RC = RC + 1
     
     rem FIND (atndChannel,KEY=XEM$+XD$)*,*,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
-    find record (atndChannel,KEY=XEM$+XD$) atndRecord$
+    find record (atndChannel,KEY=XEM$ + XD$ + str(tmpWorkFileId)) atndRecord$
 
     REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
     REM  original variables except for actual read/write I/O -- for which the string template is used.
@@ -373,7 +386,7 @@ sr_read_attend_transactions_for_employee:
 sr_inactivate_this_record:
 
     rem EXTRACT (atndChannel,KEY=XEM$+XD$)XEM$,XD$,PTS,CD$,STATUS$,COMNT$,ACDT$,WH$,XLV$
-    extract record (atndChannel,KEY=XEM$+XD$) atndRecord$
+    extract record (atndChannel,KEY=XEM$ + XD$ + str(tmpWorkFileId)) atndRecord$
 
     REM  Normally, I'd use "atndRecord.field_name" throughout the code, but to avoid any search/replace problems, I use the 
     REM  original variables except for actual read/write I/O -- for which the string template is used.

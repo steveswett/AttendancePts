@@ -1,0 +1,23 @@
+REM /**
+REM  * TestFindUsingMultipartKey.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+call "OPEN90", atndChannel, "ATND", atndTemplate$
+dim atndRecord$ : atndTemplate$
+
+XEM$ = "034548"
+XD$ = "20150926"
+tmpWorkFileId = 00000000000000023972
+REM tmpWorkFileId = 0000023972
+REM tmpWorkFileId = 023972
+REM tmpWorkFileId = 23972
+
+REM tmpWorkFileId = 293722222;  REM bad
+
+find record (atndChannel,KEY=XEM$+XD$+str(tmpWorkFileId)) atndRecord$
+
+print "text = ", cvs(atndRecord.TEXT$, 2)
+
+close(atndChannel)

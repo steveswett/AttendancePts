@@ -4,6 +4,10 @@ REM  * @author stevett
 REM  *
 REM  */
 
+myNumber = 3
+
+print "myNumber = ", str(myNumber:"0000000000")
+
 pageDown = asc($1C$)
 
 print "Logged in user = ", info(3,2)
