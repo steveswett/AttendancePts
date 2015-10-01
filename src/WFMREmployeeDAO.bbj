@@ -73,6 +73,13 @@ setup_constants:
     call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
+
+    call "ConfigVarsDAO.bbj::get_value", "use.custom.column.table.for.shift", configVarFound, configVarDataType$, useCustomColumnTableForShift$
+    useCustomColumnTableForShift = num(useCustomColumnTableForShift$)
+
+    if useCustomColumnTableForShift then
+        call "ConfigVarsDAO.bbj::get_value", "custom.column.def.id.for.shift", configVarFound, configVarDataType$, customColumnDefIdForShift$
+    endif
     
     GET_DEPT_NAME_STMT$ =
 :       "select " + 
@@ -104,23 +111,46 @@ load_operations_employees_by_dept_shift:
 :       "employee.badge_number, " +
 :       "Rad_Sys_User.last_name, " +
 :       "Rad_Sys_User.first_name, " +
-:       "lab_employee_primary_job.department_id, " +
-:       "Lab_Employee_Attribute.attribute_code as shift " +
+:       "lab_employee_primary_job.department_id, "
+
+    if useCustomColumnTableForShift then
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
+:           "Lab_Employee_Custom_Column.column_value as shift "
+    else
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
+:           "Lab_Employee_Attribute.attribute_code as shift "
+    endif
+
+    employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
 :       "from employee " +
 :       "join lab_employee_primary_job on lab_employee_primary_job.employee_id = employee.employee_id " +
-:       "inner join Rad_Sys_User on employee.employee_id = Rad_Sys_User.user_id " +
-:       "inner join Lab_Employee_Attribute_List on employee.employee_id = Lab_Employee_Attribute_List.employee_id " +
-:       "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:       "inner join Rad_Sys_User on employee.employee_id = Rad_Sys_User.user_id "
+
+    if useCustomColumnTableForShift then
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
+:           "join Lab_Employee_Custom_Column on employee.employee_id = Lab_Employee_Custom_Column.employee_id " +
+:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
+    else
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
+:           "inner join Lab_Employee_Attribute_List on employee.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
+    endif
+
+    employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
 :       "where " + 
 :       "employee.home_business_unit_id = ? " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
-:       "and lab_employee_primary_job.department_id is not null " +
+:       "and lab_employee_primary_job.department_id is not null "
+
+    if !(useCustomColumnTableForShift) then
+        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
 :       "and Lab_Employee_Attribute_List.employee_attribute_id in " +
 :       "  (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute " +
 :       "   where Lab_Employee_Attribute.attribute_code in ('1','2','3')" +
 :       "  ) " +
 :       "and lab_employee_attribute_list.end_date is null "
+    endif
 
     if deptId > 0 then
         employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ + "and lab_employee_primary_job.department_id = " + str(deptId) + " "
@@ -129,7 +159,11 @@ load_operations_employees_by_dept_shift:
     trimmedShift$ = cvs(shift$,3)
      
     if len(trimmedShift$) > 0 then
-        employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ + "and Lab_Employee_Attribute.attribute_code = '" + trimmedShift$ + "' " 
+        if (useCustomColumnTableForShift) then
+            employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ + "and Lab_Employee_Custom_Column.column_value = '" + trimmedShift$ + "' " 
+        else
+            employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ + "and Lab_Employee_Attribute.attribute_code = '" + trimmedShift$ + "' " 
+        endif
     endif
     
 

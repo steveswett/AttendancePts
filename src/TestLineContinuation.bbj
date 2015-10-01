@@ -1,0 +1,12 @@
+REM /**
+REM  * TestLineContinuation.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+REM the "15. VENDOR" continuation is a problem
+
+PRINT @(0,2)," 1. EMPLOYEE #",@(0,4)," 2. NAME-FIRST",@(32,3),"MIDDLE",@(29,4),"3. INTIAL",@(42,4),"4. LAST",@(0,5)
+:    ," 5. (NAME/ADDR)",@(0,6)," 6. ADDRESS",@(0,7)," 7. CITY",@(33,7),"8. STATE",@(48,7),"9. ZIP",@(0,8),"10. PHONE",@(
+:    0,9),"11. BIRTH DATE",@(0,10),"12. EMPLOY DATE",@(0,11),"13. TERM. DATE",@(0,12),"14. LAST REVIEW",@(0,13), "15. 
+:    VENDOR"

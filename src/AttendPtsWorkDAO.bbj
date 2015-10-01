@@ -234,6 +234,13 @@ setup_constants:
 
     call "AttendPtsTransDAO.bbj::get_exception_ids_as_csv", attendPtsPolicyCode$, exceptionIdsAsCSV$
 
+    call "ConfigVarsDAO.bbj::get_value", "use.custom.column.table.for.shift", configVarFound, configVarDataType$, useCustomColumnTableForShift$
+    useCustomColumnTableForShift = num(useCustomColumnTableForShift$)
+
+    if useCustomColumnTableForShift then
+        call "ConfigVarsDAO.bbj::get_value", "custom.column.def.id.for.shift", configVarFound, configVarDataType$, customColumnDefIdForShift$
+    endif
+
     
     REM  Break up field list into 5 fields per row (so readable)
        
@@ -254,8 +261,17 @@ setup_constants:
 :       "select " +
 :        "Lab_Exception.exception_id, " +
 :        "Lab_Exception.business_unit_id, " +
-:        "Lab_Job.department_id, " +
-:        "Lab_Employee_Attribute.attribute_code as shift, " +
+:        "Lab_Job.department_id, "
+
+    if useCustomColumnTableForShift then
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "Lab_Employee_Custom_Column.column_value as shift, "
+    else
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "Lab_Employee_Attribute.attribute_code as shift, "
+    endif
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
 :        "Lab_Exception.employee_id, " +
 :        "Employee.badge_number, " +
 :        "Lab_Exception.scheduled_shift_id, " +
@@ -271,15 +287,33 @@ setup_constants:
 :        "inner join Rad_Sys_User on Lab_Exception.employee_id = Rad_Sys_User.user_id " + 
 :        "inner join Employee on Lab_Exception.employee_id = Employee.employee_id " + 
 :        "inner join Lab_Punch_Shift on Lab_Exception.shift_start_punch_id = Lab_Punch_Shift.shift_start_punch_id " +
-:        "inner join Lab_Job on Lab_Exception.job_id = Lab_Job.job_id " + 
-:        "inner join Lab_Employee_Attribute_List on Lab_Exception.employee_id = Lab_Employee_Attribute_List.employee_id " +
-:        "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:        "inner join Lab_Job on Lab_Exception.job_id = Lab_Job.job_id "
+
+    if useCustomColumnTableForShift then
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "inner join Lab_Employee_Custom_Column on Lab_Exception.employee_id = Lab_Employee_Custom_Column.employee_id "
+    else
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "inner join Lab_Employee_Attribute_List on Lab_Exception.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
+    endif
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
 :        "where Lab_Exception.business_date between '" +
 :        businessDateFromIn$ +
 :        "' and '" +
-:        businessDateToIn$ +
-:        "' and Lab_Employee_Attribute_List.end_date is null " +
-:        "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
+:        businessDateToIn$ + "' "
+
+    if useCustomColumnTableForShift then
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
+    else
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "and Lab_Employee_Attribute_List.end_date is null " +
+:           "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) "
+    endif
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
 :        "and Lab_Exception.exception_definition_id in("+
 :        exceptionIdsAsCSV$ +
 :        ") " +
@@ -306,8 +340,18 @@ setup_constants:
 :       "select " +
 :       "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
 :        "Lab_Employee_Missed_Shifts.business_unit_id, " +
-:        "Lab_Job.department_id, " +
-:        "Lab_Employee_Attribute.attribute_code as shift, " +
+:        "Lab_Job.department_id, "
+
+    if useCustomColumnTableForShift then
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "Lab_Employee_Custom_Column.column_value as shift, "
+    else
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "Lab_Employee_Attribute.attribute_code as shift, "
+    
+    endif
+    
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
 :        "Lab_Employee_Missed_Shifts.employee_id, " +
 :        "Employee.badge_number, " +
 :        "Lab_Employee_Missed_Shifts.scheduled_shift_id, " +
@@ -322,17 +366,35 @@ setup_constants:
 :        "from Lab_Employee_Missed_Shifts " +
 :        "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
 :        "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
-:        "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id " + 
-:        "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
-:        "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id " +
+:        "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id "
+
+    if useCustomColumnTableForShift then
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ +
+:           "inner join Lab_Employee_Custom_Column on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Custom_Column.employee_id "
+    else
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ +
+:           "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
+    endif 
+    
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
 :        "left join Reason on Lab_Employee_Missed_Shifts.reason_id = Reason.reason_id " +
 :        "where " + 
 :        "Lab_Employee_Missed_Shifts.business_date between '" + 
 :        businessDateFromIn$ +
 :        "' and '" +
-:        businessDateToIn$ +
-:        "' and Lab_Employee_Attribute_List.end_date is null " +
-:        "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) " +
+:        businessDateToIn$ + "' "
+
+    if useCustomColumnTableForShift then
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
+    else
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "and Lab_Employee_Attribute_List.end_date is null " +
+:           "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) "
+    endif
+    
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
 :        "and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
 :        "and Lab_Job.name not like '%Supervisor%' " +
 :        "order by missed_shift_date, shift, last_name, first_name"
