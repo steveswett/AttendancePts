@@ -9,6 +9,13 @@ REM  *
 REM  */
 
 
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+
+
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
 
 rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
@@ -48,30 +55,20 @@ set_attend_pts_date_to_today:
     exit
 
 
+append_empno_to_map_of_maps:
+
+    enter employeeRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub insert_empno_into_map_of_maps
+    
+    exit
+
+
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 subroutines:
-
-
-REM  ------------------------------------------------------------------------------------------
-REM  setup_constants
-REM  ------------------------------------------------------------------------------------------
-
-setup_constants:
-
-    TRUE = 1
-    FALSE = 0
-
-    REM  TODO: In future, use Java static class to store config var names (to remove redundancy)
-    
-    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
-    
-    GET_LAST_FIRST_MI_SELECT_STMT$ = "select rtrim(substring(name, 14, 14)) + ', ' + rtrim(substring(name, 1, 11)) + ' ' + rtrim(substring(name, 12, 2)) as last_first_mi " +
-:                                    "from employ where badg = ?"
-    
-    SET_ATTEND_PTS_DATE_TO_TODAY_STMT$ = "update employ set atndt = ? where badg = ?"
-    
-    return
 
 
 REM  ------------------------------------------------------------------------------------------
@@ -117,3 +114,66 @@ update_pts_date_to_today:
     sqlclose(employChannel)
 
     return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Given a LinkedHashMap employeeRecordsMap!, which contains several inner maps (one per
+REM  employee), add the "empno" into each inner map.
+REM  ------------------------------------------------------------------------------------------
+    
+    
+insert_empno_into_map_of_maps:
+
+    employChannel = sqlunt
+    sqlopen(employChannel) attendPtsDataSource$
+
+    sqlprep(employChannel) GET_EMPNO_STMT$
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+
+        sqlexec(employChannel) badgeKey!
+        
+        dim resultRow$:sqltmpl(employChannel)
+        
+        empNo$ = "0"
+        resultRow$ = sqlfetch(employChannel,err=emp_not_found)
+        empNo$ = cvs(resultRow.empno$, 2)
+        
+        emp_not_found:
+        
+        employeeDataMap!.put("empno", empNo$)
+
+    wend
+    
+    sqlclose(employChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    REM  TODO: In future, use Java static class to store config var names (to remove redundancy)
+    
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    GET_LAST_FIRST_MI_SELECT_STMT$ = "select rtrim(substring(name, 14, 14)) + ', ' + rtrim(substring(name, 1, 11)) + ' ' + rtrim(substring(name, 12, 2)) as last_first_mi " +
+:                                    "from employ where badg = ?"
+    
+    SET_ATTEND_PTS_DATE_TO_TODAY_STMT$ = "update employ set atndt = ? where badg = ?"
+    
+    GET_EMPNO_STMT$ = "select empno from employ where badg = ?"
+    
+    return
+    

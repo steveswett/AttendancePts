@@ -70,6 +70,8 @@ init:
     useWindowsMailSend = num(useWindowsMailSend$)
     
     call "ConfigVarsDAO.bbj::get_value", "mail.recipients.eto.awards", configVarFound, configVarDataType$, mailRecipients$
+    
+    call "ConfigVarsDAO.bbj::get_value", "adp.company.code", configVarFound, configVarDataType$, adpCompanyCode$
 
     return
 
@@ -250,7 +252,6 @@ combine_and_process_qualified_eto_awardees:
     while iter!.hasNext()
     
         badgeKey! = iter!.next()
-        
         employeeDataMap! = cast( java.util.HashMap, combinedEmployeeRecordsMap!.get(badgeKey!) )
         
         if employeeDataMap!.containsKey("qualifies") then
@@ -263,8 +264,7 @@ combine_and_process_qualified_eto_awardees:
                 prevStd = std
             endif
             
-            bodyDetail$ = bodyDetail$ + cvs(employeeDataMap!.get("last_name"), 2) + ", " + 
-:               cvs(employeeDataMap!.get("first_name"), 2) + " (" + badgeKey! + ") has no attend pts from " 
+            bodyDetail$ = bodyDetail$ + cvs(employeeDataMap!.get("last_name"), 2) + ", " + cvs(employeeDataMap!.get("first_name"), 2) + " (" + badgeKey! + ") has no attend pts from " 
 
             if std then
                 bodyDetail$ = bodyDetail$ + formattedFromDate$ + " through " + formattedToDate$
@@ -284,7 +284,11 @@ combine_and_process_qualified_eto_awardees:
     
     if numberOfEmployeesEarningNewETO > 0 then
     
-        REM  Step 1. Write output file for ADP 
+        REM  Step 1. Fetch ADP employee numbers:
+        
+        call "EmployeeMasterDAO.bbj::append_empno_to_map_of_maps", combinedEmployeeRecordsMap!
+    
+        REM  Step 2. Write output file for ADP 
 
         outputFileName$="/usr/tmpfiles/eto_awards_" + yyyymmddCurrent$ + ".csv"
         erase outputFileName$,ERR=*next
@@ -300,14 +304,19 @@ combine_and_process_qualified_eto_awardees:
         while iter!.hasNext()
         
             badgeKey! = iter!.next()
-            print(outputFileChannel) "External Awards,", badgeKey!, ",ETO,,", formattedADPDate$, ",," + etoAwardHrs$ + ",hours,"
+            employeeDataMap! = cast( java.util.HashMap, combinedEmployeeRecordsMap!.get(badgeKey!) )
+            empNo$ = employeeDataMap!.get("empno")
+            
+            positionID$ = adpCompanyCode$ + pad(empno$, 6, "R", "0")
+            
+            print(outputFileChannel) "External Awards,", positionID$, ",ETO,,", formattedADPDate$, ",," + etoAwardHrs$ + ",hours,"
         
         wend
 
         close(outputFileChannel)
         
         
-        REM  Step 2. Write award history records
+        REM  Step 3. Write award history records
         
         call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
 
