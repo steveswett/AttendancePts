@@ -32,6 +32,8 @@ class public RestfulJIRAWebHookServlet
     field private BBjHttpSession session!
     field private BBjHttpRequest request!
 
+    field private BBjVector parmNames!
+
 
     method public void handleRequestEvent(BBjServletEvent p_event!)
 
@@ -118,8 +120,29 @@ class public RestfulJIRAWebHookServlet
     
     
     method public void postIssueAndRespond(java.lang.String urlPath!)
-
-        print(#chan) "<p>The server reached the postIssueAndRespond method.</p>"
+    
+        print(#chan) "<p>Test of getting a few important pieces of data<p>"
+        print(#chan) "<ul>"
+        
+        print(#chan) "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
+        print(#chan) "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
+        
+        print(#chan) "</ul>"
+        
+    
+        #parmNames! = #request!.getParameterNames()
+        
+        print(#chan) "<p>Complete list of parameter names shown in list below:<p>"
+        print(#chan) "<ul>"
+        
+        for x = 0 to #parmNames!.size() - 1
+            print(#chan) "<li>" + #parmNames!.get(x) + "</li>"
+        next x
+        
+        print(#chan) "</ul>"
+        
+         
+        REM print(#chan) "<p>The server reached the postIssueAndRespond method.</p>"
 
     methodend
     
