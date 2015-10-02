@@ -1,0 +1,135 @@
+REM /**
+REM  * RestfulJIRAWebHookServlet.bbj
+REM  * @author stevett
+REM  * written October 2015
+REM  *
+REM  */
+
+REM  To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
+
+
+declare BBjServletData sData!
+
+    rem  Note the implied goto "run_test_instead" if this isn't run in a servlet environment.  See near end of program.
+    
+sData! = BBjAPI().getServletData(err=run_test_instead)
+
+declare RestfulJIRAWebHookServlet myServlet!
+myServlet! = new RestfulJIRAWebHookServlet()
+sData!.setCallback(sData!.ON_WEB_CONNECTION, myServlet!, "handleRequestEvent");   rem starting method -- see below
+
+ 
+PROCESS_EVENTS
+
+
+class public RestfulJIRAWebHookServlet
+
+    field private BBjNumber TRUE = 1
+    field private BBjNumber FALSE = 0
+    field private BBjNumber doTrace = #FALSE
+
+    field private BBjNumber chan
+    field private BBjHttpSession session!
+    field private BBjHttpRequest request!
+
+
+    method public void handleRequestEvent(BBjServletEvent p_event!)
+
+        declare BBjHttpResponse response!
+        declare BBjHttpRequest request!
+
+        #chan = unt
+        #request! = cast(BBjHttpRequest, p_event!.getHttpRequest())
+        #session! = cast(BBjHttpSession, #request!.getSession())
+        
+        response! = p_event!.getHttpResponse()
+        
+        REM response!.setContentType("application/json")
+        
+        REM  The following is absolutely needed if I'm just going to return a bit of text to append
+        REM  to some DOM node
+        
+        response!.setContentType("text/html")
+        
+        open(#chan)"JSERVLET"
+        #processRequest(#request!.getMethod(), #request!.getPathInfo())
+        close(#chan) 
+
+    methodend
+    
+    
+        rem  This method is a test case 
+    
+    method public void testGetIssueResponse()
+    
+      #chan = unt
+      
+      rem  Send output to a file, so you can see results:
+      
+      open(#chan, mode="O_CREATE") "/junk/RestfulJIRAWebHookServlet-output.txt"
+      #processRequest("GET", "/issue/ERP-1524")
+      close(#chan)
+      
+    methodend
+    
+    
+    method public void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
+        
+        if urlPath!.startsWith("/issue/")  then
+            
+            if httpMethod!.equals("GET") then
+                #getIssueResponse(urlPath!)
+            endif
+            
+            if httpMethod!.equals("POST") then
+
+                if #doTrace then
+                    recipients$ = "steve.swett@notionsmarketing.com"
+                    subject$ = "WebHook post is being reached"
+                    body$ = "httpMethod!, urlPath! = " + httpMethod! + ", " + urlPath!
+                    
+                    call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$
+                endif
+
+                #postIssueAndRespond(urlPath!)
+            endif
+            
+        endif
+
+    methodend
+    
+    
+    method public void getIssueResponse(java.lang.String urlPath!)
+
+        json$ = "["
+
+        name$ = "Steve"
+        ratingLevel$ = "3.5"
+        
+        json$ = json$ + " {""name"":""" + name$ + """, ""ratingLevel"":""" + ratingLevel$ + """},"
+            
+        rem  Finish up
+        json$ = json$(1, len(json$)-1)
+        json$ = json$ + "]"
+        
+        print(#chan) json$
+
+    methodend
+    
+    
+    method public void postIssueAndRespond(java.lang.String urlPath!)
+
+        print(#chan) "<p>The server reached the postIssueAndRespond method.</p>"
+
+    methodend
+    
+    
+classend
+
+
+    rem  The following gets run if not in a servlet environment -- that is, if run manually from Eclipse
+
+run_test_instead:
+
+    testServlet! = new RestfulJIRAWebHookServlet()
+    testServlet!.testGetIssueResponse()

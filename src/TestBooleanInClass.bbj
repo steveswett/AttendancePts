@@ -1,0 +1,32 @@
+REM /**
+REM  * TestBooleanInClass.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+declare TestBooleanInClass myClass!
+myClass! = new TestBooleanInClass()
+
+myClass!.myMethod()
+
+
+class public TestBooleanInClass
+
+    field private BBjNumber TRUE = 1
+    field private BBjNumber FALSE = 0
+    field private BBjNumber doTrace = #TRUE
+
+
+    method public void myMethod()
+    
+        if #doTrace then
+            print "doTrace is TRUE"
+        else
+            print "doTrace is FALSE"
+        endif
+      
+    methodend
+    
+    
+classend

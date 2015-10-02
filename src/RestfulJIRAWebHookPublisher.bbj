@@ -1,0 +1,39 @@
+REM /**
+REM  * RestfulJIRAWebHookPublisher.bbj
+REM  * @author stevett
+REM  * written October 2015
+REM  *
+REM  */
+
+declare BBjAdmin admin!
+declare BBjServletRegistry registry!
+declare BBjConfig config!
+declare BBjAppConfig application!
+
+ 
+    rem  Create application configuration
+
+config! = BBjAPI().getConfig()
+application! = config!.makeEmptyAppConfig()
+application!.setWorkingDirectory(dsk("")+dir(""))
+application!.setConfigFile(System.getProperty("com.basis.server.configDirectory")+"/bbj-config.txt")
+application!.setProgramName("RestfulJIRAWebHookServlet.bbj")
+ 
+    rem  Obtain servlet registry
+    
+admin! = BBjAPI().getAdmin("admin", "admin123")
+registry! = admin!.getServletRegistry()
+ 
+    rem  Using the registry, unpublish and then republish the servlet.  "JIRAWebHook" is the servlet name
+    
+registry!.unpublish("/JIRAWebHook", err=*next)
+registry!.publish("/JIRAWebHook", application!)
+
+input @(5,5), "RestfulJIRAWebHookServlet published.  Hit any key to continue.", ignoreInput$
+
+release
+bye
+
+
+    rem  To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
+
