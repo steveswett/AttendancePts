@@ -17,19 +17,19 @@ config! = BBjAPI().getConfig()
 application! = config!.makeEmptyAppConfig()
 application!.setWorkingDirectory(dsk("")+dir(""))
 application!.setConfigFile(System.getProperty("com.basis.server.configDirectory")+"/bbj-config.txt")
-application!.setProgramName("RestfulJIRAWebHookServlet.bbj")
+application!.setProgramName("RestfulJIRAWebHook.bbj")
  
     rem  Obtain servlet registry
     
 admin! = BBjAPI().getAdmin("admin", "admin123")
 registry! = admin!.getServletRegistry()
  
-    rem  Using the registry, unpublish and then republish the servlet.  "JIRAWebHook" is the servlet name
+    rem  Using the registry, unpublish and then republish the servlet driver.  "JIRAWebHook" is the servlet name
     
 registry!.unpublish("/JIRAWebHook", err=*next)
 registry!.publish("/JIRAWebHook", application!)
 
-input @(5,5), "RestfulJIRAWebHookServlet published.  Hit any key to continue.", ignoreInput$
+input @(5,5), "RestfulJIRAWebHook program published.  Hit any key to continue.", ignoreInput$
 
 release
 bye

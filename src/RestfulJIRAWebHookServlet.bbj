@@ -5,22 +5,6 @@ REM  * written October 2015
 REM  *
 REM  */
 
-REM  To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
-
-
-declare BBjServletData sData!
-
-    rem  Note the implied goto "run_test_instead" if this isn't run in a servlet environment.  See near end of program.
-    
-sData! = BBjAPI().getServletData(err=run_test_instead)
-
-declare RestfulJIRAWebHookServlet myServlet!
-myServlet! = new RestfulJIRAWebHookServlet()
-sData!.setCallback(sData!.ON_WEB_CONNECTION, myServlet!, "handleRequestEvent");   rem starting method -- see below
-
- 
-PROCESS_EVENTS
-
 
 class public RestfulJIRAWebHookServlet
 
@@ -62,14 +46,14 @@ class public RestfulJIRAWebHookServlet
     
         rem  This method is a test case 
     
-    method public void testGetIssueResponse()
+    method public void getTestModeResponse()
     
       #chan = unt
       
       rem  Send output to a file, so you can see results:
       
       open(#chan, mode="O_CREATE") "/junk/RestfulJIRAWebHookServlet-output.txt"
-      #processRequest("GET", "/issue/ERP-1524")
+      #processRequest("GET", "/srq-status-change/ERP-1524")
       close(#chan)
       
     methodend
@@ -77,7 +61,7 @@ class public RestfulJIRAWebHookServlet
     
     method public void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
         
-        if urlPath!.startsWith("/issue/")  then
+        if urlPath!.startsWith("/srq-status-change/")  then
             
             if httpMethod!.equals("GET") then
                 #getIssueResponse(urlPath!)
@@ -103,18 +87,7 @@ class public RestfulJIRAWebHookServlet
     
     method public void getIssueResponse(java.lang.String urlPath!)
 
-        json$ = "["
-
-        name$ = "Steve"
-        ratingLevel$ = "3.5"
-        
-        json$ = json$ + " {""name"":""" + name$ + """, ""ratingLevel"":""" + ratingLevel$ + """},"
-            
-        rem  Finish up
-        json$ = json$(1, len(json$)-1)
-        json$ = json$ + "]"
-        
-        print(#chan) json$
+        print(#chan) "<p>This is the response given if method is GET.<p>"
 
     methodend
     
@@ -126,6 +99,7 @@ class public RestfulJIRAWebHookServlet
         
         print(#chan) "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
         print(#chan) "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
+        print(#chan) "<li>user[emailAddress] = " + #request!.getParameter("user[emailAddress]") + "</li>"
         
         print(#chan) "</ul>"
         
@@ -148,11 +122,3 @@ class public RestfulJIRAWebHookServlet
     
     
 classend
-
-
-    rem  The following gets run if not in a servlet environment -- that is, if run manually from Eclipse
-
-run_test_instead:
-
-    testServlet! = new RestfulJIRAWebHookServlet()
-    testServlet!.testGetIssueResponse()
