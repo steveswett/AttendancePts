@@ -6,11 +6,16 @@ REM  *
 REM  */
 
 
+use java.net.URLDecoder
+
+
 class public RestfulJIRAWebHookServlet
 
     field private BBjNumber TRUE = 1
     field private BBjNumber FALSE = 0
-    field private BBjNumber doTrace = #FALSE
+
+    field private BBjNumber sendResponseText = #TRUE
+    field private BBjNumber sendEmailData = #FALSE
 
     field private BBjNumber chan
     field private BBjHttpSession session!
@@ -69,12 +74,18 @@ class public RestfulJIRAWebHookServlet
             
             if httpMethod!.equals("POST") then
 
-                if #doTrace then
+                if #sendEmailData then
                     recipients$ = "steve.swett@notionsmarketing.com"
-                    subject$ = "WebHook post is being reached"
-                    body$ = "httpMethod!, urlPath! = " + httpMethod! + ", " + urlPath!
+                    subject$ = "In processRequest method of RestfulJIRAWebHookServlet"
+                    body$ = "httpMethod!, urlPath!, body = " + httpMethod! + ", " + urlPath! + ", " + #request!.getBody() 
                     
                     call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$
+                endif
+                
+                if #sendResponseText then
+                
+                
+                
                 endif
 
                 #postIssueAndRespond(urlPath!)
@@ -88,6 +99,11 @@ class public RestfulJIRAWebHookServlet
     method public void getIssueResponse(java.lang.String urlPath!)
 
         print(#chan) "<p>This is the response given if method is GET.<p>"
+        
+        decodedText$ = java.net.URLDecoder.decode("Hello%20there", "UTF-8")
+        
+        print(#chan) "<p>This is the decodedText$ = " + decodedText$ + "</p>"
+        
 
     methodend
     
@@ -99,6 +115,7 @@ class public RestfulJIRAWebHookServlet
         
         print(#chan) "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
         print(#chan) "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
+        print(#chan) "<li>issue[fields][description] = " + #request!.getParameter("issue[fields][description]") + "</li>"
         print(#chan) "<li>user[emailAddress] = " + #request!.getParameter("user[emailAddress]") + "</li>"
         
         print(#chan) "</ul>"
@@ -114,6 +131,12 @@ class public RestfulJIRAWebHookServlet
         next x
         
         print(#chan) "</ul>"
+        
+        print(#chan) "<p>Raw body of request:</p>"
+        
+        decodedBody$ = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
+        
+        print(#chan) "<p><xmp>" + decodedBody$ + "</xmp></p>"
         
          
         REM print(#chan) "<p>The server reached the postIssueAndRespond method.</p>"

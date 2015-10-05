@@ -1,0 +1,11 @@
+REM /**
+REM  * TestStringEscapeUtils.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use org.apache.commons.lang3.StringEscapeUtils
+
+decodedPhrase$ = org.apache.commons.lang3.StringEscapeUtils.unescapeXml("id=2&timestamp=2011-06-07T10%3A31%3A26.805-0500&issue%5Bexpand%5D=renderedFields")
+
+print decodedPhrase$

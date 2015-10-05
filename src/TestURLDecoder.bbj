@@ -1,0 +1,11 @@
+REM /**
+REM  * TestURLDecoder.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.net.URLDecoder
+
+decodedPhrase$ = java.net.URLDecoder.decode("Hello%20there", "UTF-8")
+
+print decodedPhrase$
