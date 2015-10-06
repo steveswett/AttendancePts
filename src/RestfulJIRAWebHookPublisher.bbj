@@ -3,6 +3,10 @@ REM  * RestfulJIRAWebHookPublisher.bbj
 REM  * @author stevett
 REM  * written October 2015
 REM  *
+REM  * NOTE: There are some hard-wired things here that I don't like, but we don't have a full environment
+REM  *       on nmcm, which is where this will run.  Could perhaps make more flexible later with
+REM  *       CONFIG_VARS access, etc.
+REM  *
 REM  */
 
 declare BBjAdmin admin!
@@ -10,16 +14,23 @@ declare BBjServletRegistry registry!
 declare BBjConfig config!
 declare BBjAppConfig application!
 
+
+TRUE = 1
+FALSE = 0
+runningOnWindowsDev = TRUE
+
  
     rem  Create application configuration
 
 config! = BBjAPI().getConfig()
 application! = config!.makeEmptyAppConfig()
 application!.setWorkingDirectory(dsk("")+dir(""))
-application!.setConfigFile(System.getProperty("com.basis.server.configDirectory")+"/bbj-config.txt")
+application!.setConfigFile(System.getProperty("com.basis.server.configDirectory") + iff(runningOnWindowsDev, "/bbj-config.txt", "/config.bbx"))
 application!.setProgramName("RestfulJIRAWebHook.bbj")
  
     rem  Obtain servlet registry
+    
+    REM  TODO: Get rid of this hard-wired login!!!
     
 admin! = BBjAPI().getAdmin("admin", "admin123")
 registry! = admin!.getServletRegistry()

@@ -3,6 +3,10 @@ REM  * RestfulJIRAWebHookServlet.bbj
 REM  * @author stevett
 REM  * written October 2015
 REM  *
+REM  * NOTE: There are some hard-wired things here that I don't like, but we don't have a full environment
+REM  *       on nmcm, which is where this will run.  Could perhaps make more flexible later with
+REM  *       CONFIG_VARS access, etc.
+REM  * 
 REM  */
 
 
@@ -14,8 +18,11 @@ class public RestfulJIRAWebHookServlet
     field private BBjNumber TRUE = 1
     field private BBjNumber FALSE = 0
 
-    field private BBjNumber sendResponseText = #TRUE
-    field private BBjNumber sendEmailData = #FALSE
+    field private BBjNumber sendResponseText = #FALSE
+    field private BBjNumber sendEmailData = #TRUE
+    field private BBjNumber includeRawBodyOfRequest = #TRUE
+
+    field private BBjNumber runningOnWindowsDev = #TRUE
 
     field private BBjNumber chan
     field private BBjHttpSession session!
@@ -57,7 +64,7 @@ class public RestfulJIRAWebHookServlet
       
       rem  Send output to a file, so you can see results:
       
-      open(#chan, mode="O_CREATE") "/junk/RestfulJIRAWebHookServlet-output.txt"
+      open(#chan, mode="O_CREATE") "/tmp/RestfulJIRAWebHookServlet-output.txt"
       #processRequest("GET", "/srq-status-change/ERP-1524")
       close(#chan)
       
@@ -68,27 +75,36 @@ class public RestfulJIRAWebHookServlet
         
         if urlPath!.startsWith("/srq-status-change/")  then
             
-            if httpMethod!.equals("GET") then
-                #getIssueResponse(urlPath!)
-            endif
-            
             if httpMethod!.equals("POST") then
+            
+                requestData$ = #getRequestData()
 
                 if #sendEmailData then
                     recipients$ = "steve.swett@notionsmarketing.com"
-                    subject$ = "In processRequest method of RestfulJIRAWebHookServlet"
-                    body$ = "httpMethod!, urlPath!, body = " + httpMethod! + ", " + urlPath! + ", " + #request!.getBody() 
+                    subject$ = "E-mail data for RestfulJIRAWebHookServlet"
                     
-                    call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$
+                    body$ = "<p>httpMethod! = " + httpMethod! + "</p>"
+                    body$ = body$ + "<p>urlPath! = " + urlPath! + "</p>"
+                    body$ = body$ + "<p>requestData = " + "</p>"
+                    body$ = body$ + requestData$
+                    
+                    if #runningOnWindowsDev then
+                        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$
+                    else
+                        emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ -S smtp=""nmcz.notions-marketing.com"" " + recipients$
+                        returnCode = scall(emailCmd$)
+                    endif
+                    
                 endif
                 
                 if #sendResponseText then
-                
-                
-                
+                    print(#chan) requestData$
                 endif
-
-                #postIssueAndRespond(urlPath!)
+                
+            endif
+            
+            if httpMethod!.equals("GET") then
+                #getSampleResponseForGetMethod(urlPath!)
             endif
             
         endif
@@ -96,7 +112,47 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
-    method public void getIssueResponse(java.lang.String urlPath!)
+    method public java.lang.String getRequestData()
+    
+        requestData$ = ""
+    
+        requestData$ = requestData$ + "<p>Test of getting a few important pieces of data<p>"
+        requestData$ = requestData$ + "<ul>"
+        
+        requestData$ = requestData$ + "<li>webhookEvent = " + #request!.getParameter("webhookEvent") + "</li>"
+        requestData$ = requestData$ + "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
+        requestData$ = requestData$ + "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
+        requestData$ = requestData$ + "<li>issue[fields][description] = " + #request!.getParameter("issue[fields][description]") + "</li>"
+        requestData$ = requestData$ + "<li>user[emailAddress] = " + #request!.getParameter("user[emailAddress]") + "</li>"
+        
+        requestData$ = requestData$ + "</ul>"
+        
+    
+        #parmNames! = #request!.getParameterNames()
+        
+        requestData$ = requestData$ + "<p>Complete list of parameter names shown in list below<p>"
+        requestData$ = requestData$ + "<ul>"
+        
+        for x = 0 to #parmNames!.size() - 1
+            requestData$ = requestData$ + "<li>" + #parmNames!.get(x) + "</li>"
+        next x
+        
+        requestData$ = requestData$ + "</ul>"
+
+        
+        if #includeRawBodyOfRequest then
+            requestData$ = requestData$ + "<p>Raw body of request</p>"
+            decodedBody$ = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
+            requestData$ = requestData$ + "<p><xmp>" + decodedBody$ + "</xmp></p>"
+        endif
+        
+        
+        methodret requestData$
+
+    methodend
+    
+    
+    method public void getSampleResponseForGetMethod(java.lang.String urlPath!)
 
         print(#chan) "<p>This is the response given if method is GET.<p>"
         
@@ -104,42 +160,6 @@ class public RestfulJIRAWebHookServlet
         
         print(#chan) "<p>This is the decodedText$ = " + decodedText$ + "</p>"
         
-
-    methodend
-    
-    
-    method public void postIssueAndRespond(java.lang.String urlPath!)
-    
-        print(#chan) "<p>Test of getting a few important pieces of data<p>"
-        print(#chan) "<ul>"
-        
-        print(#chan) "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
-        print(#chan) "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
-        print(#chan) "<li>issue[fields][description] = " + #request!.getParameter("issue[fields][description]") + "</li>"
-        print(#chan) "<li>user[emailAddress] = " + #request!.getParameter("user[emailAddress]") + "</li>"
-        
-        print(#chan) "</ul>"
-        
-    
-        #parmNames! = #request!.getParameterNames()
-        
-        print(#chan) "<p>Complete list of parameter names shown in list below:<p>"
-        print(#chan) "<ul>"
-        
-        for x = 0 to #parmNames!.size() - 1
-            print(#chan) "<li>" + #parmNames!.get(x) + "</li>"
-        next x
-        
-        print(#chan) "</ul>"
-        
-        print(#chan) "<p>Raw body of request:</p>"
-        
-        decodedBody$ = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
-        
-        print(#chan) "<p><xmp>" + decodedBody$ + "</xmp></p>"
-        
-         
-        REM print(#chan) "<p>The server reached the postIssueAndRespond method.</p>"
 
     methodend
     

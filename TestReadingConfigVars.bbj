@@ -1,0 +1,21 @@
+REM /**
+REM  * TestReadingConfigVars.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+sqlChannel = SQLUNT
+
+SQLOPEN(sqlChannel) "NotionsDB" 
+SQLPREP(sqlChannel) "select cv_key, cv_value from config_vars"
+SQLEXEC(sqlChannel)
+DIM rec$:SQLTMPL(sqlChannel)
+
+WHILE 1
+    rec$ = SQLFETCH(sqlChannel,ERR=finished)
+    PRINT cvs(rec.cv_key$, 2), " = ", cvs(rec.cv_value$, 2)
+WEND
+
+finished:
+
+SQLCLOSE(sqlChannel)
