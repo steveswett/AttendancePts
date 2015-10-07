@@ -1,0 +1,34 @@
+REM /**
+REM  * TestGetAttendPtsWorkCountByDateSource.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.LinkedHashMap recordsMap!
+declare java.util.HashMap dataMap!
+
+ 
+recordsMap! = new java.util.LinkedHashMap()
+call "AttendPtsWorkDAO.bbj::get_count_by_exc_date_and_source_map", 20151001, 20151005, recordsMap!
+
+iter! = recordsMap!.keySet().iterator()
+
+while iter!.hasNext()
+
+    idKey! = iter!.next()
+
+    dataMap! = cast( java.util.HashMap, recordsMap!.get(idKey!) )
+      
+    wfmrExcDate$ = dataMap!.get("wfmr_exc_date")
+    wfmrSrc$ = dataMap!.get("wfmr_src")
+    qty = dataMap!.get("qty")
+    
+    print "date src qty = ", wfmrExcDate$, " ", wfmrSrc$, " ", qty  
+  
+wend
+
+print "size of recordsMap! = ", recordsMap!.size()

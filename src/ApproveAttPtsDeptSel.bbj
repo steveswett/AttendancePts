@@ -164,6 +164,9 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     
     resultIgnored$ = stbl("!TERMS", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
     resultIgnored$ = stbl("!EDIT", f2Pair$ + f4Pair$ + f6Pair$ + pageupPair$ + pagedownPair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+
+    call "AttendPtsWorkDAO.bbj::get_date_of_most_recent_exception_loaded", yyyymmddMostRecentException$
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_day_name", yyyymmddMostRecentException$, mostRecentExceptionDateFmt$
     
     deptsMap! = new java.util.LinkedHashMap()
     call "WFMRDeptDAO.bbj::get_ids_and_names", deptsMap!
@@ -200,7 +203,9 @@ display_data:
     
     gosub display_screen_headings
     
-    print @(0, 3), "DEPT: ", 'BU', "  ", 'EU', "   SHIFT: ", 'BU', shift$, 'EU', " (1, 2, 3)"
+    print @(0, 3), "DEPT: ", 'BU', "  ", 'EU' 
+    print @(10, 3), "SHIFT: ", 'BU', shift$, 'EU', " (1, 2, 3)"
+    print @(31,3), "Latest WFMR exception date loaded: ", mostRecentExceptionDateFmt$
     
     count = 0
     displayedCount = 0

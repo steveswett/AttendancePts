@@ -120,6 +120,28 @@ get_records_where_exceptions_no_longer_exist:
     gosub get_work_records_map_where_exceptions_no_longer_exist
     
     exit
+    
+
+get_count_by_exc_date_and_source_map:    
+
+    enter fromDateIn, toDateIn, attPtsRecordsMapOut!
+    
+    gosub setup_constants
+    
+    gosub load_count_by_exc_date_and_source_map
+    
+    exit
+
+
+get_date_of_most_recent_exception_loaded:
+
+    enter yyyymmddOut$
+    
+    gosub setup_constants
+    
+    gosub get_yyyymmdd_of_most_recent_exception_loaded
+    
+    exit
 
 
 flag_records_where_exceptions_no_longer_exist:
@@ -193,281 +215,6 @@ run_mass_load:
     gosub ml_prepare_sql_stmts
     gosub ml_process_wfmr_data
     gosub ml_close_sql_channels
-
-    return
-
-
-REM  ------------------------------------------------------------------------------------------
-REM  Define constants
-REM  ------------------------------------------------------------------------------------------
-
-setup_constants:
-
-    TRUE = 1
-    FALSE = 0
-    
-    ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$ = "current.attend.pts.policy.code"
-    
-    MASS_LOAD_EXCEPTIONS_SRC$ = "E"
-    MASS_LOAD_MISSED_SHIFT_SRC$ = "M"
-    
-    PRINT_TRACE_INFO = FALSE
-    BATCH_SIZE = 500
-    
-    DEFAULT_DISPOSITION_CODE$ = "N"
-    DEFAULT_DISPOSITION_EDIT_REASON_ID = 0
-    DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ = ""
-    DEFAULT_LAST_MANUALLY_MODIFIED_USER$ = ""
-    DEFAULT_POSTED_TIMESTAMP$ = ""
-    DEFAULT_POSTED_USER$ = ""
-    
-    REM Uses the data source names in the SQL.INI file
-    
-    attendPtsDataSource$ = ""
-    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
-    
-    wfmrDataSource$ = ""
-    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
-    
-    attendPtsPolicyCode$ = ""
-    call "ConfigVarsDAO.bbj::get_value", ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$, configVarFound, configVarDataType$, attendPtsPolicyCode$
-
-    call "AttendPtsTransDAO.bbj::get_exception_ids_as_csv", attendPtsPolicyCode$, exceptionIdsAsCSV$
-
-    call "ConfigVarsDAO.bbj::get_value", "use.custom.column.table.for.shift", configVarFound, configVarDataType$, useCustomColumnTableForShift$
-    useCustomColumnTableForShift = num(useCustomColumnTableForShift$)
-
-    if useCustomColumnTableForShift then
-        call "ConfigVarsDAO.bbj::get_value", "custom.column.def.id.for.shift", configVarFound, configVarDataType$, customColumnDefIdForShift$
-    endif
-
-    
-    REM  Break up field list into 5 fields per row (so readable)
-       
-    STARTING_INSERT_STMT$ =
-:        "insert into ATTEND_PTS_WORK " +
-:        "(id, wfmr_src, wfmr_exc_id, wfmr_in_tm_miss, bus_unit_id, " +
-:        "dept_id, shift, emp_id, emp_badge_no, job_id, " +
-:        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
-:        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
-:        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid, " +
-:        "wfmr_reason_id, exc_gone_stamp, sched_shift_id) " +
-:        "values "
-
-
-    REM  Probably could have parameterized the following query with ?
-
-    WFMR_EXCEPTIONS_SELECT_STMT$ = 
-:       "select " +
-:        "Lab_Exception.exception_id, " +
-:        "Lab_Exception.business_unit_id, " +
-:        "Lab_Job.department_id, "
-
-    if useCustomColumnTableForShift then
-        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:           "Lab_Employee_Custom_Column.column_value as shift, "
-    else
-        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:           "Lab_Employee_Attribute.attribute_code as shift, "
-    endif
-
-    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:        "Lab_Exception.employee_id, " +
-:        "Employee.badge_number, " +
-:        "Lab_Exception.scheduled_shift_id, " +
-:        "Lab_Exception.job_id, " +
-:        "convert(varchar(8), Lab_Exception.business_date, 112) as exception_date, " +
-:        "Lab_Exception.exception_definition_id, " +
-:        "Lab_Exception_Definition.name as exception_descr, " +
-:        "convert(varchar(19), Lab_Exception.last_modified_timestamp, 120) as exception_last_mod, " +
-:        "Rad_Sys_User.last_name, " + 
-:        "Rad_Sys_User.first_name " +
-:        "from Lab_Exception " + 
-:        "inner join Lab_Exception_Definition on Lab_Exception.exception_definition_id = Lab_Exception_Definition.exception_definition_id " + 
-:        "inner join Rad_Sys_User on Lab_Exception.employee_id = Rad_Sys_User.user_id " + 
-:        "inner join Employee on Lab_Exception.employee_id = Employee.employee_id " + 
-:        "inner join Lab_Punch_Shift on Lab_Exception.shift_start_punch_id = Lab_Punch_Shift.shift_start_punch_id " +
-:        "inner join Lab_Job on Lab_Exception.job_id = Lab_Job.job_id "
-
-    if useCustomColumnTableForShift then
-        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:           "inner join Lab_Employee_Custom_Column on Lab_Exception.employee_id = Lab_Employee_Custom_Column.employee_id "
-    else
-        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:           "inner join Lab_Employee_Attribute_List on Lab_Exception.employee_id = Lab_Employee_Attribute_List.employee_id " +
-:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
-    endif
-
-    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:        "where Lab_Exception.business_date between '" +
-:        businessDateFromIn$ +
-:        "' and '" +
-:        businessDateToIn$ + "' "
-
-    if useCustomColumnTableForShift then
-        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
-    else
-        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:           "and Lab_Employee_Attribute_List.end_date is null " +
-:           "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) "
-    endif
-
-    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
-:        "and Lab_Exception.exception_definition_id in("+
-:        exceptionIdsAsCSV$ +
-:        ") " +
-:        "and Lab_Job.name not like '%Supervisor%' " +
-:        "order by exception_date, shift, last_name, first_name "
-    
-    
-    REM  VERY IMPORTANT: Do not use apostrophes around ? symbols -- even for character fields
-    
-    ATTEND_PTS_EXCEPTIONS_FIND_STMT$ = 
-:        "select count(*) as hit_count from attend_pts_work " +
-:        "where wfmr_src = 'E' and wfmr_exc_id = ?"
-    
-    ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
-:        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, sched_shift_id = ?, job_id = ?, " + 
-:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
-:        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
-
-
-    REM  Probably could have parameterized the following query with ?
-
-    WFMR_MISSED_SHIFT_SELECT_STMT$ = 
-:       "select " +
-:       "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
-:        "Lab_Employee_Missed_Shifts.business_unit_id, " +
-:        "Lab_Job.department_id, "
-
-    if useCustomColumnTableForShift then
-        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:           "Lab_Employee_Custom_Column.column_value as shift, "
-    else
-        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:           "Lab_Employee_Attribute.attribute_code as shift, "
-    
-    endif
-    
-    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:        "Lab_Employee_Missed_Shifts.employee_id, " +
-:        "Employee.badge_number, " +
-:        "Lab_Employee_Missed_Shifts.scheduled_shift_id, " +
-:        "Lab_Employee_Missed_Shifts.job_id, " +
-:        "convert(varchar(8), Lab_Employee_Missed_Shifts.business_date, 112) as missed_shift_date, " +
-:        "Lab_Employee_Missed_Shifts.type_code, " +
-:        "convert(varchar(19), Lab_Employee_Missed_Shifts.last_modified_timestamp, 120) as missed_shift_last_mod, " +
-:        "Rad_Sys_User.last_name, " + 
-:        "Rad_Sys_User.first_name, " +
-:        "case when Lab_Employee_Missed_Shifts.reason_id is null then 0 else Lab_Employee_Missed_Shifts.reason_id end as reason_id, " +
-:        "case when Reason.name is null then '' else Reason.name end as reason_name " +
-:        "from Lab_Employee_Missed_Shifts " +
-:        "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
-:        "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
-:        "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id "
-
-    if useCustomColumnTableForShift then
-        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ +
-:           "inner join Lab_Employee_Custom_Column on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Custom_Column.employee_id "
-    else
-        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ +
-:           "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
-:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
-    endif 
-    
-    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:        "left join Reason on Lab_Employee_Missed_Shifts.reason_id = Reason.reason_id " +
-:        "where " + 
-:        "Lab_Employee_Missed_Shifts.business_date between '" + 
-:        businessDateFromIn$ +
-:        "' and '" +
-:        businessDateToIn$ + "' "
-
-    if useCustomColumnTableForShift then
-        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
-    else
-        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:           "and Lab_Employee_Attribute_List.end_date is null " +
-:           "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) "
-    endif
-    
-    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
-:        "and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
-:        "and Lab_Job.name not like '%Supervisor%' " +
-:        "order by missed_shift_date, shift, last_name, first_name"
-
-
-    ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = 
-:        "select count(*) as hit_count from attend_pts_work " +
-:        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
-
-    ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
-:        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_badge_no = ?, sched_shift_id = ?, " + 
-:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ?, wfmr_reason_id = ? " +
-:        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
-:        "and wfmr_exc_lastmod < ?"
-
-    ATTEND_PTS_WORK_GET_TOTALS_STMT$ = 
-:       "select wfmr_exc_date, count(*) as total " +
-:       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
-:       "group by wfmr_exc_date " +
-:       "order by wfmr_exc_date desc"
-
-    ATTEND_PTS_WORK_GET_POSTED_STMT$ = 
-:       "select wfmr_exc_date, posted_timestamp, count(*) as posted_count " +
-:       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
-:       "group by wfmr_exc_date, posted_timestamp"
-
-    ATTEND_PTS_WORK_GET_DISPOSITION_STMT$ = 
-:       "select wfmr_exc_date, disp_cd, count(*) as disp_count " +
-:       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
-:       "group by wfmr_exc_date, disp_cd"
-
-    ATTEND_PTS_WORK_GET_EMPLOYEES_STMT$ = 
-:       "select " +
-:       "attend_pts_work.id, " +
-:       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
-:       "attend_pts_work.disp_cd, " +
-:       "attend_pts_work.WFMR_EXC_DEF_ID, " +
-:       "attend_pts_work.sched_shift_id, " +
-:       "attend_pts_work.WFMR_PTS_ASSESS, " +
-:       "attend_pts_work.POSTED_TIMESTAMP, " +
-:       "attend_pts_work.WFMR_EXC_LASTMOD, " +
-:       "attend_pts_work.ERP_CD, " +
-:       "attend_pts_work.ERP_PTS_ASSESSED, " +
-:       "attend_pts_work.ERP_NOTE " +
-:       "from attend_pts_work " +
-:       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
-:       "where " + 
-:       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? and exc_gone_stamp = '' " +
-:       "order by last_first_mi"
-
-    ATTEND_PTS_WORK_SAVE_ONE_RECORD_STMT$ = 
-:       "update attend_pts_work " +
-:       "set disp_cd = ?, disp_edt_reas_id = ?, erp_cd = ?, erp_note = ?, erp_pts_assessed = ?, " +
-:       "erp_sts_cd = ?, last_mod = ?, last_mod_user = ? " +
-:       "where id = ?"
-
-    ATTEND_PTS_WORK_UPDATE_POSTED_FLAG_STMT$ = 
-:       "update attend_pts_work " +
-:       "set posted_timestamp = ?, posted_by_user = ?, posted_exc_defid = ? " +
-:       "where id = ?"
-
-    ATTEND_PTS_WORK_GET_NOT_HANDLED_PUNCH_EXCEPTIONS_STMT$ =
-:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N'"
-
-    ATTEND_PTS_WORK_GET_NOT_HANDLED_PUNCH_EXCEPTIONS_SKIP_FLAGGED_STMT$ =
-:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N' and exc_gone_stamp = ''"
-
-    ATTEND_PTS_WORK_FLAG_THAT_WFMR_EXCEPTION_NO_LONGER_EXISTS_STMT$ =
-:       "update attend_pts_work set exc_gone_stamp = ? where id = ?"
 
     return
 
@@ -924,6 +671,71 @@ load_employees_map:
 
 
 REM  ------------------------------------------------------------------------------------------
+REM  Get a count of records grouped by WFMR exception date and WFMR source (E or M).  For 
+REM  each group-by record, add a HashMap of data into the attPtsRecordsMapOut! LinkedHashMap
+REM  ------------------------------------------------------------------------------------------
+    
+load_count_by_exc_date_and_source_map:
+
+    attPtsRecordsMapOut!.clear()
+
+    tempChannel = sqlunt
+    sqlopen(tempChannel) attendPtsDataSource$
+    
+    sqlprep(tempChannel) GET_COUNT_BY_DATE_AND_SRC_STMT$
+
+    sqlexec(tempChannel) fromDateIn, toDateIn 
+    dim resultRow$:sqltmpl(tempChannel)
+    
+    tempCount = 0
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(tempChannel,err=*break)
+        attPtsWorkDataMap! = new java.util.HashMap()
+
+        attPtsWorkDataMap!.put("wfmr_exc_date", resultRow.wfmr_exc_date$)
+        attPtsWorkDataMap!.put("wfmr_src", resultRow.wfmr_src$)
+        attPtsWorkDataMap!.put("qty", resultRow.qty)
+
+        tempCount = tempCount + 1
+        attPtsRecordsMapOut!.put(tempCount, attPtsWorkDataMap!)
+        
+    wend
+    
+    sqlclose(tempChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Get date of most recent exception loaded
+REM  ------------------------------------------------------------------------------------------
+    
+get_yyyymmdd_of_most_recent_exception_loaded:
+
+    rem Just some random default:
+    yyyymmddOut$ = "19500101"
+    
+    tempChannel = sqlunt
+    sqlopen(tempChannel) attendPtsDataSource$
+
+    sqlprep(tempChannel) GET_MOST_RECENT_EXCEPTION_DATE_LOADED_STMT$
+
+    sqlexec(tempChannel) 
+    dim resultRow$:sqltmpl(tempChannel)
+    
+    resultRow$ = sqlfetch(tempChannel,err=skip_ymd_out)
+    yyyymmddOut$ = resultRow.wfmr_exc_date$
+    
+    skip_ymd_out:
+    
+    sqlclose(tempChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
 REM  Load a set of info into the attPtsRecordsMapOut! -- but only for
 REM  records that no longer exist in the WFMR Lab_Exceptions table.
 REM  ------------------------------------------------------------------------------------------
@@ -1160,3 +972,290 @@ update_posted_flag_on_record:
         sqlexec(flagPostingChannelIn) currentTimestamp$, userIdIn$, wfmrExceptionDefIdIn, recordIdIn
 
     return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Define constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+    
+    ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$ = "current.attend.pts.policy.code"
+    
+    MASS_LOAD_EXCEPTIONS_SRC$ = "E"
+    MASS_LOAD_MISSED_SHIFT_SRC$ = "M"
+    
+    PRINT_TRACE_INFO = FALSE
+    BATCH_SIZE = 500
+    
+    DEFAULT_DISPOSITION_CODE$ = "N"
+    DEFAULT_DISPOSITION_EDIT_REASON_ID = 0
+    DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ = ""
+    DEFAULT_LAST_MANUALLY_MODIFIED_USER$ = ""
+    DEFAULT_POSTED_TIMESTAMP$ = ""
+    DEFAULT_POSTED_USER$ = ""
+    
+    REM Uses the data source names in the SQL.INI file
+    
+    attendPtsDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    wfmrDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+    
+    attendPtsPolicyCode$ = ""
+    call "ConfigVarsDAO.bbj::get_value", ATTEND_PTS_POLICY_CODE_CONFIG_VAR_NAME$, configVarFound, configVarDataType$, attendPtsPolicyCode$
+
+    call "AttendPtsTransDAO.bbj::get_exception_ids_as_csv", attendPtsPolicyCode$, exceptionIdsAsCSV$
+
+    call "ConfigVarsDAO.bbj::get_value", "use.custom.column.table.for.shift", configVarFound, configVarDataType$, useCustomColumnTableForShift$
+    useCustomColumnTableForShift = num(useCustomColumnTableForShift$)
+
+    if useCustomColumnTableForShift then
+        call "ConfigVarsDAO.bbj::get_value", "custom.column.def.id.for.shift", configVarFound, configVarDataType$, customColumnDefIdForShift$
+    endif
+
+    
+    REM  Break up field list into 5 fields per row (so readable)
+       
+    STARTING_INSERT_STMT$ =
+:        "insert into ATTEND_PTS_WORK " +
+:        "(id, wfmr_src, wfmr_exc_id, wfmr_in_tm_miss, bus_unit_id, " +
+:        "dept_id, shift, emp_id, emp_badge_no, job_id, " +
+:        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
+:        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
+:        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid, " +
+:        "wfmr_reason_id, exc_gone_stamp, sched_shift_id) " +
+:        "values "
+
+
+    REM  Probably could have parameterized the following query with ?
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = 
+:       "select " +
+:        "Lab_Exception.exception_id, " +
+:        "Lab_Exception.business_unit_id, " +
+:        "Lab_Job.department_id, "
+
+    if useCustomColumnTableForShift then
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "Lab_Employee_Custom_Column.column_value as shift, "
+    else
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "Lab_Employee_Attribute.attribute_code as shift, "
+    endif
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:        "Lab_Exception.employee_id, " +
+:        "Employee.badge_number, " +
+:        "Lab_Exception.scheduled_shift_id, " +
+:        "Lab_Exception.job_id, " +
+:        "convert(varchar(8), Lab_Exception.business_date, 112) as exception_date, " +
+:        "Lab_Exception.exception_definition_id, " +
+:        "Lab_Exception_Definition.name as exception_descr, " +
+:        "convert(varchar(19), Lab_Exception.last_modified_timestamp, 120) as exception_last_mod, " +
+:        "Rad_Sys_User.last_name, " + 
+:        "Rad_Sys_User.first_name " +
+:        "from Lab_Exception " + 
+:        "inner join Lab_Exception_Definition on Lab_Exception.exception_definition_id = Lab_Exception_Definition.exception_definition_id " + 
+:        "inner join Rad_Sys_User on Lab_Exception.employee_id = Rad_Sys_User.user_id " + 
+:        "inner join Employee on Lab_Exception.employee_id = Employee.employee_id " + 
+:        "inner join Lab_Punch_Shift on Lab_Exception.shift_start_punch_id = Lab_Punch_Shift.shift_start_punch_id " +
+:        "inner join Lab_Job on Lab_Exception.job_id = Lab_Job.job_id "
+
+    if useCustomColumnTableForShift then
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "inner join Lab_Employee_Custom_Column on Lab_Exception.employee_id = Lab_Employee_Custom_Column.employee_id "
+    else
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "inner join Lab_Employee_Attribute_List on Lab_Exception.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
+    endif
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:        "where Lab_Exception.business_date between '" +
+:        businessDateFromIn$ +
+:        "' and '" +
+:        businessDateToIn$ + "' "
+
+    if useCustomColumnTableForShift then
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
+    else
+        WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:           "and Lab_Employee_Attribute_List.end_date is null " +
+:           "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) "
+    endif
+
+    WFMR_EXCEPTIONS_SELECT_STMT$ = WFMR_EXCEPTIONS_SELECT_STMT$ +
+:        "and Lab_Exception.exception_definition_id in("+
+:        exceptionIdsAsCSV$ +
+:        ") " +
+:        "and Lab_Job.name not like '%Supervisor%' " +
+:        "order by exception_date, shift, last_name, first_name "
+    
+    
+    REM  VERY IMPORTANT: Do not use apostrophes around ? symbols -- even for character fields
+    
+    ATTEND_PTS_EXCEPTIONS_FIND_STMT$ = 
+:        "select count(*) as hit_count from attend_pts_work " +
+:        "where wfmr_src = 'E' and wfmr_exc_id = ?"
+    
+    ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
+:        "update attend_pts_work " + 
+:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, sched_shift_id = ?, job_id = ?, " + 
+:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+:        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
+
+
+    REM  Probably could have parameterized the following query with ?
+
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = 
+:       "select " +
+:       "convert(varchar(19), Lab_Employee_Missed_Shifts.in_timestamp, 120) as in_timestamp, " +
+:        "Lab_Employee_Missed_Shifts.business_unit_id, " +
+:        "Lab_Job.department_id, "
+
+    if useCustomColumnTableForShift then
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "Lab_Employee_Custom_Column.column_value as shift, "
+    else
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "Lab_Employee_Attribute.attribute_code as shift, "
+    
+    endif
+    
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:        "Lab_Employee_Missed_Shifts.employee_id, " +
+:        "Employee.badge_number, " +
+:        "Lab_Employee_Missed_Shifts.scheduled_shift_id, " +
+:        "Lab_Employee_Missed_Shifts.job_id, " +
+:        "convert(varchar(8), Lab_Employee_Missed_Shifts.business_date, 112) as missed_shift_date, " +
+:        "Lab_Employee_Missed_Shifts.type_code, " +
+:        "convert(varchar(19), Lab_Employee_Missed_Shifts.last_modified_timestamp, 120) as missed_shift_last_mod, " +
+:        "Rad_Sys_User.last_name, " + 
+:        "Rad_Sys_User.first_name, " +
+:        "case when Lab_Employee_Missed_Shifts.reason_id is null then 0 else Lab_Employee_Missed_Shifts.reason_id end as reason_id, " +
+:        "case when Reason.name is null then '' else Reason.name end as reason_name " +
+:        "from Lab_Employee_Missed_Shifts " +
+:        "inner join Rad_Sys_User on Lab_Employee_Missed_Shifts.employee_id = Rad_Sys_User.user_id " + 
+:        "inner join Employee on Lab_Employee_Missed_Shifts.employee_id = Employee.employee_id " +
+:        "inner join Lab_Job on Lab_Employee_Missed_Shifts.job_id = Lab_Job.job_id "
+
+    if useCustomColumnTableForShift then
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ +
+:           "inner join Lab_Employee_Custom_Column on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Custom_Column.employee_id "
+    else
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ +
+:           "inner join Lab_Employee_Attribute_List on Lab_Employee_Missed_Shifts.employee_id = Lab_Employee_Attribute_List.employee_id " +
+:           "inner join Lab_Employee_Attribute on Lab_Employee_Attribute_List.employee_attribute_id = Lab_Employee_Attribute.employee_attribute_id "
+    endif 
+    
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:        "left join Reason on Lab_Employee_Missed_Shifts.reason_id = Reason.reason_id " +
+:        "where " + 
+:        "Lab_Employee_Missed_Shifts.business_date between '" + 
+:        businessDateFromIn$ +
+:        "' and '" +
+:        businessDateToIn$ + "' "
+
+    if useCustomColumnTableForShift then
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "and Lab_Employee_Custom_Column.custom_column_def_id = " + customColumnDefIdForShift$ + " "
+    else
+        WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:           "and Lab_Employee_Attribute_List.end_date is null " +
+:           "and Lab_Employee_Attribute_List.employee_attribute_id in (select Lab_Employee_Attribute.employee_attribute_id from Lab_Employee_Attribute where Lab_Employee_Attribute.attribute_code in ('1','2','3')) "
+    endif
+    
+    WFMR_MISSED_SHIFT_SELECT_STMT$ = WFMR_MISSED_SHIFT_SELECT_STMT$ + 
+:        "and Lab_Employee_Missed_Shifts.type_code in('c','n') " +
+:        "and Lab_Job.name not like '%Supervisor%' " +
+:        "order by missed_shift_date, shift, last_name, first_name"
+
+
+    ATTEND_PTS_MISSED_SHIFT_FIND_STMT$ = 
+:        "select count(*) as hit_count from attend_pts_work " +
+:        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ?"
+
+    ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
+:        "update attend_pts_work " + 
+:        "set dept_id = ?, shift = ?, emp_badge_no = ?, sched_shift_id = ?, " + 
+:        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ?, wfmr_reason_id = ? " +
+:        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
+:        "and wfmr_exc_lastmod < ?"
+
+    ATTEND_PTS_WORK_GET_TOTALS_STMT$ = 
+:       "select wfmr_exc_date, count(*) as total " +
+:       "from attend_pts_work " + 
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
+:       "group by wfmr_exc_date " +
+:       "order by wfmr_exc_date desc"
+
+    ATTEND_PTS_WORK_GET_POSTED_STMT$ = 
+:       "select wfmr_exc_date, posted_timestamp, count(*) as posted_count " +
+:       "from attend_pts_work " + 
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
+:       "group by wfmr_exc_date, posted_timestamp"
+
+    ATTEND_PTS_WORK_GET_DISPOSITION_STMT$ = 
+:       "select wfmr_exc_date, disp_cd, count(*) as disp_count " +
+:       "from attend_pts_work " + 
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
+:       "group by wfmr_exc_date, disp_cd"
+
+    ATTEND_PTS_WORK_GET_EMPLOYEES_STMT$ = 
+:       "select " +
+:       "attend_pts_work.id, " +
+:       "rtrim(substring(employ.name, 14, 14)) + ', ' + rtrim(substring(employ.name, 1, 11)) + ' ' + rtrim(substring(employ.name, 12, 2)) as last_first_mi, " +
+:       "attend_pts_work.disp_cd, " +
+:       "attend_pts_work.WFMR_EXC_DEF_ID, " +
+:       "attend_pts_work.sched_shift_id, " +
+:       "attend_pts_work.WFMR_PTS_ASSESS, " +
+:       "attend_pts_work.POSTED_TIMESTAMP, " +
+:       "attend_pts_work.WFMR_EXC_LASTMOD, " +
+:       "attend_pts_work.ERP_CD, " +
+:       "attend_pts_work.ERP_PTS_ASSESSED, " +
+:       "attend_pts_work.ERP_NOTE " +
+:       "from attend_pts_work " +
+:       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
+:       "where " + 
+:       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? and exc_gone_stamp = '' " +
+:       "order by last_first_mi"
+
+    ATTEND_PTS_WORK_SAVE_ONE_RECORD_STMT$ = 
+:       "update attend_pts_work " +
+:       "set disp_cd = ?, disp_edt_reas_id = ?, erp_cd = ?, erp_note = ?, erp_pts_assessed = ?, " +
+:       "erp_sts_cd = ?, last_mod = ?, last_mod_user = ? " +
+:       "where id = ?"
+
+    ATTEND_PTS_WORK_UPDATE_POSTED_FLAG_STMT$ = 
+:       "update attend_pts_work " +
+:       "set posted_timestamp = ?, posted_by_user = ?, posted_exc_defid = ? " +
+:       "where id = ?"
+
+    ATTEND_PTS_WORK_GET_NOT_HANDLED_PUNCH_EXCEPTIONS_STMT$ =
+:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N'"
+
+    ATTEND_PTS_WORK_GET_NOT_HANDLED_PUNCH_EXCEPTIONS_SKIP_FLAGGED_STMT$ =
+:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N' and exc_gone_stamp = ''"
+
+    ATTEND_PTS_WORK_FLAG_THAT_WFMR_EXCEPTION_NO_LONGER_EXISTS_STMT$ =
+:       "update attend_pts_work set exc_gone_stamp = ? where id = ?"
+
+    GET_MOST_RECENT_EXCEPTION_DATE_LOADED_STMT$ =
+:       "select top 1 WFMR_EXC_DATE from attend_pts_work order by WFMR_EXC_DATE desc"
+
+    GET_COUNT_BY_DATE_AND_SRC_STMT$ =
+:       "select " +
+:       "WFMR_EXC_DATE, WFMR_SRC, count(*) as qty " +
+:       "from ATTEND_PTS_WORK " +
+:       "where WFMR_EXC_DATE >= ? and WFMR_EXC_DATE <= ? " +
+:       "group by WFMR_EXC_DATE, WFMR_SRC"
+
+    return
+    
+    

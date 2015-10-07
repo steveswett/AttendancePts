@@ -9,6 +9,13 @@ REM  *
 REM  */
 
 
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.LinkedHashMap recordsMap!
+declare java.util.HashMap dataMap!
+
+
 begin
 
 
@@ -139,8 +146,48 @@ mass_load:
     print " date range select stmt = "
     print $0A$, iff(usingPreferred, preferredDateRangeSelectStmt$, fallbackDateRangeSelectStmt$)
     
+    fromYYMD$ = fromDate$(1,4) + fromDate$(6,2) + fromDate$(9,2) 
+    toYYMD$ = toDate$(1,4) + toDate$(6,2) + toDate$(9,2)
     
+    fromYYMD = num(fromYYMD$)
+    toYYMD = num(toYYMD$)
+    
+    print $0A$, "Count status BEFORE:"
+    gosub print_count_status
+     
     call "AttendPtsWorkDAO.bbj::mass_load_wfmr_data", fromDate$, toDate$
+    
+    print $0A$, "Count status AFTER:"
+    gosub print_count_status
 
     return
+    
+    
+REM  ------------------------------------------------------------
+REM  print count status
+REM  ------------------------------------------------------------
+    
+print_count_status:
 
+    recordsMap! = new java.util.LinkedHashMap()
+    call "AttendPtsWorkDAO.bbj::get_count_by_exc_date_and_source_map", fromYYMD, toYYMD, recordsMap!
+    
+    iter! = recordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+    
+        dataMap! = cast( java.util.HashMap, recordsMap!.get(idKey!) )
+          
+        wfmrExcDate$ = dataMap!.get("wfmr_exc_date")
+        wfmrSrc$ = dataMap!.get("wfmr_src")
+        qty = dataMap!.get("qty")
+        
+        print "date src qty = ", wfmrExcDate$, " ", wfmrSrc$, " ", qty  
+      
+    wend
+    
+    print ""
+
+    return
