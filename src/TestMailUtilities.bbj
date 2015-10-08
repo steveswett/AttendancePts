@@ -1,0 +1,12 @@
+REM /**
+REM  * TestMailUtilities.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+recipients$ = "steve.swett@notionsmarketing.com"
+subject$ = "Subject - TestMailUtilities.bbj"
+body$ = "<p>Body - TestMailUtilities.bbj</p>"
+
+call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode, failedEmailCmd$

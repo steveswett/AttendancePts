@@ -543,12 +543,12 @@ common_send_results_email:
     IF workFileLines < 1 THEN 
         subject$ = "No Attendance Points file today " + iff(isNewPolicyRun, "(new policy)", "(old policy)")
         body$ = "No Attendance Points file today - nothing to report."
-        call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$
+        call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$, mailReturnCode, failedEmailCmd$
     ELSE
         WAIT 2
         subject$ = "Attendance Points file " + iff(isNewPolicyRun, "(new policy)", "(old policy)")
         body$ = "The attached file contains a list of employees and inactivated attendance points."
-        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, emailAttachmentFileName$, OUTPUT_FILE_MIME_TYPE$
+        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, emailAttachmentFileName$, OUTPUT_FILE_MIME_TYPE$, mailReturnCode, failedEmailCmd$
     endif
 
     return

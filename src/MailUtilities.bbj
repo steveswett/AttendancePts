@@ -23,7 +23,7 @@ entry_points:
 
 send_simple_email_msg:
 
-    enter recipients$, subject$, body$
+    enter recipients$, subject$, body$, returnCodeOut, failedEmailCmdOut$
     
     gosub init
     
@@ -34,7 +34,7 @@ send_simple_email_msg:
 
 send_email_msg_with_attachment:
 
-    enter recipients$, subject$, body$, attachmentFileName$, attachmentMimeType$
+    enter recipients$, subject$, body$, attachmentFileName$, attachmentMimeType$, returnCodeOut, failedEmailCmdOut$
     
     gosub init
     
@@ -54,6 +54,8 @@ init:
     TRUE = 1
     FALSE = 0
     
+    returnCodeOut = 0
+    
     call "ConfigVarsDAO.bbj::get_value", "use.windows.mailsend", configVarFound, configVarDataType$, useWindowsMailSend$
     useWindowsMailSend = num(useWindowsMailSend$)
 
@@ -70,9 +72,9 @@ init:
     return
     
 
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 REM  Send simple email (no attachments)
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 
     
 send_simple_email:
@@ -83,11 +85,13 @@ send_simple_email:
     call "_repl.utl", resolvedRecipients$, "*user", cvs( info(3, 2), 3 ) + "@notionsmarketing.com"
 
     if useWindowsMailSend then
+
+        gosub put_body_in_file
     
         REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
         REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
     
-        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + resolvedRecipients$ + " " + "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth " + "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -M """ + body$ + """ " + "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$
+        emailCmd$ = "cmd /c C:\mailsend\mailsend1.18.exe -mime-type text/html -t " + resolvedRecipients$ + " " + "-f " + windowsMailSendSender$ + " -ssl -port " + windowsMailSendSMTPPort$ + " -auth " + "-smtp " + windowsMailSendSMTPServer$ + " -sub """ + subject$ + """ -msg-body " + bodyFileName$ + " " + "-user " + windowsMailSendSMTPUser$ + " -pass " + windowsMailSendSMTPPwd$
     else
         spaceDelimitedRecipients$ = resolvedRecipients$
         call "_repl.utl", spaceDelimitedRecipients$,","," "
@@ -102,9 +106,9 @@ send_simple_email:
     return
     
 
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 REM  Send email with attachment
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 
     
 send_email_with_attachment:
@@ -116,16 +120,7 @@ send_email_with_attachment:
 
     if useWindowsMailSend then
 
-        bodyFileName$ = "/usr/tmpfiles/" + pgm(-2) + "-" + FID(0) + ".txt"
-        
-        REM  NOTE: for some reason echo (to build a file) doesn't work, so use language constructs
-        
-        erase bodyFileName$,ERR=*next
-        string bodyFileName$
-        bodyFileChannel = unt
-        open(bodyFileChannel) bodyFileName$
-        print(bodyFileChannel) body$
-        close(bodyFileChannel)
+        gosub put_body_in_file
     
         REM  For new lines: may need to use $0A$ for Linux and mime type "text/html" for Windows with <br/>
         REM                 $0A$ doesn't work for Windows.  "\r\n" doesn't work for Windows or Linux.
@@ -150,12 +145,33 @@ REM  The -smtp row WAS like this: "-smtp " + windowsMailSendSMTPServer$ + " -sub
 
     return
     
+    
+REM  --------------------------------------------------------------------------------
+REM  Put body of e-mail in a file so that length of body can be unlimited
+REM  --------------------------------------------------------------------------------
 
-REM  ------------------------------------------------------------
+put_body_in_file:
+
+        bodyFileName$ = "/usr/tmpfiles/" + pgm(-2) + "-" + FID(0) + ".txt"
+        
+        erase bodyFileName$,ERR=*next
+        string bodyFileName$
+        bodyFileChannel = unt
+        open(bodyFileChannel) bodyFileName$
+        print(bodyFileChannel) body$
+        close(bodyFileChannel)
+
+    return
+    
+
+REM  --------------------------------------------------------------------------------
 REM  Log error
-REM  ------------------------------------------------------------
+REM  --------------------------------------------------------------------------------
 
-log_error:    
+log_error:
+
+    returnCodeOut = returnCode
+    failedEmailCmdOut$ = emailCmd$
 
     REM  TODO: In future, perhaps do more robust error logging that would include more details
     

@@ -1049,7 +1049,7 @@ REM         lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
 
         REM  Finish formatting the e-mail body.
     
-        call "MailUtilities.bbj::send_simple_email_msg", warningLevelsRecipients$, subject$, body$
+        call "MailUtilities.bbj::send_simple_email_msg", warningLevelsRecipients$, subject$, body$, mailReturnCode, failedEmailCmd$
     
     endif
     
