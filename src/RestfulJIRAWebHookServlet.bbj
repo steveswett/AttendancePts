@@ -18,7 +18,7 @@ class public RestfulJIRAWebHookServlet
     field private BBjNumber TRUE = 1
     field private BBjNumber FALSE = 0
 
-    field private BBjNumber sendResponseText = #FALSE
+    field private BBjNumber sendResponseText = #TRUE
     field private BBjNumber sendEmailData = #TRUE
     field private BBjNumber includeRawBodyOfRequest = #TRUE
 
@@ -89,15 +89,30 @@ class public RestfulJIRAWebHookServlet
                     body$ = body$ + requestData$
                     
                     if #runningOnWindowsDev then
-                        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$
+                        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode, failedEmailCmd$
                     else
-                        emailCmd$ = "echo """ + body$ + """|mail -s """ + subject$ + """ -S smtp=""nmcz.notions-marketing.com"" " + recipients$
+                        bodyFileName$ = "/tmp/RestfulJIRAWebHookServlet.email.body." + str(tim) + ".txt"
+
+                        erase bodyFileName$,ERR=*next
+                        string bodyFileName$
+                        bodyFileChannel = unt
+                        open(bodyFileChannel) bodyFileName$
+                        print(bodyFileChannel) body$
+                        close(bodyFileChannel)
+
+                        emailCmd$ = "cat " + bodyFileName$ + " | mail -s """ + subject$ + """ -S smtp=""nmcz.notions-marketing.com"" " + recipients$
                         returnCode = scall(emailCmd$)
                     endif
                     
                 endif
                 
                 if #sendResponseText then
+                
+                    if mailReturnCode > 0 then
+                        print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
+                        print(#chan) "<p>Failing e-mail command<br/>" + failedEmailCmd$ + "</p>"
+                    endif
+                    
                     print(#chan) requestData$
                 endif
                 
@@ -119,11 +134,9 @@ class public RestfulJIRAWebHookServlet
         requestData$ = requestData$ + "<p>Test of getting a few important pieces of data<p>"
         requestData$ = requestData$ + "<ul>"
         
-        requestData$ = requestData$ + "<li>webhookEvent = " + #request!.getParameter("webhookEvent") + "</li>"
         requestData$ = requestData$ + "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
         requestData$ = requestData$ + "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
         requestData$ = requestData$ + "<li>issue[fields][description] = " + #request!.getParameter("issue[fields][description]") + "</li>"
-        requestData$ = requestData$ + "<li>user[emailAddress] = " + #request!.getParameter("user[emailAddress]") + "</li>"
         
         requestData$ = requestData$ + "</ul>"
         

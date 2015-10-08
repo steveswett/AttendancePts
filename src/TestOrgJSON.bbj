@@ -1,0 +1,60 @@
+REM /**
+REM  * TestOrgJSON.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use org.json.JSONObject
+use org.json.JSONArray
+
+declare org.json.JSONObject jsonObject!
+declare org.json.JSONArray jsonArray!
+
+begin
+
+    gosub init
+    
+    
+    REM  following works
+    rem jsonObject! = new org.json.JSONObject("{""pageInfo"": {""pageName"": ""abc"",""pagePic"": ""http://example.com/content.jpg""}}")
+    
+    jsonObject! = new org.json.JSONObject(text$)
+    
+    pageName$ = jsonObject!.getJSONObject("pageInfo").getString("pageName")
+    
+    print "pageName$ = ", pageName$
+    
+
+    jsonArray! = jsonObject!.getJSONArray("posts")
+    
+    for i = 0 to jsonArray!.length() - 1
+        postId$ = jsonArray!.getJSONObject(i).getString("post_id")
+        actorName$ = jsonArray!.getJSONObject(i).getString("actor_name")
+        print "i, postId$, actorName$ = ", i, ", ", postId$, ", ", actorName$
+    next i
+
+
+end
+
+
+init:
+
+    text$ = 
+:   "{" +
+:       """pageInfo"": {" +
+:           """pageName"": ""abc""," +
+:           """pagePic"": ""http://example.com/content.jpg""" +
+:           "}," +
+:       """posts"": [" +
+:             "{" +
+:                  """post_id"": ""007""," +
+:                  """actor_name"": ""James Bond""" +
+:               "}," +
+:             "{" +
+:                  """post_id"": ""001""," +
+:                  """actor_name"": ""Steve""" +
+:               "}" +
+:       "]" +
+:   "}"
+
+    return

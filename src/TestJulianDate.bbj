@@ -4,6 +4,7 @@ REM  * @author stevett
 REM  *
 REM  */
 
+print "Current time as string = ", str(tim)
 
 print "Input to jul is 2015, 08, 17.  Should be good."
 

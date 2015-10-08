@@ -1,0 +1,8 @@
+REM /**
+REM  * TestJIRATransitionParameters.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+data$ = "<p>" + "<p>httpMethod! = POST</p><p>urlPath! = /srq-status-change/ERP-1587</p><p>requestData = </p>{transition:{workflowId:14132,workflowName:ERP: Software Development Workflow,transitionId:21,transitionName:Done,from_status:To Do,to_status:Done},comment:,user:{self:https://notionsmarketing.atlassian.net/rest/api/2/user?username=steve.swett,name:steve.swett,key:steve.swett,emailAddress:steve.swett@notionsmarketing.com,avatarUrls:{48x48:https://notionsmarketing.atlassian.net/secure/useravatar?ownerId=steve.swettsh: Swett,active:true,timeZone:America/New_York},issue:{id:14031,self:https://notionsmarketing.atlassian.net/rest/api/2/issue/14031,key:ERP-1587,fields:{issuetype:{self:https://notionsmarketing.atlassian.net/rest/api/2/issuetype/10200,id:10200,description:,iconUrl:https://notionsmarketing.atlassian.net/secure/viewavatar?size=xsmall" + "</p>"
+print data$
