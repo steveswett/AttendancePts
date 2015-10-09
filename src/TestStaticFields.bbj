@@ -18,6 +18,9 @@ class public TestStatic
     field private static BBjNumber FALSE = 0
 
     field private static BBjNumber SEND_RESPONSE_TEXT = #TRUE
+    
+    field private java.util.HashMap jsonDataMap!
+    
 
 
     method public void printStaticValue()
@@ -27,7 +30,45 @@ class public TestStatic
         if #SEND_RESPONSE_TEXT then
             print "this should print."
         endif
+        
+        srqNumber$ = #getSrqNumber()
+        
+        print "srqNumber$ = ", srqNumber$
 
     methodend
+    
+    
+    method private BBjString getSrqNumber()
+    
+        declare java.lang.String issueSummary!
+        
+        #jsonDataMap! = new java.util.HashMap()
+        
+        #jsonDataMap!.put("issue_summary","KBD SHIFT LOCK LIGHT NOT ON - **NEW 2** SRQ:030037")
+
+        
+        resultNum$ = ""
+        
+        if !(#jsonDataMap!.containsKey("error")) then
+            
+            issueSummary! = cast(java.lang.String, #jsonDataMap!.get("issue_summary"))
+            foundAt = issueSummary!.indexOf("SRQ:0")
+
+            if foundAt >= 0 then
+                afterColon$ = issueSummary!.substring(foundAt + 4)
+                if len(afterColon$) > 5 then
+                    srqNum$ = afterColon$(1,6)
+                    srqNum = num(srqNum$, ERR=bad_srq_num)
+                    resultNum$ = srqNum$
+                    bad_srq_num:
+                endif
+            endif
+             
+        endif
+        
+        methodret resultNum$
+    
+    methodend
+    
 
 classend

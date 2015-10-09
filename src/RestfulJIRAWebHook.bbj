@@ -11,17 +11,17 @@ REM
 
 use ::RestfulJIRAWebHookServlet.bbj::RestfulJIRAWebHookServlet
 
-declare BBjServletData sData!
-declare RestfulJIRAWebHookServlet myServlet!
+declare BBjServletData servletData!
+declare RestfulJIRAWebHookServlet webHookServlet!
 
 
 REM  If an error is given below, that means not running in a servlet environment.  For example, we could be
 REM  running by hitting "run" in Eclipse.  In that case, run in test mode.
     
-sData! = BBjAPI().getServletData(err=run_in_test_mode)
+servletData! = BBjAPI().getServletData(err=run_in_test_mode)
 
-myServlet! = new RestfulJIRAWebHookServlet()
-sData!.setCallback(sData!.ON_WEB_CONNECTION, myServlet!, "handleRequestEvent");   rem starting method -- see below
+webHookServlet! = new RestfulJIRAWebHookServlet()
+servletData!.setCallback(servletData!.ON_WEB_CONNECTION, webHookServlet!, "handleRequestEvent");   rem starting method
 
 
 REM  The PROCESS_EVENTS verb continually processes user interface events.

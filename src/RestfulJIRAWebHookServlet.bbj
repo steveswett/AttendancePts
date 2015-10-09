@@ -11,6 +11,7 @@ REM  */
 
 
 use java.net.URLDecoder
+use java.util.HashMap
 use org.json.JSONObject
 use org.json.JSONArray
 
@@ -25,12 +26,16 @@ class public RestfulJIRAWebHookServlet
     field private static BBjNumber SEND_RESPONSE_TEXT = #TRUE
     field private static BBjNumber SEND_EMAIL_DATA = #TRUE
     field private static BBjNumber INCLUDE_RAW_BODY_OF_REQUEST = #TRUE
+    field private static BBjNumber UPDATE_SRQ = #TRUE
 
     field private BBjNumber chan
     field private BBjHttpSession session!
     field private BBjHttpRequest request!
 
     field private BBjVector parmNames!
+    field private java.lang.String decodedBody!
+    field private java.util.HashMap jsonDataMap!
+    
 
 
     method public void handleRequestEvent(BBjServletEvent p_event!)
@@ -43,12 +48,6 @@ class public RestfulJIRAWebHookServlet
         #session! = cast(BBjHttpSession, #request!.getSession())
         
         response! = p_event!.getHttpResponse()
-        
-        REM response!.setContentType("application/json")
-        
-        REM  The following is absolutely needed if I'm just going to return a bit of text to append
-        REM  to some DOM node
-        
         response!.setContentType("text/html")
         
         open(#chan)"JSERVLET"
@@ -73,7 +72,7 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
-    method public void sendEmail(java.lang.String recipients!, java.lang.String subject!, java.lang.String body!)
+    method private void sendEmail(java.lang.String recipients!, java.lang.String subject!, java.lang.String body!)
 
         recipients$ = recipients!
         subject$ = subject!
@@ -98,35 +97,46 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
-    method public void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
+    method private void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
         
         if urlPath!.startsWith("/srq-status-change/")  then
             
             if httpMethod!.equals("POST") then
             
-                requestData$ = #getRequestData()
+                #decodedBody! = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
+                #loadJsonDataMap()
+                
+                srqNumber$ = #getSrqNumber()
+                
+                if len(srqNumber$) > 0 then
 
-                if #SEND_EMAIL_DATA then
-                    recipients$ = "steve.swett@notionsmarketing.com"
-                    subject$ = "E-mail data for RestfulJIRAWebHookServlet"
+                    requestData$ = #getRequestData()
                     
-                    body$ = "<p>httpMethod! = " + httpMethod! + "</p>"
-                    body$ = body$ + "<p>urlPath! = " + urlPath! + "</p>"
-                    body$ = body$ + "<p>requestData = " + "</p>"
-                    body$ = body$ + requestData$
+                    generalInfo$ = "<p>httpMethod! = " + httpMethod! + "</p>"
+                    generalInfo$ = generalInfo$ + "<p>urlPath! = " + urlPath! + "</p>"
+                    generalInfo$ = generalInfo$ + "<p>srqNumber$ = " + srqNumber$ + "</p>"
                     
-                    #sendEmail(recipients$, subject$, body$)
-                    
-                endif
-                
-                if #SEND_RESPONSE_TEXT then
-                
-                    if mailReturnCode > 0 then
-                        print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
-                        print(#chan) "<p>Failing e-mail command<br/>" + failedEmailCmd$ + "</p>"
+                    requestData$ = generalInfo$ + requestData$
+    
+                    if #SEND_EMAIL_DATA then
+    
+                        recipients$ = "steve.swett@notionsmarketing.com"
+                        subject$ = "E-mail data for RestfulJIRAWebHookServlet"
+                        body$ = requestData$
+                        #sendEmail(recipients$, subject$, body$)
+                        
                     endif
                     
-                    print(#chan) requestData$
+                    if #SEND_RESPONSE_TEXT then
+                    
+                        if mailReturnCode > 0 then
+                            print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
+                        endif
+                        
+                        print(#chan) requestData$
+                        
+                    endif
+                
                 endif
                 
             endif
@@ -140,20 +150,50 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
-    method public java.lang.String getJsonData(java.lang.String decodedBody!)
+    method private BBjString getSrqNumber()
+    
+        declare java.lang.String issueSummary!
+        
+        resultNum$ = ""
+        
+        if !(#jsonDataMap!.containsKey("error")) then
+            
+            issueSummary! = cast(java.lang.String, #jsonDataMap!.get("issue_summary"))
+            foundAt = issueSummary!.indexOf("SRQ:0")
+
+            if foundAt >= 0 then
+            
+                afterColon$ = issueSummary!.substring(foundAt + 4)
+                
+                if len(afterColon$) > 5 then
+                    srqNum$ = afterColon$(1,6)
+                    srqNum = num(srqNum$, ERR=bad_srq_num)
+                    resultNum$ = srqNum$
+                    bad_srq_num:
+                endif
+                
+            endif
+             
+        endif
+        
+        methodret resultNum$
+    
+    methodend
+    
+    
+    method private void loadJsonDataMap()
     
         declare org.json.JSONObject rootObject!
         declare org.json.JSONObject transitionObject!
         declare org.json.JSONObject userObject!
         declare org.json.JSONObject issueObject!
         declare org.json.JSONObject issueFieldsObject!
-    
         
-        jsonData$ = ""
+        #jsonDataMap! = new java.util.HashMap()
         
         seterr json_error_handler
         
-        rootObject! = new org.json.JSONObject(decodedBody!)
+        rootObject! = new org.json.JSONObject(#decodedBody!)
         
         REM  The following isn't need for data reading; it's about testing the structure of the JSON data
         transitionObject! = rootObject!.getJSONObject("transition")
@@ -165,36 +205,40 @@ class public RestfulJIRAWebHookServlet
         issueFieldsObject! = issueObject!.getJSONObject("fields")
         issueSummary$ = issueFieldsObject!.getString("summary")
          
-        jsonData$ = jsonData$ + "<li>issueKey$ = " + issueKey$ + "</li>"
-        jsonData$ = jsonData$ + "<li>issueSummary$ = " + issueSummary$ + "</li>"
+        #jsonDataMap!.put("issue_key", issueKey$)
+        #jsonDataMap!.put("issue_summary", issueSummary$)
         
         goto skip_json_error
         
         
         json_error_handler:
         
-        jsonData$ = "<p>ERROR: " + errmes(-1) + "</p>"
+        #jsonDataMap!.put("error", errmes(-1))
         
         
         skip_json_error:
         
         seterr 0
         
-        methodret jsonData$
-        
     
     methodend
     
     
-    method public java.lang.String getRequestData()
+    method private java.lang.String getRequestData()
     
         requestData$ = ""
     
         requestData$ = requestData$ + "<p>Test of getting a few important pieces of data<p>"
         requestData$ = requestData$ + "<ul>"
         
-        decodedBody$ = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
-        requestData$ = requestData$ + #getJsonData(decodedBody$)
+        iter! = #jsonDataMap!.keySet().iterator()
+        
+        while iter!.hasNext()
+        
+            fieldKey! = iter!.next()
+            requestData$ = requestData$ + "<li>" + fieldKey! + " = " + #jsonDataMap!.get(fieldKey!) 
+          
+        wend
         
         requestData$ = requestData$ + "</ul>"
         
@@ -213,7 +257,7 @@ class public RestfulJIRAWebHookServlet
         
         if #INCLUDE_RAW_BODY_OF_REQUEST then
             requestData$ = requestData$ + "<p>Raw body of request</p>"
-            requestData$ = requestData$ + "<p><xmp>" + decodedBody$ + "</xmp></p>"
+            requestData$ = requestData$ + "<p><xmp>" + #decodedBody! + "</xmp></p>"
         endif
         
         
@@ -222,7 +266,7 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
-    method public void getSampleResponseForGetMethod(java.lang.String urlPath!)
+    method private void getSampleResponseForGetMethod(java.lang.String urlPath!)
 
         print(#chan) "<p>This is the response given if method is GET.<p>"
         
