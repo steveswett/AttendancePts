@@ -23,7 +23,7 @@ entry_points:
 
 send_simple_email_msg:
 
-    enter recipients$, subject$, body$, returnCodeOut, failedEmailCmdOut$
+    enter recipients$, subject$, body$, returnCodeOut
     
     gosub init
     
@@ -34,7 +34,7 @@ send_simple_email_msg:
 
 send_email_msg_with_attachment:
 
-    enter recipients$, subject$, body$, attachmentFileName$, attachmentMimeType$, returnCodeOut, failedEmailCmdOut$
+    enter recipients$, subject$, body$, attachmentFileName$, attachmentMimeType$, returnCodeOut
     
     gosub init
     
@@ -171,9 +171,9 @@ REM  ---------------------------------------------------------------------------
 log_error:
 
     returnCodeOut = returnCode
-    failedEmailCmdOut$ = emailCmd$
 
     REM  TODO: In future, perhaps do more robust error logging that would include more details
+    REM        including the failing command (emailCmd$)
     
     call "LOGERR", pgm(-2), returnCode, TCB(5)
     

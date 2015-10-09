@@ -337,9 +337,9 @@ combine_and_process_qualified_eto_awardees:
     body$ = body$ + lineFeed$ + lineFeed$ + "Generated from ETO Awards program (" + pgm(-2) + ") by user " + info(3, 2) + "."
 
     if numberOfEmployeesEarningNewETO > 0 then
-        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$, mailReturnCode, failedEmailCmd$
+        call "MailUtilities.bbj::send_email_msg_with_attachment", mailRecipients$, subject$, body$, outputFileName$, OUTPUT_FILE_MIME_TYPE$, mailReturnCode
     else
-        call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$, mailReturnCode, failedEmailCmd$
+        call "MailUtilities.bbj::send_simple_email_msg", mailRecipients$, subject$, body$, mailReturnCode
     endif
     
 

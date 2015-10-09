@@ -89,7 +89,7 @@ class public RestfulJIRAWebHookServlet
                     body$ = body$ + requestData$
                     
                     if #runningOnWindowsDev then
-                        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode, failedEmailCmd$
+                        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode
                     else
                         bodyFileName$ = "/tmp/RestfulJIRAWebHookServlet.email.body." + str(tim) + ".txt"
 
