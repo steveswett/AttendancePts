@@ -1,0 +1,29 @@
+REM /**
+REM  * TestUpdatingSRQFile.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+sysr_all_fields_iol:iolist K0$,K1$,HS$,HS1$,HS2$,REQ$,LOC$,STAT$,NOTES$,WHEN$,CONTACT$,ATTACHMENT$,ASSIGN$,ASTAMP$,CLSTAMP$,WORKED,PRI$
+
+srqNumber$ = "030037"
+srqKey$ = srqNumber$ + "00"
+
+sysrChannel = unt
+open(sysrChannel) "SYSR"
+
+read(sysrChannel, knum=0, key=srqKey$, dom=no_rec_found) IOL=sysr_all_fields_iol
+
+yymmddhhmm$ = date(0:"%Yz%Mz%Dz%Hz%mz") 
+
+STAT$ = "C"
+CLSTAMP$ = yymmddhhmm$
+
+write(sysrChannel) IOL=sysr_all_fields_iol
+
+print "record updated and requester was = [", cvs(REQ$,11), "]"
+
+no_rec_found:
+
+close(sysrChannel)

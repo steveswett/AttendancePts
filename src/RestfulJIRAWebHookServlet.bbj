@@ -110,32 +110,45 @@ class public RestfulJIRAWebHookServlet
                 
                 if len(srqNumber$) > 0 then
 
-                    requestData$ = #getRequestData()
+                    updateSrqLog$ = ""
                     
-                    generalInfo$ = "<p>httpMethod! = " + httpMethod! + "</p>"
-                    generalInfo$ = generalInfo$ + "<p>urlPath! = " + urlPath! + "</p>"
-                    generalInfo$ = generalInfo$ + "<p>srqNumber$ = " + srqNumber$ + "</p>"
-                    
-                    requestData$ = generalInfo$ + requestData$
-    
-                    if #SEND_EMAIL_DATA then
-    
-                        recipients$ = "steve.swett@notionsmarketing.com"
-                        subject$ = "E-mail data for RestfulJIRAWebHookServlet"
-                        body$ = requestData$
-                        #sendEmail(recipients$, subject$, body$)
-                        
+                    if #UPDATE_SRQ then
+                        updateSrqLog$ = #updateSRQ(srqNumber$)
                     endif
                     
-                    if #SEND_RESPONSE_TEXT then
+                    if #SEND_EMAIL_DATA or #SEND_RESPONSE_TEXT then
                     
-                        if mailReturnCode > 0 then
-                            print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
+                        requestData$ = #getRequestData()
+                        
+                        generalInfo$ = "<p>httpMethod! = " + httpMethod! + "</p>"
+                        generalInfo$ = generalInfo$ + "<p>urlPath! = " + urlPath! + "</p>"
+                        generalInfo$ = generalInfo$ + "<p>srqNumber$ = " + srqNumber$ + "</p>"
+                        
+                        requestData$ = generalInfo$ + requestData$
+
+                        requestData$ = updateSrqLog$ + requestData$ 
+        
+                        if #SEND_EMAIL_DATA then
+        
+                            recipients$ = "steve.swett@notionsmarketing.com"
+                            subject$ = "E-mail data for RestfulJIRAWebHookServlet"
+                            body$ = requestData$
+                            #sendEmail(recipients$, subject$, body$)
+                            
                         endif
                         
-                        print(#chan) requestData$
+                        if #SEND_RESPONSE_TEXT then
+                        
+                            if mailReturnCode > 0 then
+                                print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
+                            endif
+                            
+                            print(#chan) requestData$
+                            
+                        endif
                         
                     endif
+                    
                 
                 endif
                 
@@ -263,6 +276,63 @@ class public RestfulJIRAWebHookServlet
         
         methodret requestData$
 
+    methodend
+    
+    
+    method private java.lang.String updateSRQ(BBjString srqNumber!)
+    
+        declare java.lang.String issueKey!
+        
+        updateLog$ = ""
+        
+        REM  Initially just do in the local file system
+        REM  TODO: Need to adapt to NMCM environment (data server)
+        
+        sysr_all_fields_iol:iolist K0$,K1$,HS$,HS1$,HS2$,REQ$,LOC$,STAT$,NOTES$,WHEN$,CONTACT$,ATTACHMENT$,ASSIGN$,ASTAMP$,CLSTAMP$,WORKED,PRI$
+        
+        srqNumber$ = srqNumber!
+        srqKey$ = srqNumber$ + "00"
+        
+        sysrChannel = unt
+        updateLog$ = updateLog$ + " before open SYSR file."
+        open(sysrChannel) "SYSR"
+        updateLog$ = updateLog$ + " after open SYSR file."
+        
+        read(sysrChannel, knum=0, key=srqKey$, dom=no_rec_found) IOL=sysr_all_fields_iol
+        updateLog$ = updateLog$ + " read SYSR file."
+        
+        yymmddhhmm$ = date(0:"%Yz%Mz%Dz%Hz%mz") 
+        
+        STAT$ = "C"
+        CLSTAMP$ = yymmddhhmm$
+        
+        write(sysrChannel) IOL=sysr_all_fields_iol
+        updateLog$ = updateLog$ + " wrote SYSR file."
+        
+        trimmedRequester$ = cvs(REQ$,11)
+        
+        if len(trimmedRequester$) >= 0 then
+            
+            issueKey! = cast(java.lang.String, #jsonDataMap!.get("issue_key"))
+            updateLog$ = updateLog$ + " got issueKey!."
+
+            recipients$ = trimmedRequester$ + "@notionsmarketing.com"
+            subject$ = "SRQ " + srqNumber$ + " has been closed.  (aka JIRA " + issueKey! + ")"
+            body$ = "Original SRQ Description: " + cvs(NOTES$,2)
+            
+            updateLog$ = updateLog$ + " before sendEmail."
+            #sendEmail(recipients$, subject$, body$)
+            updateLog$ = updateLog$ + " after sendEmail."
+            
+        endif
+        
+        no_rec_found:
+        
+        close(sysrChannel)      
+        updateLog$ = updateLog$ + " after close SYSR file."
+        
+        methodret updateLog$  
+    
     methodend
     
     
