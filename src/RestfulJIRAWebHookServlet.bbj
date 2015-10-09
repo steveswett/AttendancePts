@@ -11,18 +11,20 @@ REM  */
 
 
 use java.net.URLDecoder
+use org.json.JSONObject
+use org.json.JSONArray
 
 
 class public RestfulJIRAWebHookServlet
 
-    field private BBjNumber TRUE = 1
-    field private BBjNumber FALSE = 0
+    field private static BBjNumber TRUE = 1
+    field private static BBjNumber FALSE = 0
 
-    field private BBjNumber sendResponseText = #TRUE
-    field private BBjNumber sendEmailData = #TRUE
-    field private BBjNumber includeRawBodyOfRequest = #TRUE
+    field private static BBjNumber RUNNING_ON_WINDOWS_DEV = #TRUE
 
-    field private BBjNumber runningOnWindowsDev = #TRUE
+    field private static BBjNumber SEND_RESPONSE_TEXT = #TRUE
+    field private static BBjNumber SEND_EMAIL_DATA = #TRUE
+    field private static BBjNumber INCLUDE_RAW_BODY_OF_REQUEST = #TRUE
 
     field private BBjNumber chan
     field private BBjHttpSession session!
@@ -71,6 +73,31 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
+    method public void sendEmail(java.lang.String recipients!, java.lang.String subject!, java.lang.String body!)
+
+        recipients$ = recipients!
+        subject$ = subject!
+        body$ = body!
+
+        if #RUNNING_ON_WINDOWS_DEV then
+            call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode
+        else
+            bodyFileName$ = "/tmp/RestfulJIRAWebHookServlet.email.body." + str(tim) + ".txt"
+
+            erase bodyFileName$,ERR=*next
+            string bodyFileName$
+            bodyFileChannel = unt
+            open(bodyFileChannel) bodyFileName$
+            print(bodyFileChannel) body$
+            close(bodyFileChannel)
+
+            emailCmd$ = "cat " + bodyFileName$ + " | mail -s """ + subject$ + """ -S smtp=""nmcz.notions-marketing.com"" " + recipients$
+            returnCode = scall(emailCmd$)
+        endif
+
+    methodend
+    
+    
     method public void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
         
         if urlPath!.startsWith("/srq-status-change/")  then
@@ -79,7 +106,7 @@ class public RestfulJIRAWebHookServlet
             
                 requestData$ = #getRequestData()
 
-                if #sendEmailData then
+                if #SEND_EMAIL_DATA then
                     recipients$ = "steve.swett@notionsmarketing.com"
                     subject$ = "E-mail data for RestfulJIRAWebHookServlet"
                     
@@ -88,25 +115,11 @@ class public RestfulJIRAWebHookServlet
                     body$ = body$ + "<p>requestData = " + "</p>"
                     body$ = body$ + requestData$
                     
-                    if #runningOnWindowsDev then
-                        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode
-                    else
-                        bodyFileName$ = "/tmp/RestfulJIRAWebHookServlet.email.body." + str(tim) + ".txt"
-
-                        erase bodyFileName$,ERR=*next
-                        string bodyFileName$
-                        bodyFileChannel = unt
-                        open(bodyFileChannel) bodyFileName$
-                        print(bodyFileChannel) body$
-                        close(bodyFileChannel)
-
-                        emailCmd$ = "cat " + bodyFileName$ + " | mail -s """ + subject$ + """ -S smtp=""nmcz.notions-marketing.com"" " + recipients$
-                        returnCode = scall(emailCmd$)
-                    endif
+                    #sendEmail(recipients$, subject$, body$)
                     
                 endif
                 
-                if #sendResponseText then
+                if #SEND_RESPONSE_TEXT then
                 
                     if mailReturnCode > 0 then
                         print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
@@ -127,6 +140,52 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
+    method public java.lang.String getJsonData(java.lang.String decodedBody!)
+    
+        declare org.json.JSONObject rootObject!
+        declare org.json.JSONObject transitionObject!
+        declare org.json.JSONObject userObject!
+        declare org.json.JSONObject issueObject!
+        declare org.json.JSONObject issueFieldsObject!
+    
+        
+        jsonData$ = ""
+        
+        seterr json_error_handler
+        
+        rootObject! = new org.json.JSONObject(decodedBody!)
+        
+        REM  The following isn't need for data reading; it's about testing the structure of the JSON data
+        transitionObject! = rootObject!.getJSONObject("transition")
+        userObject! = rootObject!.getJSONObject("user")
+        
+        REM  These are needed for data reads:
+        issueObject! = rootObject!.getJSONObject("issue")
+        issueKey$ = issueObject!.getString("key")
+        issueFieldsObject! = issueObject!.getJSONObject("fields")
+        issueSummary$ = issueFieldsObject!.getString("summary")
+         
+        jsonData$ = jsonData$ + "<li>issueKey$ = " + issueKey$ + "</li>"
+        jsonData$ = jsonData$ + "<li>issueSummary$ = " + issueSummary$ + "</li>"
+        
+        goto skip_json_error
+        
+        
+        json_error_handler:
+        
+        jsonData$ = "<p>ERROR: " + errmes(-1) + "</p>"
+        
+        
+        skip_json_error:
+        
+        seterr 0
+        
+        methodret jsonData$
+        
+    
+    methodend
+    
+    
     method public java.lang.String getRequestData()
     
         requestData$ = ""
@@ -134,9 +193,8 @@ class public RestfulJIRAWebHookServlet
         requestData$ = requestData$ + "<p>Test of getting a few important pieces of data<p>"
         requestData$ = requestData$ + "<ul>"
         
-        requestData$ = requestData$ + "<li>issue[key] = " + #request!.getParameter("issue[key]") + "</li>"
-        requestData$ = requestData$ + "<li>issue[fields][summary] = " + #request!.getParameter("issue[fields][summary]") + "</li>"
-        requestData$ = requestData$ + "<li>issue[fields][description] = " + #request!.getParameter("issue[fields][description]") + "</li>"
+        decodedBody$ = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
+        requestData$ = requestData$ + #getJsonData(decodedBody$)
         
         requestData$ = requestData$ + "</ul>"
         
@@ -153,9 +211,8 @@ class public RestfulJIRAWebHookServlet
         requestData$ = requestData$ + "</ul>"
 
         
-        if #includeRawBodyOfRequest then
+        if #INCLUDE_RAW_BODY_OF_REQUEST then
             requestData$ = requestData$ + "<p>Raw body of request</p>"
-            decodedBody$ = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
             requestData$ = requestData$ + "<p><xmp>" + decodedBody$ + "</xmp></p>"
         endif
         

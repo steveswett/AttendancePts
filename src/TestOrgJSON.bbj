@@ -9,6 +9,7 @@ use org.json.JSONArray
 
 declare org.json.JSONObject jsonObject!
 declare org.json.JSONArray jsonArray!
+declare org.json.JSONObject junkerObject!
 
 begin
 
@@ -23,7 +24,14 @@ begin
     pageName$ = jsonObject!.getJSONObject("pageInfo").getString("pageName")
     
     print "pageName$ = ", pageName$
+
+    REM  Test attempt at fetching a bogus element:
+    REM  The following will through a JSONException
     
+    seterr my_error_handler
+    
+    junkerObject! = jsonObject!.getJSONObject("junker")
+    pageName$ = junkerObject!.getString("pageName")
 
     jsonArray! = jsonObject!.getJSONArray("posts")
     
@@ -32,7 +40,15 @@ begin
         actorName$ = jsonArray!.getJSONObject(i).getString("actor_name")
         print "i, postId$, actorName$ = ", i, ", ", postId$, ", ", actorName$
     next i
-
+    
+    goto eoj
+    
+    my_error_handler:
+    
+    print "An error occurred."
+    
+    
+    eoj:
 
 end
 

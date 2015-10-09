@@ -1,0 +1,33 @@
+REM /**
+REM  * TestStaticFields.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+declare TestStatic myTestStatic!
+
+
+myTestStatic! = new TestStatic()
+myTestStatic!.printStaticValue()
+
+
+class public TestStatic
+
+    field private static BBjNumber TRUE = 1
+    field private static BBjNumber FALSE = 0
+
+    field private static BBjNumber SEND_RESPONSE_TEXT = #TRUE
+
+
+    method public void printStaticValue()
+
+        print "SEND_RESPONSE_TEXT = ", #SEND_RESPONSE_TEXT
+        
+        if #SEND_RESPONSE_TEXT then
+            print "this should print."
+        endif
+
+    methodend
+
+classend
