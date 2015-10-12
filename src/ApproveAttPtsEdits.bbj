@@ -491,7 +491,7 @@ handle_input:
                     break
         
             case ASC(F3_CTL_OUTPUT_VALUE$)
-                    if isRecordEditable then
+                    if isRecordEditable and dispCode$ = "E" then
                         beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
                         afterValue = beforeValue 
                         call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 9, afterValue, tmpReasonDescr$
