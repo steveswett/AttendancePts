@@ -5,6 +5,9 @@ REM  *
 REM  */
 
 
+use java.lang.System
+
+
 declare TestBooleanInClass myClass!
 myClass! = new TestBooleanInClass()
 

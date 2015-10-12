@@ -10,6 +10,7 @@ REM  *
 REM  */
 
 
+use java.lang.System
 use java.net.URLDecoder
 use java.util.HashMap
 use org.json.JSONObject
@@ -21,12 +22,13 @@ class public RestfulJIRAWebHookServlet
     field private static BBjNumber TRUE = 1
     field private static BBjNumber FALSE = 0
 
-    field private static BBjNumber RUNNING_ON_WINDOWS_DEV = #TRUE
+    field private static BBjNumber RUNNING_ON_WINDOWS_DEV = #FALSE
 
-    field private static BBjNumber SEND_RESPONSE_TEXT = #TRUE
-    field private static BBjNumber SEND_EMAIL_DATA = #TRUE
-    field private static BBjNumber INCLUDE_RAW_BODY_OF_REQUEST = #TRUE
+    field private static BBjNumber SEND_RESPONSE_TEXT = #FALSE
+    field private static BBjNumber SEND_EMAIL_DATA = #FALSE
+    field private static BBjNumber INCLUDE_RAW_BODY_OF_REQUEST = #FALSE
     field private static BBjNumber UPDATE_SRQ = #TRUE
+    field private static BBjNumber WRITE_TO_LOG = #FALSE
 
     field private BBjNumber chan
     field private BBjHttpSession session!
@@ -110,10 +112,8 @@ class public RestfulJIRAWebHookServlet
                 
                 if len(srqNumber$) > 0 then
 
-                    updateSrqLog$ = ""
-                    
                     if #UPDATE_SRQ then
-                        updateSrqLog$ = #updateSRQ(srqNumber$)
+                        #updateSRQ(srqNumber$)
                     endif
                     
                     if #SEND_EMAIL_DATA or #SEND_RESPONSE_TEXT then
@@ -125,8 +125,6 @@ class public RestfulJIRAWebHookServlet
                         generalInfo$ = generalInfo$ + "<p>srqNumber$ = " + srqNumber$ + "</p>"
                         
                         requestData$ = generalInfo$ + requestData$
-
-                        requestData$ = updateSrqLog$ + requestData$ 
         
                         if #SEND_EMAIL_DATA then
         
@@ -279,11 +277,16 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
-    method private java.lang.String updateSRQ(BBjString srqNumber!)
+    method private void writeToLog(BBjString logEntry!)
+    
+        System.out.println("RestfulJIRAWebHookServlet.bbj - " + #request!.getPathInfo() + " - " + logEntry!)
+        
+    methodend
+    
+    
+    method private void updateSRQ(BBjString srqNumber!)
     
         declare java.lang.String issueKey!
-        
-        updateLog$ = ""
         
         REM  Initially just do in the local file system
         REM  TODO: Need to adapt to NMCM environment (data server)
@@ -294,12 +297,12 @@ class public RestfulJIRAWebHookServlet
         srqKey$ = srqNumber$ + "00"
         
         sysrChannel = unt
-        updateLog$ = updateLog$ + " before open SYSR file."
+        if #WRITE_TO_LOG then #writeToLog("before open SYSR file")
         open(sysrChannel) "SYSR"
-        updateLog$ = updateLog$ + " after open SYSR file."
+        if #WRITE_TO_LOG then #writeToLog("after open SYSR file")
         
         read(sysrChannel, knum=0, key=srqKey$, dom=no_rec_found) IOL=sysr_all_fields_iol
-        updateLog$ = updateLog$ + " read SYSR file."
+        if #WRITE_TO_LOG then #writeToLog("read SYSR file")
         
         yymmddhhmm$ = date(0:"%Yz%Mz%Dz%Hz%mz") 
         
@@ -307,31 +310,29 @@ class public RestfulJIRAWebHookServlet
         CLSTAMP$ = yymmddhhmm$
         
         write(sysrChannel) IOL=sysr_all_fields_iol
-        updateLog$ = updateLog$ + " wrote SYSR file."
+        if #WRITE_TO_LOG then #writeToLog("wrote SYSR file")
         
         trimmedRequester$ = cvs(REQ$,11)
         
         if len(trimmedRequester$) >= 0 then
             
             issueKey! = cast(java.lang.String, #jsonDataMap!.get("issue_key"))
-            updateLog$ = updateLog$ + " got issueKey!."
+            if #WRITE_TO_LOG then #writeToLog("got issueKey!")
 
             recipients$ = trimmedRequester$ + "@notionsmarketing.com"
             subject$ = "SRQ " + srqNumber$ + " has been closed.  (aka JIRA " + issueKey! + ")"
             body$ = "Original SRQ Description: " + cvs(NOTES$,2)
             
-            updateLog$ = updateLog$ + " before sendEmail."
+            if #WRITE_TO_LOG then #writeToLog("before sendEmail")
             #sendEmail(recipients$, subject$, body$)
-            updateLog$ = updateLog$ + " after sendEmail."
+            if #WRITE_TO_LOG then #writeToLog("after sendEmail")
             
         endif
         
         no_rec_found:
         
         close(sysrChannel)      
-        updateLog$ = updateLog$ + " after close SYSR file."
-        
-        methodret updateLog$  
+        if #WRITE_TO_LOG then #writeToLog("after close SYSR file")
     
     methodend
     
