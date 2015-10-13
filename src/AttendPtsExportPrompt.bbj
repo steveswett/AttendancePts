@@ -1,0 +1,393 @@
+REM /**
+REM  * AttendPtsExportPrompt.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: October 2015
+REM  * 
+REM  * Description: Attendance Points Export - prompt screen.
+REM  * 
+REM  */
+
+
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap deptsMap!
+declare java.util.LinkedHashMap levelsMap!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+TRUE = 1
+FALSE = 0
+
+SHOW_FIELD_TERMINATOR_PRESSED = FALSE
+
+DATE_FROM_FIELD_NO = 1
+DATE_TO_FIELD_NO = 2
+PTS_FROM_FIELD_NO = 3
+PTS_TO_FIELD_NO = 4
+ORDER_BY_FIELD_NO = 5
+
+FIRST_FIELD_NO = DATE_FROM_FIELD_NO
+LAST_FIELD_NO =  ORDER_BY_FIELD_NO
+
+
+REM     Note about INPUTE:
+REM     
+REM     Any value less than 63 will cause the input function to exit setting the CTL value to the function value. 
+REM     The "help" function causes an exit with CTL=-1.
+
+REM     For consistency across programs regarding function keys (not edit keys):
+REM     Input values: F1, F2, F3 ... F10 = $11$, $12$, $13$ ... $1A$
+REM     Output values: F1, F2, F3 ... F10 = $01$, $02$, $03$ ... $0A$
+
+F4_CUSTOM_INPUT_VALUE$ = $14$
+F4_CTL_OUTPUT_VALUE$ = $04$
+
+TAB_CUSTOM_INPUT_VALUE$ = $09$
+TAB_CTL_OUTPUT_VALUE$ = $19$
+
+BACKTAB_CUSTOM_INPUT_VALUE$ = $83$
+BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub init
+    
+    gosub display_screen_headings
+    
+    gosub display_data
+    
+    gosub handle_input
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    release
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+
+        rem  The 'ET' (end type ahead control) below is VERY IMPORTANT when using SHIFT+TAB.  Without it, each
+        rem  SHIFT+TAB would actually be treated as two inputs: SHIFT+TAB followed by TAB.
+
+    print 'UC', 'CS', 'ET'
+    
+        rem Set color.  In the following, $03$ is the background (blue) and $3F$ is the foreground (white).
+        rem The bits for that were: 0 0 1 1 1 1 1 1  (<-- foreground)   0 0 0 0 0 0 1 1  (<-- background)
+        
+    print 'RGB'($033F$);   rem blue background, white foreground
+    rem print 'RGB'($033C$);   rem blue background, yellow foreground
+    rem print 'RGB'($0330$);   rem blue background, red foreground
+    
+    print 'CURSOR'("rep_block");   rem This only works in BBj -- not Pro/5
+
+
+        rem For info on function key programming, see this article: http://www.basis.com/kb00025
+        rem Also see Basis help: PRO/5 > User's Ref > Character Devices > Terminals > Function and Edit Keys
+    
+        rem Below is how the 'FL' (function keys) and 'EL' (edit keys) mnemonics are used to assign a key a value
+        
+        rem "2" - load only one key
+        rem $01$ - means the F2 key (0-based)
+        rem chr(1) - means the custom value of the function key is 1 byte long
+        
+    print 'FL', "2", $03$, chr(1), F4_CUSTOM_INPUT_VALUE$,
+
+    rem print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
+      
+rem    Try Unix ($0B$ instead of $3C$) -- didn't work              
+rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
+
+    print 'EL', "2", $3C$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,    
+    
+    f4Pair$ = F4_CUSTOM_INPUT_VALUE$ + F4_CTL_OUTPUT_VALUE$
+    tabPair$ = TAB_CUSTOM_INPUT_VALUE$ + TAB_CTL_OUTPUT_VALUE$
+    backtabPair$ = BACKTAB_CUSTOM_INPUT_VALUE$ + BACKTAB_CTL_OUTPUT_VALUE$
+    
+    resultIgnored$ = stbl("!TERMS", f4Pair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
+    resultIgnored$ = stbl("!EDIT", f4Pair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    
+    fromDate$ = "000000"
+    toDate$ = "000000"
+    
+    ptsFrom = 0
+    ptsTo = .5
+    
+    orderBy$ = "1"
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the screen headings
+    rem ------------------------------------------------------------------------------------------
+
+
+display_screen_headings:
+
+    call "TerminalUtilities.bbj::display_screen_headings", pgm(-2), "ATTENDANCE POINTS EXPORT" 
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display data on page, besides page headings
+    rem ------------------------------------------------------------------------------------------
+
+    
+display_data:
+
+    print @(0,0), 'CE', 'UC'
+    
+    gosub display_screen_headings
+    
+    print @(11, 3), "Select:"
+    
+    fmtFromDate$ = fromDate$(1,2) + "/" + fromDate$(3,2) + "/" + fromDate$(5,2)
+    fmtToDate$ = toDate$(1,2) + "/" + toDate$(3,2) + "/" + toDate$(5,2)
+     
+    print @(20, 4), "Dates:  ", 'BU', fmtFromDate$, 'EU', " - ", 'BU', fmtToDate$, 'EU'
+    
+    print @(20, 6), "Points: ", 'BU', str(ptsFrom:"##.0"), 'EU', " - ", 'BU', str(ptsTo:"##.0"), 'EU'
+    
+    print @(9, 10), "Order by:  ", 'BU', orderBy$, 'EU'
+    print @(20, 11), "1 - Scheduled shift status, employee name"
+    print @(20, 12), "2 - Employee name"
+    
+    
+    actionLabel$ = "F4=Exit   Enter=Continue"
+    
+    print @(0,21), actionLabel$ 
+    
+    if SHOW_FIELD_TERMINATOR_PRESSED then print @(5,22), 'CL', "Field terminator (savedCTL): ", savedCTL
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Handle input, which will be F4 or Page Up or Page Down
+    rem ------------------------------------------------------------------------------------------
+
+    
+handle_input:
+
+    currentFieldNo = DATE_FROM_FIELD_NO
+
+    while TRUE
+        
+        switch currentFieldNo
+
+            case DATE_FROM_FIELD_NO
+                print @(28, 4), 'BU'
+                inpute 28, 4, "00/00/00", "", fromDate$
+                print @(36, 4), 'EU' 
+                break
+
+            case DATE_TO_FIELD_NO
+                print @(39, 4), 'BU'
+                inpute 39, 4, "00/00/00", "", fromDate$
+                print @(47, 4), 'EU' 
+                break
+
+            case PTS_FROM_FIELD_NO
+                print @(28, 6), 'BU'
+                inputn 28, 6, "##.0", "##.0", "", 5, ptsFrom
+                print @(32, 6), 'EU'
+                break
+            
+            case PTS_TO_FIELD_NO
+                print @(35, 6), 'BU'
+                inputn 35, 6, "##.0", "##.0", "", 5, ptsTo
+                print @(39, 6), 'EU'
+                break
+            
+            case ORDER_BY_FIELD_NO
+                print @(20, 10), 'BU'
+                inpute 20, 10, 1, "", orderBy$
+                print @(21, 10), 'EU'
+                break
+
+        swend
+            
+        gosub clear_err_msg
+
+        savedCTL = CTL
+        isTabbing = FALSE
+        needToBreak = FALSE
+        
+        switch savedCTL
+        
+            case ASC(F4_CTL_OUTPUT_VALUE$)
+                    needToBreak = TRUE
+        
+                    break
+        
+            case ASC(TAB_CTL_OUTPUT_VALUE$)
+                    isTabbing = TRUE
+                    gosub set_field_no_after_tabbing
+                    
+                    break
+                    
+            case ASC(BACKTAB_CTL_OUTPUT_VALUE$)
+                    isTabbing = TRUE
+                    gosub set_field_no_after_back_tabbing
+                    
+                    break
+                    
+            case 0
+                    gosub validate_input
+                    
+                    if len(errMsg$) > 0 then
+                        gosub display_err_msg
+                    else
+                        REM  call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$, levelsMap!
+                        input "Next screen would be called. Hit any key.", ignoreInput$
+                    endif
+                    
+                    break
+        swend
+
+        if needToBreak then break
+
+        if isTabbing and SHOW_FIELD_TERMINATOR_PRESSED then
+            print @(55,21), 'CL', "CTL, savedCTL: ", CTL, ", ", savedCTL
+        endif
+
+        if !(isTabbing) and len(errMsg$) = 0 then
+            gosub display_data
+        endif
+        
+    wend
+    
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  set_field_no_after_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_field_no_after_tabbing:
+
+    currentFieldNo = currentFieldNo + 1
+    if currentFieldNo > LAST_FIELD_NO then currentFieldNo = FIRST_FIELD_NO
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  set_field_no_after_back_tabbing
+    rem ------------------------------------------------------------------------------------------
+    
+    
+set_field_no_after_back_tabbing:
+
+    currentFieldNo = currentFieldNo - 1
+    if currentFieldNo < FIRST_FIELD_NO then currentFieldNo = LAST_FIELD_NO
+    
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  clear_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+clear_err_msg:
+
+    print @(0,22), 'CL'
+    errMsg$ = ""
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  display_err_msg
+    rem ------------------------------------------------------------------------------------------
+    
+    
+display_err_msg:
+
+    print @(0,22), 'CL', 'BR', pad(errMsg$, 80, "L", " "), 'ER'
+        
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  validate_input
+    rem ------------------------------------------------------------------------------------------
+    
+    
+validate_input:
+
+    REM  Validate Dates
+    
+    yyyymmddTemp$ = "20" + fromDate$(5,2) + fromDate$(1,4) 
+    call "DateUtilities.bbj::is_valid_yyyymmdd_date", yyyymmddTemp$, isValidDate 
+
+    if !(isValidDate) then
+        errMsg$ = "Date entered is not valid (MM/DD/YY)."
+        currentFieldNo = PTS_DATE_FIELD_NO
+        goto end_validate_input
+    endif
+    
+    
+    REM  Validate Points
+
+    if ptsFrom < 0 or ptsFrom > 99 then
+        errMsg$ = "Points (from) must be a value between 0 and 99."
+        currentFieldNo = PTS_FROM_FIELD_NO
+        goto end_validate
+    endif
+
+    if ptsTo < 0 or ptsTo > 99 then
+        errMsg$ = "Points (to) must be a value between 0 and 99."
+        currentFieldNo = PTS_TO_FIELD_NO
+        goto end_validate
+    endif
+    
+    if ptsFrom > ptsTo then
+        errMsg$ = "The points ""from"" value cannot be greater than the ""to"" value."
+        currentFieldNo = PTS_FROM_FIELD_NO
+        goto end_validate
+    endif
+    
+    
+    REM  Validate Order By
+
+    if orderBy$ <> "1" and orderBy$ <> "2" then
+        errMsg$ = "Order by must be 1 or 2."
+        currentFieldNo = ORDER_BY_FIELD_NO
+        goto end_validate
+    endif
+    
+  
+    end_validate:
+        
+    return
