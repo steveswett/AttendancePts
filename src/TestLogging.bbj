@@ -11,3 +11,6 @@ REM  The following gets written to BBjServices.log.yyyy-mm-dd.x -- awesome
 REM  However, the modified timestamp doesn't get updated.
 
 System.out.println("##### Hello Again #####")
+
+
+REM  TODO: See if a "print" will do the same thing

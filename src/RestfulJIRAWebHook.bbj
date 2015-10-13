@@ -32,4 +32,4 @@ process_events
 run_in_test_mode:
 
     testServlet! = new RestfulJIRAWebHookServlet()
-    testServlet!.getTestModeResponse()
+    testServlet!.handleTestEvent()

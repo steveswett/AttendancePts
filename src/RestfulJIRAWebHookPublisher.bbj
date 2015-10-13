@@ -7,44 +7,115 @@ REM  * NOTE: There are some hard-wired things here that I don't like, but we don
 REM  *       on nmcm, which is where this will run.  Could perhaps make more flexible later with
 REM  *       CONFIG_VARS access, etc.
 REM  *
+REM  * To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
+REM  * 
 REM  */
 
+
 declare BBjAdmin admin!
-declare BBjServletRegistry registry!
+declare BBjServletRegistry servletRegistry!
 declare BBjConfig config!
-declare BBjAppConfig application!
+declare BBjAppConfig appConfig!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
 
 
 TRUE = 1
 FALSE = 0
-runningOnWindowsDev = TRUE
 
- 
+REM  For the following, TRUE means running in Steve's dev env.  FALSE means intended for NMCM production.
+
+RUNNING_ON_WINDOWS_DEV = TRUE
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub config_and_publish
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    release
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Publish the servlet.  Unpublish it first.
+    rem ------------------------------------------------------------------------------------------
+
+
+config_and_publish:
+
+    rem  Login:
+    
+    REM black background, white foreground
+    print 'CS', 'RGB'($003F$)
+    
+    print @(0,3), "Publish or Re-Publish the RestfulJIRAWebHookServlet"
+    
+    input @(0,5), "Enter Enterpise Manager User ID: ", userId$
+     
+    rem black background, black foreground (to hide password)
+    input @(0,6), "Enter Password: ", 'RGB'($0000$), password$
+    
+    print @(0,7), 'RGB'($003F$), 'CE'
+
+    admin! = BBjAPI().getAdmin(userId$, password$, err=login_failed)
+    
+    goto login_ok
+    
+    login_failed:
+    
+    input @(0,8), "The login failed.  Hit any key.  Then try running program again.", ignoreInput$
+    goto bail_out_of_publish
+    
+    login_ok:
+    
+    
     rem  Create application configuration
 
-config! = BBjAPI().getConfig()
-application! = config!.makeEmptyAppConfig()
-application!.setWorkingDirectory(dsk("")+dir(""))
-application!.setConfigFile(System.getProperty("com.basis.server.configDirectory") + iff(runningOnWindowsDev, "/bbj-config.txt", "/config.bbx"))
-application!.setProgramName("RestfulJIRAWebHook.bbj")
+    config! = BBjAPI().getConfig()
+    appConfig! = config!.makeEmptyAppConfig()
+    
+    appConfig!.setWorkingDirectory(dsk("")+dir(""))
+    appConfig!.setProgramName("RestfulJIRAWebHook.bbj")
+
+    if RUNNING_ON_WINDOWS_DEV then
+        appConfig!.setConfigFile(System.getProperty("com.basis.server.configDirectory") + "/bbj-config.txt")
+    else
+        appConfig!.setConfigFile("/usr/notpgm/config-rest.bbx")
+
+        REM  Needed the following to gain access to the Pro/5 Data Server
+        
+        REM appConfig!.setInterpreterUser("notions")
+        appConfig!.setApplicationUserName("notions")
+    endif
  
     rem  Obtain servlet registry
     
-    REM  TODO: Get rid of this hard-wired login!!!
-    
-admin! = BBjAPI().getAdmin("admin", "admin123")
-registry! = admin!.getServletRegistry()
+    servletRegistry! = admin!.getServletRegistry()
  
     rem  Using the registry, unpublish and then republish the servlet driver.  "JIRAWebHook" is the servlet name
     
-registry!.unpublish("/JIRAWebHook", err=*next)
-registry!.publish("/JIRAWebHook", application!)
+    servletRegistry!.unpublish("/JIRAWebHook", err=*next)
+    servletRegistry!.publish("/JIRAWebHook", appConfig!)
+    
+    input @(0,8), "RestfulJIRAWebHook program published.  Hit any key to continue.", ignoreInput$
+    
+    bail_out_of_publish:
 
-input @(5,5), "RestfulJIRAWebHook program published.  Hit any key to continue.", ignoreInput$
-
-release
-bye
-
-
-    rem  To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
+    return  
 

@@ -22,7 +22,8 @@ class public RestfulJIRAWebHookServlet
     field private static BBjNumber TRUE = 1
     field private static BBjNumber FALSE = 0
 
-    field private static BBjNumber RUNNING_ON_WINDOWS_DEV = #FALSE
+    REM  For the following, TRUE means running in Steve's dev env.  FALSE means intended for NMCM production.
+    field private static BBjNumber RUNNING_ON_WINDOWS_DEV = #TRUE
 
     field private static BBjNumber SEND_RESPONSE_TEXT = #FALSE
     field private static BBjNumber SEND_EMAIL_DATA = #FALSE
@@ -30,14 +31,18 @@ class public RestfulJIRAWebHookServlet
     field private static BBjNumber UPDATE_SRQ = #TRUE
     field private static BBjNumber WRITE_TO_LOG = #FALSE
 
-    field private BBjNumber chan
+    field private BBjNumber responseChannel
     field private BBjHttpSession session!
     field private BBjHttpRequest request!
 
     field private BBjVector parmNames!
     field private java.lang.String decodedBody!
     field private java.util.HashMap jsonDataMap!
+
     
+    rem /**
+    rem  * Handle the servlet request event (the starting point)
+    rem  */
 
 
     method public void handleRequestEvent(BBjServletEvent p_event!)
@@ -45,34 +50,43 @@ class public RestfulJIRAWebHookServlet
         declare BBjHttpResponse response!
         declare BBjHttpRequest request!
 
-        #chan = unt
+        #responseChannel = unt
         #request! = cast(BBjHttpRequest, p_event!.getHttpRequest())
         #session! = cast(BBjHttpSession, #request!.getSession())
         
         response! = p_event!.getHttpResponse()
         response!.setContentType("text/html")
         
-        open(#chan)"JSERVLET"
+        open(#responseChannel)"JSERVLET"
         #processRequest(#request!.getMethod(), #request!.getPathInfo())
-        close(#chan) 
+        close(#responseChannel) 
 
     methodend
     
+
+    rem /**
+    rem  * Handle a test event.  This is triggered when the RestfulJIRAWebHook.bbj program is run
+    rem  * manually outside of a servlet container (such as from within Eclipse with Run button).
+    rem  */
+
     
-        rem  This method is a test case 
+    method public void handleTestEvent()
     
-    method public void getTestModeResponse()
-    
-      #chan = unt
+      #responseChannel = unt
       
       rem  Send output to a file, so you can see results:
       
-      open(#chan, mode="O_CREATE") "/tmp/RestfulJIRAWebHookServlet-output.txt"
+      open(#responseChannel, mode="O_CREATE") "/tmp/RestfulJIRAWebHookServlet-output.txt"
       #processRequest("GET", "/srq-status-change/ERP-1524")
-      close(#chan)
+      close(#responseChannel)
       
     methodend
+
     
+    rem /**
+    rem  * Send an e-mail
+    rem  */
+
     
     method private void sendEmail(java.lang.String recipients!, java.lang.String subject!, java.lang.String body!)
 
@@ -97,6 +111,11 @@ class public RestfulJIRAWebHookServlet
         endif
 
     methodend
+    
+    
+    rem /**
+    rem  * Process the request 
+    rem  */
     
     
     method private void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
@@ -138,10 +157,10 @@ class public RestfulJIRAWebHookServlet
                         if #SEND_RESPONSE_TEXT then
                         
                             if mailReturnCode > 0 then
-                                print(#chan) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
+                                print(#responseChannel) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
                             endif
                             
-                            print(#chan) requestData$
+                            print(#responseChannel) requestData$
                             
                         endif
                         
@@ -159,6 +178,11 @@ class public RestfulJIRAWebHookServlet
         endif
 
     methodend
+    
+    
+    rem /**
+    rem  *  Get the SRQ number from the issue summary field from the #jsonDataMap!
+    rem  */
     
     
     method private BBjString getSrqNumber()
@@ -190,6 +214,13 @@ class public RestfulJIRAWebHookServlet
         methodret resultNum$
     
     methodend
+    
+    
+    rem /**
+    rem  * Load data from the stringified JSON data in the request body into #jsonDataMap!.
+    rem  * This also validates the structure of the JSON data so that we aren't trying to 
+    rem  * handle bogus requests. 
+    rem  */
     
     
     method private void loadJsonDataMap()
@@ -235,6 +266,11 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
+    rem /**
+    rem  * Get request data.  This was initially used to inspect what was coming in from JIRA. 
+    rem  */
+    
+    
     method private java.lang.String getRequestData()
     
         requestData$ = ""
@@ -277,11 +313,21 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
+    rem /**
+    rem  *  Write a log entry to BBjServices.log.yyyy-mm-dd.x 
+    rem  */
+    
+    
     method private void writeToLog(BBjString logEntry!)
     
         System.out.println("RestfulJIRAWebHookServlet.bbj - " + #request!.getPathInfo() + " - " + logEntry!)
         
     methodend
+    
+    
+    rem /**
+    rem  *  Update the SRQ record in the NotionsDB on NMCA.  Mark it closed.  Also send an e-mail to the requester 
+    rem  */
     
     
     method private void updateSRQ(BBjString srqNumber!)
@@ -337,13 +383,18 @@ class public RestfulJIRAWebHookServlet
     methodend
     
     
+    rem /**
+    rem  * This method is only called as part of handling a test event.  It doesn't output anything very meaningful. 
+    rem  */
+    
+    
     method private void getSampleResponseForGetMethod(java.lang.String urlPath!)
 
-        print(#chan) "<p>This is the response given if method is GET.<p>"
+        print(#responseChannel) "<p>This is the response given if method is GET.<p>"
         
         decodedText$ = java.net.URLDecoder.decode("Hello%20there", "UTF-8")
         
-        print(#chan) "<p>This is the decodedText$ = " + decodedText$ + "</p>"
+        print(#responseChannel) "<p>This is the decodedText$ = " + decodedText$ + "</p>"
         
 
     methodend
