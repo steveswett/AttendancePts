@@ -344,7 +344,13 @@ class public RestfulJIRAWebHookServlet
         
         sysrChannel = unt
         if #WRITE_TO_LOG then #writeToLog("before open SYSR file")
-        open(sysrChannel) "SYSR"
+        
+        if #RUNNING_ON_WINDOWS_DEV then
+            open(sysrChannel) "SYSR"
+        else
+            open(sysrChannel) "/<NMCA>/usr/notfil/SYSR"
+        endif
+        
         if #WRITE_TO_LOG then #writeToLog("after open SYSR file")
         
         read(sysrChannel, knum=0, key=srqKey$, dom=no_rec_found) IOL=sysr_all_fields_iol
