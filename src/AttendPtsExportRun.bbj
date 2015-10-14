@@ -134,20 +134,40 @@ run_export:
 
     employeeRecordsMap! = new java.util.LinkedHashMap()
     
-    REM  Step 1. Put employees who were active sometime during the pay period into employeeRecordsMap!
-    
     call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", fromMDYIn$, yyyymmddFrom$
     call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", toMDYIn$, yyyymmddTo$
 
-    call "WFMREmployeeDAO.bbj::get_active_operations_employees", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
+    
+    REM  Step 1. Put employees who were active sometime during the pay period into employeeRecordsMap!
 
-    numberOfRecordsExported = employeeRecordsMap!.size()
+    call "WFMREmployeeDAO.bbj::get_active_operations_employees", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
     
 
     REM  Step 2. Append number of attendance points to maps in employeeRecordsMap!
+    
+    call "AttendPtsDAO.bbj::add_pts_to_map", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
 
     
     REM  Step 3. Build qualifiedEmployeeRecordsMap! from employeeRecordsMap!
+
+    qualifiedEmployeeRecordsMap! = new java.util.LinkedHashMap()
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+      badgeKey! = iter!.next()
+      employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+      
+      ptsTotal = employeeDataMap!.get("pts_total")
+      
+      if ptsTotal >= fromPtsIn and ptsTotal <= toPtsIn then
+            qualifiedEmployeeRecordsMap!.put(badgeKey!, employeeDataMap!)
+      endif 
+      
+    wend
+
+    numberOfRecordsExported = qualifiedEmployeeRecordsMap!.size()
     
     
     REM  Step 4. Append employee number (for ADP#) to qualifiedEmployeeRecordsMap! 

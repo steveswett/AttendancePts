@@ -201,6 +201,17 @@ add_pts_and_next_drop_info_to_map:
 
     exit
     
+    
+add_pts_to_map:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, employeeRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub append_pts_to_map
+
+    exit
+    
 
 
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
@@ -271,6 +282,38 @@ append_pts_and_next_drop_date_info:
         employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
             
         row_not_found:
+    
+    wend
+
+    sqlclose(ptsChannel)
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Append total points to an existing employeeRecordsMap!
+    rem ------------------------------------------------------------------------------------------
+
+
+append_pts_to_map:
+
+    ptsChannel = sqlunt
+    sqlopen(ptsChannel) attendPtsDataSource$
+    sqlprep(ptsChannel) GET_PTS_TOTAL_RANGE_STMT$
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        
+        sqlexec(ptsChannel) "0" + badgeKey!, yyyymmddFromIn$, yyyymmddToIn$
+        dim resultRow$:sqltmpl(ptsChannel)
+        
+        resultRow$ = sqlfetch(ptsChannel,err=*next)
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+        employeeDataMap!.put("pts_total", resultRow.pts_total)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
     
     wend
 
