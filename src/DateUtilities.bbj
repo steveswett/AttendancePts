@@ -51,6 +51,17 @@ get_mdy_with_slashes_added:
     exit
     
 
+convert_mmdddyy_to_20yymmdd:
+
+    enter mmddyyIn$, yyyymmddOut$
+    
+    gosub setup_constants
+    
+    yyyymmddOut$ = "20" + mmddyyIn$(5,2) + mmddyyIn$(1,4) 
+    
+    exit
+    
+
 get_yymd_as_mdy_with_day_name:
 
     enter yyyymmddIn$, mdyDayAbbrevOut$

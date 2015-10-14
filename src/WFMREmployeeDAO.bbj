@@ -44,6 +44,17 @@ get_operations_employees_by_dept_shift:
     exit
 
 
+get_active_operations_employees:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, employeeRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub load_active_operations_employees
+    
+    exit
+
+
 get_dept_name_for_employee:
 
     enter badgeIn$, deptNameOut$
@@ -58,6 +69,47 @@ get_dept_name_for_employee:
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Load active operations employees -- during a date range: yyyymmddFromIn$ - yyyymmddToIn$
+REM  ------------------------------------------------------------------------------------------
+
+
+load_active_operations_employees:
+
+    employeeRecordsMap!.clear()
+    
+    sqlFrom$ = yyyymmddFromIn$(1,4) + "-" + yyyymmddFromIn$(5,2) + "-" + yyyymmddFromIn$(7,2)
+    sqlTo$ = yyyymmddToIn$(1,4) + "-" + yyyymmddToIn$(5,2) + "-" + yyyymmddToIn$(7,2)
+
+    employeeChannel = sqlunt
+    sqlopen(employeeChannel) wfmrDataSource$
+    sqlprep(employeeChannel) GET_ACTIVE_EMPLOYEES_STMT$
+
+    sqlexec(employeeChannel) sqlFrom$, sqlTo$, opsBusinessUnit$ 
+
+    dim resultRow$:sqltmpl(employeeChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(employeeChannel,err=*break)
+        
+        employeeDataMap! = new java.util.HashMap()
+        employeeDataMap!.put("employee_id", resultRow.employee_id)
+        employeeDataMap!.put("badge_number", resultRow.badge_number$)
+        employeeDataMap!.put("last_name", cvs(resultRow.last_name$, 2))
+        employeeDataMap!.put("first_name", cvs(resultRow.first_name$, 2))
+        employeeDataMap!.put("hrs_worked", resultRow.hrs_worked)
+        employeeDataMap!.put("sched_shifts", resultRow.sched_shifts)
+        
+        employeeRecordsMap!.put(cvs(resultRow.badge_number$, 2), employeeDataMap! )
+        
+    wend
+    
+    sqlclose(employeeChannel)
+
+    return
 
 
 REM  ------------------------------------------------------------------------------------------
@@ -91,6 +143,64 @@ setup_constants:
 :       "where " + 
 :       "employee.badge_number = ? " +
 :       "and lab_employee_primary_job.department_id is not null"
+
+    GET_ACTIVE_EMPLOYEES_STMT$ =
+:       "declare " +
+:       "@fromDate varchar(10) = ?, " +
+:       "@toDate varchar(10) = ?, " +
+:       "@businessUnit int = ? " +
+:       "" +
+:       "select * from " +
+:       "" +
+:       "( " +
+:       "select " + 
+:       "employee.employee_id, " +
+:       "employee.badge_number, " +
+:       "employee.hire_date, " +
+:       "rad_sys_user.last_name, " +
+:       "rad_sys_user.first_name, " +
+:       "rad_sys_user.status_code, " +
+:       "rad_sys_user.date_status_code_last_changed, " +
+:       "" +
+:       "( " +
+:       "select sum(week_to_date_hours) " +
+:       "from " +
+:       "lab_pay_week_period_total " +
+:       "where " +
+:        "lab_pay_week_period_total.business_unit_id = employee.home_business_unit_id " +
+:        "and lab_pay_week_period_total.employee_id = employee.employee_id " +
+:        "and lab_pay_week_period_total.labor_week_start between @fromDate and @toDate " +
+:        "group by lab_pay_week_period_total.employee_id " +
+:        ") " + 
+:        "as hrs_worked, " +
+:        "" +
+:        "( " +
+:        "select count(*) " +
+:        "from " +
+:        "lab_sched_shift " +
+:        "where " + 
+:        "lab_sched_shift.business_unit_id = employee.home_business_unit_id " +
+:        "and lab_sched_shift.employee_id = employee.employee_id " +
+:        "and ( (lab_sched_shift.in_timestamp between @fromDate and @toDate) or (lab_sched_shift.out_timestamp between @fromDate and @toDate) ) " +
+:        ") " +
+:        "as sched_shifts " +
+:        "" +
+:        "from employee " +
+:        "join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
+:       "" +
+:        "where " + 
+:        "employee.home_business_unit_id = @businessUnit " +
+:       "" + 
+:       " ) inlineView " +
+:       "" +
+:   "where " + 
+:   "hrs_worked is not null " +
+:   "and ( (status_code = 'a' and date_status_code_last_changed <= @toDate) or (status_code = 'i' and date_status_code_last_changed >= @fromDate) ) " +
+:   "and hire_date <= @toDate " +
+:   "" +
+:   "order by " +
+:   "last_name, " +
+:   "first_name"
     
     return
 

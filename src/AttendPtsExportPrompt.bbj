@@ -9,12 +9,6 @@ REM  *
 REM  */
 
 
-use java.util.LinkedHashMap
-
-declare java.util.LinkedHashMap deptsMap!
-declare java.util.LinkedHashMap levelsMap!
-
-
 begin
 
 

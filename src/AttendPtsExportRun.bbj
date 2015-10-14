@@ -9,6 +9,16 @@ REM  *
 REM  */
 
 
+use java.util.LinkedHashMap
+use java.util.HashMap
+use java.util.TreeMap
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+declare java.util.LinkedHashMap qualifiedEmployeeRecordsMap!
+declare java.util.TreeMap sortedEmployeeRecordsMap!
+
+
 enter fromMDYIn$, toMDYIn$, fromPtsIn, toPtsIn, orderByIn$
 
 
@@ -122,7 +132,35 @@ run_export:
 
     call "TerminalUtilities.bbj::display_please_wait", "exporting"
 
-    numberOfRecordsExported = 0
+    employeeRecordsMap! = new java.util.LinkedHashMap()
+    
+    REM  Step 1. Put employees who were active sometime during the pay period into employeeRecordsMap!
+    
+    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", fromMDYIn$, yyyymmddFrom$
+    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", toMDYIn$, yyyymmddTo$
+
+    call "WFMREmployeeDAO.bbj::get_active_operations_employees", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
+
+    numberOfRecordsExported = employeeRecordsMap!.size()
+    
+
+    REM  Step 2. Append number of attendance points to maps in employeeRecordsMap!
+
+    
+    REM  Step 3. Build qualifiedEmployeeRecordsMap! from employeeRecordsMap!
+    
+    
+    REM  Step 4. Append employee number (for ADP#) to qualifiedEmployeeRecordsMap! 
+
+    
+    REM  Step 5. Build sortedEmployeeRecordsMap! from qualifiedEmployeeRecordsMap!
+    
+    
+    REM  Step 6. Create file to send as e-mail attachment
+    
+    
+    REM  Step 7. Send e-mail
+    
 
     return
 
