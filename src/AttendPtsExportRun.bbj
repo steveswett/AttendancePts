@@ -119,6 +119,16 @@ init:
     
     resultIgnored$ = stbl("!TERMS", f4Pair$ + tabPair$ + backtabPair$ + stbl("!TERMS"))
     resultIgnored$ = stbl("!EDIT", f4Pair$ + tabPair$ + backtabPair$ + stbl("!EDIT"))
+    
+    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", fromMDYIn$, yyyymmddFrom$
+    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", toMDYIn$, yyyymmddTo$
+    
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddFrom$, yyyymmddFromWithHyphens$
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddTo$, yyyymmddToWithHyphens$
+    
+    EXPORT_FILE_NAME$ = "/usr/tmpfiles/AttendPtsExport_" + yyyymmddFromWithHyphens$ + "_to_" + yyyymmddToWithHyphens$ + "_" + FID(0) + ".csv"    
+    
+    call "ConfigVarsDAO.bbj::get_value", "adp.company.code", configVarFound, configVarDataType$, adpCompanyCode$
 
     return
 
@@ -133,9 +143,6 @@ run_export:
     call "TerminalUtilities.bbj::display_please_wait", "exporting"
 
     employeeRecordsMap! = new java.util.LinkedHashMap()
-    
-    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", fromMDYIn$, yyyymmddFrom$
-    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", toMDYIn$, yyyymmddTo$
 
     
     REM  Step 1. Put employees who were active sometime during the pay period into employeeRecordsMap!
@@ -143,7 +150,7 @@ run_export:
     call "WFMREmployeeDAO.bbj::get_active_operations_employees", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
     
 
-    REM  Step 2. Append number of attendance points to maps in employeeRecordsMap!
+    REM  Step 2. Append number of attendance points ("pts_total") to maps in employeeRecordsMap!
     
     call "AttendPtsDAO.bbj::add_pts_to_map", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
 
@@ -166,17 +173,86 @@ run_export:
       endif 
       
     wend
+    
+    
+    REM  Step 4. Append employee number ("empno") -- for ADP# -- to qualifiedEmployeeRecordsMap!
 
-    numberOfRecordsExported = qualifiedEmployeeRecordsMap!.size()
-    
-    
-    REM  Step 4. Append employee number (for ADP#) to qualifiedEmployeeRecordsMap! 
+    call "EmployeeMasterDAO.bbj::append_empno_to_map_of_maps", qualifiedEmployeeRecordsMap! 
 
     
     REM  Step 5. Build sortedEmployeeRecordsMap! from qualifiedEmployeeRecordsMap!
+
+    sortedEmployeeRecordsMap! = new java.util.TreeMap()
+         
+    iter! = qualifiedEmployeeRecordsMap!.keySet().iterator()
     
+    while iter!.hasNext()
+    
+      badgeKey! = iter!.next()
+      employeeDataMap! = cast( java.util.HashMap, qualifiedEmployeeRecordsMap!.get(badgeKey!) )
+      
+      schedShifts = employeeDataMap!.get("sched_shifts")
+      hasSchedShifts$ = iff(schedShifts > 0, "A", "B")
+
+      lastName$ = employeeDataMap!.get("last_name")
+      firstName$ = employeeDataMap!.get("first_name")
+      
+      sortKey! = badgeKey!
+      
+      if orderByIn$ = "1" then
+        sortKey! = hasSchedShifts$ + lastName$ + firstName$ + badgeKey!
+      endif
+      
+      if orderByIn$ = "2" then
+        sortKey! = lastName$ + firstName$ + badgeKey!
+      endif
+      
+      sortedEmployeeRecordsMap!.put(sortKey!, employeeDataMap!)
+      
+    wend
+
+    numberOfRecordsExported = sortedEmployeeRecordsMap!.size()
+         
     
     REM  Step 6. Create file to send as e-mail attachment
+
+    if numberOfRecordsExported > 0 then
+    
+        erase EXPORT_FILE_NAME$, err=*next
+        string EXPORT_FILE_NAME$
+
+        exportFileChannel = unt
+        open (exportFileChannel) EXPORT_FILE_NAME$
+        
+        print(exportFileChannel) "Has Sched Shift,Badge#,ADP#,WFMR Employee ID,Last Name,First Name,Attend Pts,Hrs Worked,Sched Shifts"
+        
+        iter! = sortedEmployeeRecordsMap!.keySet().iterator()
+        
+        while iter!.hasNext()
+        
+            sortKey! = iter!.next()
+            employeeDataMap! = cast( java.util.HashMap, sortedEmployeeRecordsMap!.get(sortKey!) )
+       
+            schedShifts = employeeDataMap!.get("sched_shifts")
+            hasSchedShifts$ = iff(schedShifts > 0, "Y", "N")
+            badge$ = employeeDataMap!.get("badge_number")
+            empNo$ = employeeDataMap!.get("empno")
+            positionID$ = adpCompanyCode$ + pad(empno$, 6, "R", "0")
+            employeeId = employeeDataMap!.get("employee_id")
+            lastName$ = employeeDataMap!.get("last_name")
+            firstName$ = employeeDataMap!.get("first_name")
+            attendPts = employeeDataMap!.get("pts_total")
+            hrsWorked = employeeDataMap!.get("hrs_worked")
+
+            call "StringUtilities.bbj::replace_all_in_string", lastName$, ",", " ", lastNameWithoutCommas$ 
+            call "StringUtilities.bbj::replace_all_in_string", firstName$, ",", " ", firstNameWithoutCommas$ 
+
+            print(exportFileChannel) hasSchedShifts$, ",", badge$, ",", positionID$, ",", employeeId, ",", lastNameWithoutCommas$, ",", firstNameWithoutCommas$, ",", attendPts, ",", hrsWorked, ",", schedShifts    
+        wend
+
+        close (exportFileChannel)
+
+    endif
     
     
     REM  Step 7. Send e-mail

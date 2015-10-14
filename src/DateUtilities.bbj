@@ -40,6 +40,17 @@ rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 entry_points:
 
 
+get_yyyymmdd_with_hyphen_separators:
+
+    enter yyyymmddIn$, yyyymmddWithHyphensOut$
+    
+    gosub setup_constants
+    
+    yyyymmddWithHyphensOut$ = yyyymmddIn$(1,4) + "-" + yyyymmddIn$(5,2) + "-" + yyyymmddIn$(7,2)
+    
+    exit
+
+
 get_mdy_with_slashes_added:
 
     enter mmddyyIn$, mdyWithSlashesOut$
