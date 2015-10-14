@@ -126,7 +126,10 @@ init:
     call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddFrom$, yyyymmddFromWithHyphens$
     call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddTo$, yyyymmddToWithHyphens$
     
-    EXPORT_FILE_NAME$ = "/usr/tmpfiles/AttendPtsExport_" + yyyymmddFromWithHyphens$ + "_to_" + yyyymmddToWithHyphens$ + "_" + FID(0) + ".csv"    
+    EXPORT_FILE_NAME$ = "/usr/tmpfiles/AttendPtsExport_" + yyyymmddFromWithHyphens$ + "_to_" + yyyymmddToWithHyphens$ + "_" + FID(0) + ".csv"
+    OUTPUT_FILE_MIME_TYPE$ = "text/csv"
+    
+    MAIL_RECIPIENTS$ = "*user"
     
     call "ConfigVarsDAO.bbj::get_value", "adp.company.code", configVarFound, configVarDataType$, adpCompanyCode$
 
@@ -256,6 +259,17 @@ run_export:
     
     
     REM  Step 7. Send e-mail
+
+    if numberOfRecordsExported > 0 THEN 
+        wait 2
+        subject$ = "Attendance Export File is attached (" + str(numberOfRecordsExported) + " records)" 
+        body$ = "The attached file is for date range " + yyyymmddFromWithHyphens$ + " to " + yyyymmddToWithHyphens$ + " and pts range " + str(fromPtsIn) + " to " + str(toPtsIn) + "."  
+        call "MailUtilities.bbj::send_email_msg_with_attachment", MAIL_RECIPIENTS$, subject$, body$, EXPORT_FILE_NAME$, OUTPUT_FILE_MIME_TYPE$, mailReturnCode
+    else
+        subject$ = "Attendance Export File is NOT attached (" + str(numberOfRecordsExported) + " records)" 
+        body$ = "No records qualified for date range " + yyyymmddFromWithHyphens$ + " to " + yyyymmddToWithHyphens$ + " and pts range " + str(fromPtsIn) + " to " + str(toPtsIn) + "."  
+        call "MailUtilities.bbj::send_simple_email_msg", MAIL_RECIPIENTS$, subject$, body$, mailReturnCode
+    endif
     
 
     return
