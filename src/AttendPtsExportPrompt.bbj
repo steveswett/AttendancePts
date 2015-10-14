@@ -169,8 +169,8 @@ display_data:
     
     print @(11, 3), "Select:"
     
-    fmtFromDate$ = fromDate$(1,2) + "/" + fromDate$(3,2) + "/" + fromDate$(5,2)
-    fmtToDate$ = toDate$(1,2) + "/" + toDate$(3,2) + "/" + toDate$(5,2)
+    call "DateUtilities.bbj::get_mdy_with_slashes_added", fromDate$, fmtFromDate$
+    call "DateUtilities.bbj::get_mdy_with_slashes_added", toDate$, fmtToDate$
      
     print @(20, 4), "Dates:  ", 'BU', fmtFromDate$, 'EU', " - ", 'BU', fmtToDate$, 'EU'
     
@@ -211,7 +211,7 @@ handle_input:
 
             case DATE_TO_FIELD_NO
                 print @(39, 4), 'BU'
-                inpute 39, 4, "00/00/00", "", fromDate$
+                inpute 39, 4, "00/00/00", "", toDate$
                 print @(47, 4), 'EU' 
                 break
 
@@ -266,8 +266,8 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        REM  call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$, levelsMap!
-                        input "Next screen would be called. Hit any key.", ignoreInput$
+                        call "AttendPtsExportRun.bbj", fromDate$, toDate$, ptsFrom, ptsTo, orderBy$
+                        needToBreak = TRUE
                     endif
                     
                     break
@@ -348,14 +348,41 @@ validate_input:
 
     REM  Validate Dates
     
-    yyyymmddTemp$ = "20" + fromDate$(5,2) + fromDate$(1,4) 
-    call "DateUtilities.bbj::is_valid_yyyymmdd_date", yyyymmddTemp$, isValidDate 
+    if len(fromDate$) < 6 then
+        errMsg$ = "The From Date must contain 6 digits (MM/DD/YY)."
+        currentFieldNo = DATE_FROM_FIELD_NO
+        goto end_validate
+    endif
+    
+    fromYyyymmddTemp$ = "20" + fromDate$(5,2) + fromDate$(1,4) 
+    call "DateUtilities.bbj::is_valid_yyyymmdd_date", fromYyyymmddTemp$, isValidDate 
 
     if !(isValidDate) then
-        errMsg$ = "Date entered is not valid (MM/DD/YY)."
-        currentFieldNo = PTS_DATE_FIELD_NO
-        goto end_validate_input
+        errMsg$ = "From Date is not valid (MM/DD/YY)."
+        currentFieldNo = DATE_FROM_FIELD_NO
+        goto end_validate
     endif
+    
+    if len(toDate$) < 6 then
+        errMsg$ = "The To Date must contain 6 digits (MM/DD/YY)."
+        currentFieldNo = DATE_TO_FIELD_NO
+        goto end_validate
+    endif
+    
+    toYyyymmddTemp$ = "20" + toDate$(5,2) + toDate$(1,4) 
+    call "DateUtilities.bbj::is_valid_yyyymmdd_date", toYyyymmddTemp$, isValidDate 
+
+    if !(isValidDate) then
+        errMsg$ = "To Date is not valid (MM/DD/YY)."
+        currentFieldNo = DATE_TO_FIELD_NO
+        goto end_validate
+    endif
+    
+    if num(fromYyyymmddTemp$) > num(toYyyymmddTemp$) then
+        errMsg$ = "The From Date cannot be after the To Date."
+        currentFieldNo = DATE_FROM_FIELD_NO
+        goto end_validate
+    endif 
     
     
     REM  Validate Points

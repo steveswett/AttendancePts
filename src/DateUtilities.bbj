@@ -40,6 +40,17 @@ rem * - - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 entry_points:
 
 
+get_mdy_with_slashes_added:
+
+    enter mmddyyIn$, mdyWithSlashesOut$
+    
+    gosub setup_constants
+    
+    gosub sub_get_mdy_with_slashes_added
+    
+    exit
+    
+
 get_yymd_as_mdy_with_day_name:
 
     enter yyyymmddIn$, mdyDayAbbrevOut$
@@ -153,6 +164,22 @@ get_relative_yyyymmdd_in_months:
 rem * - - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 subroutines:
+
+
+REM  ----------------------------------------------------------------------
+REM  Get MMDDYY as MM/DD/YY
+REM  ----------------------------------------------------------------------
+
+
+sub_get_mdy_with_slashes_added:
+
+    if len(mmddyyIn$) = 6 then
+        mdyWithSlashesOut$ = mmddyyIn$(1,2) + "/" + mmddyyIn$(3,2) + "/" + mmddyyIn$(5,2)
+    else
+        mdyWithSlashesOut$ = mmddyyIn$
+    endif
+
+    return
 
 
 REM  ----------------------------------------------------------------------
