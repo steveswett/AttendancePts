@@ -58,6 +58,8 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 main_routine:
 
 
+    print "Started at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+
     gosub common_init
     
     if trimmedAttendPolicyCode$ = "2015 Aug Before" or forgivePtsOldWayDuringTransition then
@@ -81,14 +83,20 @@ main_routine:
     
     handle_error:
     CALL "LOGERR",P$,ERR,TCB(5)
+    print "err = ", err
+    print "errmes(-1) = ", errmes(-1)
+    
     
     eoj:
-    RELEASE
     
     if trimmedAttendPolicyCode$ = "2015 Aug Before" or forgivePtsOldWayDuringTransition then
         gosub old_policy_close_files
     endif
     
+    print "mailReturnCode = ", mailReturnCode
+    print "Finished at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+    
+    RELEASE
     END
 
 
@@ -133,6 +141,8 @@ common_init:
     LET newPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-newpol.csv"
     ERASE newPolicyOutputFileName$,ERR=*next
     STRING newPolicyOutputFileName$
+    
+    mailReturnCode = 0
 
     return
 
