@@ -349,10 +349,10 @@ display_data:
         print @(55,16), "By: ", attPtsWorkDataMap!.get("posted_by_user")
     endif
     
-    print @(0,18), "Disposition: ", dispDescr$, 'RGB'(RGB_YELLOW_ON_BLUE$), f2Descr$, 'RGB'(RGB_WHITE_ON_BLUE$)
+    print @(0,18), "Disposition:  ", dispDescr$, 'RGB'(RGB_YELLOW_ON_BLUE$), f2Descr$, 'RGB'(RGB_WHITE_ON_BLUE$)
     if dispCode$ = "E" then
         tmpReasonDescr$ = iff( attPtsWorkDataMap!.get("disp_edt_reas_id") > 0 , cvs( attPtsWorkDataMap!.get("edt_reas_descr"), 2), "") 
-        print @(0,19), "Edit reason: ", tmpReasonDescr$, 'RGB'(RGB_YELLOW_ON_BLUE$), f3Descr$, 'RGB'(RGB_WHITE_ON_BLUE$)
+        print @(0,19), "Edit reason:  ", tmpReasonDescr$, 'RGB'(RGB_YELLOW_ON_BLUE$), f3Descr$, 'RGB'(RGB_WHITE_ON_BLUE$)
     endif
     
     
@@ -500,6 +500,7 @@ handle_input:
                             attPtsWorkDataMap!.put("changed", TRUE)
                             attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
                             attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
+                            attPtsWorkDataMap!.put("erp_note", tmpReasonDescr$)
                         endif
                     endif
         
