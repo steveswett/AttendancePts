@@ -29,7 +29,7 @@ class public RestfulJIRAWebHookServlet
     field private static BBjNumber SEND_EMAIL_DATA = #FALSE
     field private static BBjNumber INCLUDE_RAW_BODY_OF_REQUEST = #FALSE
     field private static BBjNumber UPDATE_SRQ = #TRUE
-    field private static BBjNumber WRITE_TO_LOG = #FALSE
+    field private static BBjNumber WRITE_TO_LOG = #TRUE
 
     field private BBjNumber responseChannel
     field private BBjHttpSession session!
@@ -58,6 +58,9 @@ class public RestfulJIRAWebHookServlet
         response!.setContentType("text/html")
         
         open(#responseChannel)"JSERVLET"
+        
+        if #WRITE_TO_LOG then #writeToLog("started - in handleRequestEvent")
+        
         #processRequest(#request!.getMethod(), #request!.getPathInfo())
         close(#responseChannel) 
 
@@ -88,14 +91,14 @@ class public RestfulJIRAWebHookServlet
     rem  */
 
     
-    method private void sendEmail(java.lang.String recipients!, java.lang.String subject!, java.lang.String body!)
+    method private BBjNumber sendEmail(java.lang.String recipients!, java.lang.String subject!, java.lang.String body!)
 
         recipients$ = recipients!
         subject$ = subject!
         body$ = body!
 
         if #RUNNING_ON_WINDOWS_DEV then
-            call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, mailReturnCode
+            call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, returnCode
         else
             bodyFileName$ = "/tmp/RestfulJIRAWebHookServlet.email.body." + str(tim) + ".txt"
 
@@ -109,6 +112,8 @@ class public RestfulJIRAWebHookServlet
             emailCmd$ = "cat " + bodyFileName$ + " | mail -s """ + subject$ + """ -S smtp=""nmcz.notions-marketing.com"" " + recipients$
             returnCode = scall(emailCmd$)
         endif
+        
+        methodret returnCode
 
     methodend
     
@@ -128,6 +133,8 @@ class public RestfulJIRAWebHookServlet
                 #loadJsonDataMap()
                 
                 srqNumber$ = #getSrqNumber()
+                
+                if #WRITE_TO_LOG then #writeToLog("srqNumber$ = " + srqNumber$)
                 
                 if len(srqNumber$) > 0 then
 
@@ -150,13 +157,13 @@ class public RestfulJIRAWebHookServlet
                             recipients$ = "steve.swett@notionsmarketing.com"
                             subject$ = "E-mail data for RestfulJIRAWebHookServlet"
                             body$ = requestData$
-                            #sendEmail(recipients$, subject$, body$)
+                            mailReturnCode = #sendEmail(recipients$, subject$, body$)
                             
                         endif
                         
                         if #SEND_RESPONSE_TEXT then
                         
-                            if mailReturnCode > 0 then
+                            if #SEND_EMAIL_DATA and mailReturnCode > 0 then
                                 print(#responseChannel) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
                             endif
                             
@@ -354,7 +361,7 @@ class public RestfulJIRAWebHookServlet
         if #WRITE_TO_LOG then #writeToLog("after open SYSR file")
         
         read(sysrChannel, knum=0, key=srqKey$, dom=no_rec_found) IOL=sysr_all_fields_iol
-        if #WRITE_TO_LOG then #writeToLog("read SYSR file")
+        if #WRITE_TO_LOG then #writeToLog("after read SYSR file, requester = " + REQ$)
         
         yymmddhhmm$ = date(0:"%Yz%Mz%Dz%Hz%mz") 
         
@@ -369,15 +376,15 @@ class public RestfulJIRAWebHookServlet
         if len(trimmedRequester$) >= 0 then
             
             issueKey! = cast(java.lang.String, #jsonDataMap!.get("issue_key"))
-            if #WRITE_TO_LOG then #writeToLog("got issueKey!")
+            if #WRITE_TO_LOG then #writeToLog("got issueKey! = " + issueKey!)
 
             recipients$ = trimmedRequester$ + "@notionsmarketing.com"
             subject$ = "SRQ " + srqNumber$ + " has been closed.  (aka JIRA " + issueKey! + ")"
             body$ = "Original SRQ Description: " + cvs(NOTES$,2)
             
             if #WRITE_TO_LOG then #writeToLog("before sendEmail")
-            #sendEmail(recipients$, subject$, body$)
-            if #WRITE_TO_LOG then #writeToLog("after sendEmail")
+            mailReturnCd = #sendEmail(recipients$, subject$, body$)
+            if #WRITE_TO_LOG then #writeToLog("after sendEmail, mailReturnCd = " + str(mailReturnCd))
             
         endif
         
