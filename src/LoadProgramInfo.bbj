@@ -6,12 +6,13 @@ REM  */
 
 use java.io.File
 use org.apache.commons.collections.iterators.ArrayIterator
-use java.util.Vector
+use java.util.HashSet
 
 declare java.io.File directory!
 declare java.io.File file!
 declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
-declare java.util.Vector filesAccessedVector!
+declare java.util.HashSet filesAccessedHashSet!
+declare java.util.HashSet programsCalledHashSet!
 
 
 begin
@@ -104,6 +105,18 @@ read_source_programs:
     
     arrayIterator! = new org.apache.commons.collections.iterators.ArrayIterator(directory!.listFiles())
     
+    programsChannel = sqlunt
+    sqlopen(programsChannel) programInfoDataSource$
+    sqlprep(programsChannel) INSERT_PROGRAMS_QUERY$
+    
+    programFilesChannel = sqlunt
+    sqlopen(programFilesChannel) programInfoDataSource$
+    sqlprep(programFilesChannel) INSERT_PROGRAM_FILES_QUERY$
+    
+    programProgramsChannel = sqlunt
+    sqlopen(programProgramsChannel) programInfoDataSource$
+    sqlprep(programProgramsChannel) INSERT_PROGRAM_PROGRAMS_QUERY$
+    
     while arrayIterator!.hasNext()
     
         file! = cast( java.io.File, arrayIterator!.next())
@@ -113,6 +126,10 @@ read_source_programs:
         gosub process_one_source_program
 
     wend
+    
+    sqlclose(programsChannel)
+    sqlclose(programFilesChannel)
+    sqlclose(programProgramsChannel)
  
     return
     
@@ -124,6 +141,8 @@ read_source_programs:
 
 process_one_source_program:
 
+    print sourceProgramName$
+    
     sourceProgramChannel = unt
     open(sourceProgramChannel) SOURCE_PROGRAM_PATH$ + "/" + sourceProgramName$
     
@@ -134,7 +153,8 @@ process_one_source_program:
     dateWritten$ = ""
     dateRevised$ = ""
     
-    filesAccessedVector! = new java.util.Vector()
+    filesAccessedHashSet! = new java.util.HashSet()
+    programsCalledHashSet! = new java.util.HashSet()
     
     while TRUE
     
@@ -164,18 +184,29 @@ process_one_source_program:
     
     wend
     
-    print "program name = ", sourceProgramName$
-    print "description = ", programDescription$
-    print "date written = ", dateWritten$
-    print "date revised = ", dateRevised$
+    sqlexec(programsChannel) sourceProgramName$, programDescription$, dateWritten$, dateRevised$  
     
-    print "list below is ""channel - file"""
+REM     print "files accessed list ""channel - file"""
+
+    iter! = filesAccessedHashSet!.iterator()
     
-    for f = 0 to filesAccessedVector!.size() - 1
-        channelAndFile$ = filesAccessedVector!.get(f)
+    while iter!.hasNext()
+        channelAndFile$ = iter!.next()
         colonsPos = pos("::" = channelAndFile$)
-        print channelAndFile$(1, colonsPos - 1), " - ", channelAndFile$(colonsPos + 2) 
-    next f
+REM         print channelAndFile$(1, colonsPos - 1), " - ", channelAndFile$(colonsPos + 2)
+         sqlexec(programFilesChannel) sourceProgramName$, channelAndFile$(colonsPos + 2), channelAndFile$(1, colonsPos - 1) 
+    wend
+
+    
+REM     print "programs called list"
+
+    iter! = programsCalledHashSet!.iterator()
+    
+    while iter!.hasNext()
+        programCalled$ = iter!.next()
+REM         print programCalled$
+        sqlexec(programProgramsChannel) sourceProgramName$, programCalled$ 
+    wend
     
     close(sourceProgramChannel)
 
@@ -190,6 +221,8 @@ process_one_source_program:
 process_one_statement:
 
     relativeLineNo = relativeLineNo + 1
+    
+    remarkPosition = pos("REM" = stmt$)
 
     REM  Determine date written:
     
@@ -217,7 +250,6 @@ process_one_statement:
     REM  Determine program description:
     
     if relativeLineNo <= 5 and !(dateWrittenFound) and !(dateRevisedFound) then
-        remarkPosition = pos("REM" = stmt$)
         
         if remarkPosition > 0 and len(stmt$) > remarkPosition + 4 then
             remark$ = stmt$(remarkPosition + 4)
@@ -226,13 +258,11 @@ process_one_statement:
         
     endif
     
-    remPosition = pos("REM" = stmt$)
-    
     
     REM  Spot an open90ed file:
     open90Position = pos("""OPEN90""" = stmt$)
     
-    if open90Position > 0 and (remPosition = 0 or remPosition > open90Position) then
+    if open90Position > 0 and (remarkPosition = 0 or remarkPosition > open90Position) then
         open90AndAfter$ = stmt$(open90Position)
         firstCommaPos = pos("," = open90AndAfter$,1,1)
         secondCommaPos = pos("," = open90AndAfter$,1,2)
@@ -244,11 +274,8 @@ process_one_statement:
             
             REM  Trim quotes off accessedFile$
             accessedFile$ = accessedFile$(2, len(accessedFile$) - 2)
-            
-            REM print "channel$ = ", channel$
-            REM print "accessedFile$ = ", accessedFile$
 
-            filesAccessedVector!.add(channel$ + "::" + accessedFile$)
+            filesAccessedHashSet!.add(channel$ + "::" + accessedFile$)
         endif
         
     endif
@@ -258,7 +285,7 @@ process_one_statement:
     openPosition = pos("OPEN(" = stmt$)
     if openPosition = 0 then openPosition = pos("OPEN (" = stmt$)
     
-    if openPosition > 0 and (remPosition = 0 or remPosition > openPosition) then
+    if openPosition > 0 and (remarkPosition = 0 or remarkPosition > openPosition) then
         openAndAfter$ = stmt$(openPosition)
         leftParenPos = pos("(" = openAndAfter$)
         rightParenPos = pos(")" = openAndAfter$)
@@ -271,11 +298,33 @@ process_one_statement:
             if accessedFile$(1,1) = """" then
                 accessedFile$ = accessedFile$(2, len(accessedFile$) - 2)
             endif
-            
-            REM print "channel$ = ", channel$
-            REM print "accessedFile$ = ", accessedFile$
 
-            filesAccessedVector!.add(channel$ + "::" + accessedFile$)
+            filesAccessedHashSet!.add(channel$ + "::" + accessedFile$)
+        endif
+        
+    endif
+    
+    
+    REM  Spot a called program:
+    callPosition = pos("XCALL " = stmt$)
+    if callPosition = 0 then callPosition = pos("CALL " = stmt$)
+    
+    if callPosition > 0 and (remarkPosition = 0 or remarkPosition > callPosition) then
+        callAndAfter$ = stmt$(callPosition)
+        firstQuotePos = pos("""" = callAndAfter$,1,1)
+        secondQuotePos = pos("""" = callAndAfter$,1,2)
+        
+        if firstQuotePos > 0 and secondQuotePos > 0 then
+            callPhrase$ = cvs(callAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1), 3) 
+            
+            REM  Trim off entry point, if present
+            entryPtPos = pos("::" = callPhrase$)
+            
+            if entryPtPos > 0 then
+                callPhrase$ = callPhrase$(1, entryPtPos - 1)
+            endif
+
+            programsCalledHashSet!.add(callPhrase$)
         endif
         
     endif
@@ -300,5 +349,14 @@ setup_constants:
     DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from program_programs"
     
     SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
+    
+    INSERT_PROGRAMS_QUERY$ = "insert into program (program_name, description, date_written, last_revised) " +
+:       "values(?,?,?,?)"
+
+    INSERT_PROGRAM_FILES_QUERY$ = "insert into program_files (program_name, file_path, file_channel) " +
+:       "values(?,?,?)"
+
+    INSERT_PROGRAM_PROGRAMS_QUERY$ = "insert into program_programs (program_name, called_program) " +
+:       "values(?,?)"
 
     return
