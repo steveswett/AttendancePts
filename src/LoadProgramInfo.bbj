@@ -1,0 +1,304 @@
+REM /**
+REM  * LoadProgramInfo.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.io.File
+use org.apache.commons.collections.iterators.ArrayIterator
+use java.util.Vector
+
+declare java.io.File directory!
+declare java.io.File file!
+declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
+declare java.util.Vector filesAccessedVector!
+
+
+begin
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+def fnGetDateWrittenOrRevised$(aSearchPhrase$, aStmt$)
+
+    result$ = ""
+    foundPosition = pos(aSearchPhrase$ = stmt$)
+    
+    if foundPosition > 0 and len(stmt$) > rfoundPositionearkOrgPosition + len(aSearchPhrase$) + 1 then
+        remark$ = stmt$(foundPosition + len(aSearchPhrase$) + 1)
+        
+        REM  Find last slash position:
+        lastSlashPos = pos("/" = remark$, -1)
+        
+        if lastSlashPos > 0 and len(remark$) > lastSlashPos + 2 then
+            result$ = remark$(1, lastSlashPos + 2)
+        endif
+        
+    endif
+    
+    return result$
+
+fnend
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub setup_constants
+    
+    gosub init
+    
+    gosub read_source_programs
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    REM  release
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+
+    call "ConfigVarsDAO.bbj::get_value", "program.info.data.source.name", configVarFound, configVarDataType$, programInfoDataSource$
+
+    REM  Delete all program info (will reload)
+    
+    deleteChannel = sqlunt
+    sqlopen(deleteChannel) programInfoDataSource$
+    
+    sqlprep(deleteChannel) DELETE_PROGRAMS_QUERY$
+    sqlexec(deleteChannel)
+    
+    sqlprep(deleteChannel) DELETE_PROGRAM_FILES_QUERY$
+    sqlexec(deleteChannel)
+    
+    sqlprep(deleteChannel) DELETE_PROGRAM_PROGRAMS_QUERY$
+    sqlexec(deleteChannel)
+
+    sqlclose(deleteChannel)
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Read through source programs in SOURCE_PROGRAM_PATH$
+    rem ------------------------------------------------------------------------------------------
+    
+    
+read_source_programs:
+
+    directory! = new java.io.File(SOURCE_PROGRAM_PATH$)
+    
+    arrayIterator! = new org.apache.commons.collections.iterators.ArrayIterator(directory!.listFiles())
+    
+    while arrayIterator!.hasNext()
+    
+        file! = cast( java.io.File, arrayIterator!.next())
+        sourceProgramName$ = file!.getName()
+        REM print "sourceProgramName$ = ", sourceProgramName$
+        
+        gosub process_one_source_program
+
+    wend
+ 
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Process one source program -- sourceProgramName$
+    rem ------------------------------------------------------------------------------------------
+
+
+process_one_source_program:
+
+    sourceProgramChannel = unt
+    open(sourceProgramChannel) SOURCE_PROGRAM_PATH$ + "/" + sourceProgramName$
+    
+    relativeLineNo = 0
+    dateWrittenFound = FALSE
+    dateRevisedFound = FALSE
+    programDescription$ = ""
+    dateWritten$ = ""
+    dateRevised$ = ""
+    
+    filesAccessedVector! = new java.util.Vector()
+    
+    while TRUE
+    
+        read(sourceProgramChannel, err=*break) rawStmt$
+        REM print rawStmt$
+        
+        REM  Handle multi-line statements:
+        
+        try_split:
+        
+        semiColonPos = pos(";" = rawStmt$)
+        
+        if semiColonPos > 0 then
+            stmt$ = rawStmt$(1, semiColonPos - 1)
+            gosub process_one_statement
+            
+            if len(rawStmt$) > len(stmt$) + 2 then
+                rawStmt$ = rawStmt$(len(stmt$) + 2)
+                goto try_split
+            endif
+        else
+            stmt$ = rawStmt$
+            gosub process_one_statement
+        endif
+        
+        
+    
+    wend
+    
+    print "program name = ", sourceProgramName$
+    print "description = ", programDescription$
+    print "date written = ", dateWritten$
+    print "date revised = ", dateRevised$
+    
+    print "list below is ""channel - file"""
+    
+    for f = 0 to filesAccessedVector!.size() - 1
+        channelAndFile$ = filesAccessedVector!.get(f)
+        colonsPos = pos("::" = channelAndFile$)
+        print channelAndFile$(1, colonsPos - 1), " - ", channelAndFile$(colonsPos + 2) 
+    next f
+    
+    close(sourceProgramChannel)
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Process a single statement
+    rem ------------------------------------------------------------------------------------------
+    
+    
+process_one_statement:
+
+    relativeLineNo = relativeLineNo + 1
+
+    REM  Determine date written:
+    
+    if relativeLineNo <= 10 and !(dateWrittenFound) then
+        dateWritten$ = fnGetDateWrittenOrRevised$("REM ORG", stmt$)
+
+        if len(dateWritten$) > 0 then
+            dateWrittenFound = TRUE
+        endif
+        
+    endif
+    
+    REM  Determine date revised:
+    
+    if relativeLineNo <= 10 and !(dateRevisedFound) then
+        dateRevised$ = fnGetDateWrittenOrRevised$("REM REV", stmt$)
+
+        if len(dateRevised$) > 0 then
+            dateRevisedFound = TRUE
+        endif
+        
+    endif
+
+    
+    REM  Determine program description:
+    
+    if relativeLineNo <= 5 and !(dateWrittenFound) and !(dateRevisedFound) then
+        remarkPosition = pos("REM" = stmt$)
+        
+        if remarkPosition > 0 and len(stmt$) > remarkPosition + 4 then
+            remark$ = stmt$(remarkPosition + 4)
+            programDescription$ = programDescription$ + remark$
+        endif
+        
+    endif
+    
+    remPosition = pos("REM" = stmt$)
+    
+    
+    REM  Spot an open90ed file:
+    open90Position = pos("""OPEN90""" = stmt$)
+    
+    if open90Position > 0 and (remPosition = 0 or remPosition > open90Position) then
+        open90AndAfter$ = stmt$(open90Position)
+        firstCommaPos = pos("," = open90AndAfter$,1,1)
+        secondCommaPos = pos("," = open90AndAfter$,1,2)
+        thirdCommaPos = pos("," = open90AndAfter$,1,3)
+        
+        if firstCommaPos > 0 and secondCommaPos > 0 and thirdCommaPos > 0 then
+            channel$ = cvs(open90AndAfter$(firstCommaPos + 1, secondCommaPos - firstCommaPos - 1), 3) 
+            accessedFile$ = cvs(open90AndAfter$(secondCommaPos + 1, thirdCommaPos - secondCommaPos - 1), 3)
+            
+            REM  Trim quotes off accessedFile$
+            accessedFile$ = accessedFile$(2, len(accessedFile$) - 2)
+            
+            REM print "channel$ = ", channel$
+            REM print "accessedFile$ = ", accessedFile$
+
+            filesAccessedVector!.add(channel$ + "::" + accessedFile$)
+        endif
+        
+    endif
+    
+    
+    REM  Spot an opened file:
+    openPosition = pos("OPEN(" = stmt$)
+    if openPosition = 0 then openPosition = pos("OPEN (" = stmt$)
+    
+    if openPosition > 0 and (remPosition = 0 or remPosition > openPosition) then
+        openAndAfter$ = stmt$(openPosition)
+        leftParenPos = pos("(" = openAndAfter$)
+        rightParenPos = pos(")" = openAndAfter$)
+        
+        if leftParenPos > 0 and rightParenPos > 0 and len(openAndAfter$) > rightParenPos then
+            channel$ = cvs(openAndAfter$(leftParenPos + 1, rightParenPos - leftParenPos - 1), 3) 
+            accessedFile$ = cvs(openAndAfter$(rightParenPos + 1), 3)
+            
+            REM  Trim quotes off accessedFile$
+            if accessedFile$(1,1) = """" then
+                accessedFile$ = accessedFile$(2, len(accessedFile$) - 2)
+            endif
+            
+            REM print "channel$ = ", channel$
+            REM print "accessedFile$ = ", accessedFile$
+
+            filesAccessedVector!.add(channel$ + "::" + accessedFile$)
+        endif
+        
+    endif
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Setup constants - makes last subroutine due to line continuations
+    rem ------------------------------------------------------------------------------------------
+
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+    
+    DELETE_PROGRAMS_QUERY$ = "delete from program"
+    
+    DELETE_PROGRAM_FILES_QUERY$ = "delete from program_files"
+    
+    DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from program_programs"
+    
+    SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
+
+    return
