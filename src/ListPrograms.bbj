@@ -1,0 +1,141 @@
+REM /**
+REM  * ListPrograms.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.io.File
+use org.apache.commons.collections.iterators.ArrayIterator
+
+declare java.io.File directory!
+declare java.io.File file!
+declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
+
+
+begin
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub setup_constants
+    
+    gosub init
+    
+    gosub read_tokenized_programs
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    REM  release
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+
+    
+init:
+
+    call "ConfigVarsDAO.bbj::get_value", "is.windows.environment", configVarFound, configVarDataType$, isWindowsEnv$
+    isWindowsEnv = num(isWindowsEnv$)
+    
+    if isWindowsEnv then
+        tokenizedProgramsPath$ = "/bbxTokenizedPrograms"
+        listedProgramsPath$ = "/bbxListedPrograms"
+    else
+        tokenizedProgramsPath$ = "/usr/notpgm"
+        listedProgramsPath$ = "/home/stevett/bbxListedPrograms"
+    endif
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Read through tokenized programs in tokenizedProgramsPath$
+    rem ------------------------------------------------------------------------------------------
+    
+    
+read_tokenized_programs:
+
+    directory! = new java.io.File(tokenizedProgramsPath$)
+    
+    arrayIterator! = new org.apache.commons.collections.iterators.ArrayIterator(directory!.listFiles())
+    
+    fileCount = 0
+    fileList$ = ""
+    
+    while arrayIterator!.hasNext()
+    
+        file! = cast( java.io.File, arrayIterator!.next())
+        
+        if !(file!.isFile()) then continue
+
+        fileCount = fileCount + 1
+        programName$ = file!.getName()
+        
+        if !(fileCount = 1) then
+            fileList$ = fileList$ + " "
+        endif
+        
+        fileList$ = fileList$ + programName$
+        
+        if (fileCount = BATCH_SIZE) then 
+            gosub process_batch
+            fileCount = 0
+            fileList$ = " "
+        endif
+
+    wend
+    
+    if fileCount > 0 then gosub process_batch
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Run the lister command on a batch of files
+    rem ------------------------------------------------------------------------------------------
+    
+
+process_batch:
+
+    chdir tokenizedProgramsPath$
+
+    if isWindowsEnv then
+        listCmd$ = "cmd /c /basis/vpro5/pro5lst.exe -d" + listedProgramsPath$ + " " + fileList$
+    else
+        listCmd$ = "/usr/local/basis/pro5/pro5lst -d" + listedProgramsPath$ + " " + fileList$
+    endif
+    
+    returnCode = scall(listCmd$)
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Setup constants - makes last subroutine due to line continuations
+    rem ------------------------------------------------------------------------------------------
+
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+    
+    BATCH_SIZE = 20
+
+    return

@@ -130,6 +130,12 @@ read_source_programs:
     while arrayIterator!.hasNext()
     
         file! = cast( java.io.File, arrayIterator!.next())
+        
+        if !(file!.isFile()) then continue
+        
+        REM  If empty file, skip
+        if file!.length() = 0 then continue
+        
         sourceProgramName$ = file!.getName()
         
         REM if !(sourceProgramName$ = "FONE92") then continue
@@ -366,13 +372,13 @@ setup_constants:
     TRUE = 1
     FALSE = 0
     
+    SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
+    
     DELETE_PROGRAMS_QUERY$ = "delete from program"
     
     DELETE_PROGRAM_FILES_QUERY$ = "delete from program_files"
     
     DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from program_programs"
-    
-    SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
     
     INSERT_PROGRAMS_QUERY$ = "insert into program (program_name, description, date_written, last_revised) " +
 :       "values(?,?,?,?)"
