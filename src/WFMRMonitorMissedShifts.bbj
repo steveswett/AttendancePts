@@ -83,17 +83,22 @@ query_for_missed_shifts:
         badge$ = cvs(resultRow.badge_number$, 2)
         
         bodyDetail$ = bodyDetail$ + lastName$ + ", " + firstName$ + " / " + type$ + " / " + badge$ + " / " + str(resultRow.employee_id) + lineFeed$
+
+        REM  Linux needs an extra line feed to actually trigger a line feed
+        if !(useWindowsMailSend) then
+            bodyDetail$ = bodyDetail$ + lineFeed$
+        endif
         
     wend
     
     sqlclose(wfmrChannel)
     
-    subject$ = "WFMR Monitor Missed Shifts"
-    
     call "DateUtilities.bbj::get_current_timestamp", curTimeStamp$
     
     fmtTimeStamp$ = curTimeStamp$(1,4) + "/" + curTimeStamp$(5,2) + "/" + curTimeStamp$(7,2) + " " + curTimeStamp$(9,2) + ":" + curTimeStamp$(11,2) + "." + curTimeStamp$(13,2)
 
+    subject$ = "WFMR Monitor Missed Shifts - " + fmtTimeStamp$ + " (" + str(count) + " records)" 
+    
     body$ = "Current timestamp: " + fmtTimeStamp$ + lineFeed$ + lineFeed$
     
     body$ = body$ + "Number of missed shift records fetched for this one date: " + str(count) + lineFeed$ + lineFeed$ 
@@ -153,8 +158,6 @@ setup_constants:
 :    "and Lab_Employee_Missed_Shifts.type_code in('c','n')  " +
 :    "and Lab_Job.name not like '%Supervisor%'  " +
 :    "order by  " +
-:    "missed_shift_date,  " +
-:    "shift,  " +
 :    "last_name,  " +
 :    "first_name "
 
