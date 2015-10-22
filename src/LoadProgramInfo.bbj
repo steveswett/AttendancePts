@@ -98,6 +98,9 @@ init:
     
     sqlprep(deleteChannel) DELETE_PROGRAM_PROGRAMS_QUERY$
     sqlexec(deleteChannel)
+    
+    sqlprep(deleteChannel) DELETE_PROGRAM_REJECTS_QUERY$
+    sqlexec(deleteChannel)
 
     sqlclose(deleteChannel)
     
@@ -127,18 +130,49 @@ read_source_programs:
     sqlopen(programProgramsChannel) programInfoDataSource$
     sqlprep(programProgramsChannel) INSERT_PROGRAM_PROGRAMS_QUERY$
     
+    programRejectsChannel = sqlunt
+    sqlopen(programRejectsChannel) programInfoDataSource$
+    sqlprep(programRejectsChannel) INSERT_PROGRAM_REJECTS_QUERY$
+    
     while arrayIterator!.hasNext()
     
         file! = cast( java.io.File, arrayIterator!.next())
         
         if !(file!.isFile()) then continue
         
-        REM  If empty file, skip
-        if file!.length() = 0 then continue
-        
         sourceProgramName$ = file!.getName()
         
+REM         if len(sourceProgramName$) > 50 then
+REM             print "file name, length = ", sourceProgramName$, len(sourceProgramName$)  
+REM         endif
+        
+        REM  If empty file, skip
+        if file!.length() = 0 then
+        
+            firstPart$ = sourceProgramName$
+            extension$ = ""
+
+            REM  Find first dot position
+            firstDotPos = pos("." = sourceProgramName$)
+            
+            if firstDotPos > 1 then
+                firstPart$ = sourceProgramName$(1, firstDotPos - 1)
+            endif
+
+            REM  Find last dot position
+            lastDotPos = pos("." = sourceProgramName$, -1)
+            
+            if lastDotPos > 0 and lastDotPos < len(sourceProgramName$) then
+                extension$ = sourceProgramName$(lastDotPos + 1)
+            endif
+            
+            sqlexec(programRejectsChannel) sourceProgramName$, firstPart$, extension$ 
+            continue
+            
+        endif
+        
         REM if !(sourceProgramName$ = "FONE92") then continue
+        
         
         gosub process_one_source_program
 
@@ -147,6 +181,7 @@ read_source_programs:
     sqlclose(programsChannel)
     sqlclose(programFilesChannel)
     sqlclose(programProgramsChannel)
+    sqlclose(programRejectsChannel)
  
     return
     
@@ -380,6 +415,8 @@ setup_constants:
     
     DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from program_programs"
     
+    DELETE_PROGRAM_REJECTS_QUERY$ = "delete from program_rejects"
+    
     INSERT_PROGRAMS_QUERY$ = "insert into program (program_name, description, date_written, last_revised) " +
 :       "values(?,?,?,?)"
 
@@ -388,5 +425,8 @@ setup_constants:
 
     INSERT_PROGRAM_PROGRAMS_QUERY$ = "insert into program_programs (program_name, called_program) " +
 :       "values(?,?)"
+
+    INSERT_PROGRAM_REJECTS_QUERY$ = "insert into program_rejects (program_name, file_first_part, file_extension) " +
+:       "values(?,?,?)"
 
     return
