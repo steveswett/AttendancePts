@@ -87,6 +87,8 @@ init:
 
     REM  Delete all program info (will reload)
     
+    print "Deleting program metadata from database ... please wait"
+    
     deleteChannel = sqlunt
     sqlopen(deleteChannel) programInfoDataSource$
     
@@ -283,7 +285,7 @@ process_one_statement:
 
     REM  Determine date written:
     
-    if relativeLineNo <= 10 and !(dateWrittenFound) then
+    if relativeLineNo <= LINE_HDRS_END and !(dateWrittenFound) then
         dateWritten$ = fnGetDateWrittenOrRevised$("REM ORG", stmt$, upperCaseStmt$)
 
         if len(dateWritten$) > 0 then
@@ -294,7 +296,7 @@ process_one_statement:
     
     REM  Determine date revised:
     
-    if relativeLineNo <= 10 and !(dateRevisedFound) then
+    if relativeLineNo <= LINE_HDRS_END and !(dateRevisedFound) then
         dateRevised$ = fnGetDateWrittenOrRevised$("REM REV", stmt$, upperCaseStmt$)
 
         if len(dateRevised$) > 0 then
@@ -306,7 +308,7 @@ process_one_statement:
     
     REM  Determine program description:
     
-    if relativeLineNo <= 5 and !(dateWrittenFound) and !(dateRevisedFound) then
+    if relativeLineNo <= LINE_HDRS_END and !(dateWrittenFound) and !(dateRevisedFound) then
         
         if remarkPosition > 0 and len(stmt$) > remarkPosition + 4 then
             remark$ = stmt$(remarkPosition + 4)
@@ -407,7 +409,12 @@ setup_constants:
     TRUE = 1
     FALSE = 0
     
-    SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
+    LINE_HDRS_END = 15
+    
+    LOADING_BBJ_PROGRAM_TYPE = TRUE
+    
+    rem SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
+    SOURCE_PROGRAM_PATH$ = "/bbjListedPrograms"
     
     DELETE_PROGRAMS_QUERY$ = "delete from program"
     
