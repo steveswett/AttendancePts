@@ -16,15 +16,23 @@ declare java.util.LinkedHashMap attPtsWorkRecordsMap!
  
 begin
 
+    print "Started at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+
     skipAlreadyFlaggedOnes = 1
     attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
     
     call "AttendPtsWorkDAO.bbj::get_records_where_exceptions_no_longer_exist", skipAlreadyFlaggedOnes, attPtsWorkRecordsMap!
-    
-    if attPtsWorkRecordsMap!.size() > 0 then
+
+    punchExceptionsFlagged = attPtsWorkRecordsMap!.size()
+     
+    if punchExceptionsFlagged > 0 then
         call "AttendPtsWorkDAO.bbj::flag_records_where_exceptions_no_longer_exist", attPtsWorkRecordsMap!
     endif
     
-    release
+    print "Punch exceptions flagged as deleted: ", punchExceptionsFlagged 
+
+    print "Finished at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+    
+    REM release
 
 end
