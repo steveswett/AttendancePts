@@ -1,0 +1,99 @@
+REM WriteTemplatesToFileinfo.bbj 
+REM 
+REM update the string template in the FILEINFO file
+REM
+REM (this was originally "templatespop"
+REM
+REM RUN FROM BBJ, NOT PRO/5
+REM ORG 10/11 WWI
+REM REV 10/15 SMS
+
+BEGIN
+
+    REM SETERR ERROR_TRAP
+    
+    REM REVISIONS
+    REM 01/12...REWORKED TO FIT OUR NORMAL LAYOUT
+    REM 04/12...TRS CHANGE TO UPDATE FILEINFO INSTEAD OF A SEPARATE templates FILE
+    REM 01/15...WWI
+    REM 10/15...SMS CHANGED FOR READABILITY, ADD A COUPLE RUN-TIME OPTIONS
+    REM OPENS
+    
+    TRUE = 1
+    FALSE = 0
+
+    REM  Set to TRUE if you only want to actually update the FILEINFO file
+    UPDATE_FILEINFO = TRUE
+    
+    REM  Set to TRUE if you want to stop every time the current and new template differs
+    DO_ESCAPE_ON_TEMPLATE_DIFFERENCES = TRUE
+    
+    dictionaryFilesChannel = unt
+    OPEN (dictionaryFilesChannel)"/u1/shared/newdatadictionary/FILE.1"
+    
+    fileinfoChannel = unt
+    OPEN (fileinfoChannel)"FILEINFO"
+
+
+FILE_LOOP:
+
+    LET K$=KEY(dictionaryFilesChannel,END=EOJ) 
+    READ RECORD(dictionaryFilesChannel) R$
+    IF POS("DD_"=K$)=1 THEN GOTO FILE_LOOP
+    
+    LET FILN$=CVS(K$,3)
+    GOSUB GET_TEMPLATE
+    PRINT FILN$
+    LET CHAN=0,curTempl$="" 
+    READ (fileinfoChannel,KEY=FILN$,ERR=*next)*,CHAN,curTempl$
+    
+    IF DO_ESCAPE_ON_TEMPLATE_DIFFERENCES AND newTempl$<>curTempl$ ESCAPE
+    
+    if UPDATE_FILEINFO AND newTempl$<>curTempl$ then
+        WRITE (fileinfoChannel) FILN$,CHAN,newTempl$
+    endif
+    
+    GOTO FILE_LOOP
+
+
+GET_TEMPLATE:
+
+    LET SQLCH=SQLUNT
+    SQLOPEN (SQLCH)"NotionsDB"
+    SQLPREP (SQLCH)"GET TABLE INFO for "+FILN$
+    SQLEXEC (SQLCH)
+    DIM XX$:SQLTMPL(SQLCH)
+    LET XX$=SQLFETCH(SQLCH)
+    LET newTempl$=XX.TEMPLATE$
+    DIM R$:newTempl$
+    SQLCLOSE (SQLCH)
+    
+    REM Field List:
+    DIM FLIST$:"NAME[1000]:C(32*)"
+    
+    FLIST$=FATTR(R$,"")
+
+    REM Drop the "Description:" portion of the string template for up to 1000 fields:
+    
+    FOR I=1 TO 1000
+    
+      TYPE$=FATTR(R$,FLIST.NAME$[I],ERR=*BREAK)
+      U$=":"+TYPE$(12)+":" 
+      P=POS(U$=newTempl$)
+      
+      IF P THEN newTempl$=newTempl$(1,P-1)+newTempl$(P+LEN(U$))
+    
+    NEXT I
+    
+    RETURN
+
+
+ERROR_TRAP:
+
+    CALL "LOGERR",PGM(-2),ERR,TCB(5)
+    GOTO EOJ
+
+
+EOJ:
+
+    END

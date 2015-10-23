@@ -1,0 +1,9 @@
+REM /**
+REM  * TestEscapeVerb.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+print "before escape"
+escape
+print "after escape"
