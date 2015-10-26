@@ -37,7 +37,10 @@ BEGIN
 
 FILE_LOOP:
 
+    REM  K$ is a file name
+    
     LET K$=KEY(dictionaryFilesChannel,END=EOJ) 
+    
     READ RECORD(dictionaryFilesChannel) R$
     IF POS("DD_"=K$)=1 THEN GOTO FILE_LOOP
     
@@ -62,7 +65,10 @@ GET_TEMPLATE:
     SQLOPEN (SQLCH)"NotionsDB"
     SQLPREP (SQLCH)"GET TABLE INFO for "+FILN$
     SQLEXEC (SQLCH)
+    
+    REM XX$ is an SQL result set template
     DIM XX$:SQLTMPL(SQLCH)
+    
     LET XX$=SQLFETCH(SQLCH)
     LET newTempl$=XX.TEMPLATE$
     DIM R$:newTempl$
