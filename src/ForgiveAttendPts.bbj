@@ -136,6 +136,7 @@ common_init:
 
     LET oldPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-oldpol.csv"
     ERASE oldPolicyOutputFileName$,ERR=*next
+    wait 2
     STRING oldPolicyOutputFileName$
 
     LET newPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-newpol.csv"
@@ -146,6 +147,7 @@ common_init:
     print "Could not erase new policy output file: ", newPolicyOutputFileName$ 
     newpol_erased_ok:
     
+    wait 2
     STRING newPolicyOutputFileName$,ERR=newpol_could_not_create
     goto newpol_created_ok
     newpol_could_not_create:
