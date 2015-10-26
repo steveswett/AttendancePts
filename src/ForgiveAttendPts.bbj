@@ -139,8 +139,18 @@ common_init:
     STRING oldPolicyOutputFileName$
 
     LET newPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-newpol.csv"
-    ERASE newPolicyOutputFileName$,ERR=*next
-    STRING newPolicyOutputFileName$
+
+    ERASE newPolicyOutputFileName$,ERR=newpol_could_not_erase
+    goto newpol_erased_ok
+    newpol_could_not_erase:
+    print "Could not erase new policy output file: ", newPolicyOutputFileName$ 
+    newpol_erased_ok:
+    
+    STRING newPolicyOutputFileName$,ERR=newpol_could_not_create
+    goto newpol_created_ok
+    newpol_could_not_create:
+    print "Could not create new policy output file: ", newPolicyOutputFileName$ 
+    newpol_created_ok:
     
     mailReturnCode = 0
 
