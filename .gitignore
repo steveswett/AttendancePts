@@ -1,7 +1,5 @@
 .guilaunches/
 bin/
-cfg/
-wbp-meta/
 .bdtPath
 .buildpath
 .classpath

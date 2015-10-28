@@ -1,10 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <buildpath>
-	<buildpathentry kind="src" path="src"/>
-	<buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER">
-		<attributes>
-			<attribute name="projectClasspathName" value=""/>
-			<attribute name="configBBxOverride" value="C:\Users\stevett.NOTIONS\workspace\AttendancePts\cfg\bbj-config.txt"/>
-		</attributes>
-	</buildpathentry>
+    <buildpathentry excluding=".work/|backups/|**/.cvs/|wbp-meta/|**/.cvsignore|.settings/|**/.gitignore|**/.svnignore|bin/|**/.svn/|**/*.launch|.project|**/.git/|.classpath|.builaunches/|.buildpath|.bdtPath|.guilaunches/" kind="src" path=""/>
+    <buildpathentry kind="con" path="org.eclipse.dltk.launching.INTERPRETER_CONTAINER"/>
 </buildpath>

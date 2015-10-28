@@ -1,6 +1,3 @@
-#BASIS project AttendancePts
-#Thu Oct 08 18:19:07 EDT 2015
-com.basis.bdt.eclipse.core/com.basis.bdt.eclipse.core.projectBuildState=SOURCE_IN_SEPARATE_FOLDERS
-com.basis.bdt.eclipse.core/com.basis.bdt.eclipse.core.compileTokens=false
-com.basis.bdt.eclipse.core/com.basis.bdt.eclipse.core.sourceOutputMap={}
-com.basis.bdt.eclipse.core/com.basis.bdt.eclipse.core.defaultOutputFolder=\\AttendancePts\\bin
+#BASIS project erp-master
+#Wed Oct 28 12:06:42 EDT 2015
+com.basis.bdt.eclipse.core/projectConfiguration={"tokenized"\:false,"outputFolderName"\:"bin","sessionSpecificClasspath"\:"","configBBxOverridePath"\:"/usr/notcfg/config.bbx","projectVersion"\:"15.10.0","deploymentDescriptor"\:"","properties"\:{}}
