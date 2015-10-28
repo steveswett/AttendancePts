@@ -1,5 +1,5 @@
 REM /**
-REM  * TestCallerWithMap.bbj
+REM  * TestGetAttendPtsWorkDates.bbj
 REM  * @author stevett
 REM  *
 REM  */
@@ -23,7 +23,7 @@ end
 
 do_database_test:
 
-    call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, 20150712, 20150731, datesMap!
+    call "AttendPtsWorkDAO.bbj::get_dates_with_totals", shiftIn$, deptIdIn, 20151019, 20151023, datesMap!
 
     gosub print_date_info
 
