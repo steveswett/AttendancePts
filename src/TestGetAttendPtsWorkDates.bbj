@@ -2,6 +2,8 @@ REM /**
 REM  * TestGetAttendPtsWorkDates.bbj
 REM  * @author stevett
 REM  *
+REM  * Bogus comment revision done on laptop.
+REM  * 
 REM  */
 
 use java.util.LinkedHashMap
