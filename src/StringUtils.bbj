@@ -1,0 +1,16 @@
+REM /**
+REM  * StringUtils.bbj
+REM  * @author stevett
+REM  *
+REM  * Simple little class to demonstrate unit testing
+REM  * 
+REM  */
+
+
+class public StringUtils
+
+    method public String trimUp(String str!)
+        methodret str!.trim().toUpperCase()
+    methodend
+
+classend
