@@ -4,8 +4,9 @@ rem  *
 rem  * When you create a unit test file, the class outline is already laid out for you.
 rem  * I only had to add 4 lines of code (as marked below).
 rem  * 
+rem  * Meaningless comment.
+rem  * 
 rem  */
-
 
 use ::StringUtils.bbj::StringUtils   ; rem added
 
