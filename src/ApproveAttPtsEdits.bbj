@@ -254,6 +254,14 @@ display_data:
     postedWfmrExcDefId! = attPtsWorkDataMap!.get("posted_exc_defid")
     postedWfmrExcDefId = num(postedWfmrExcDefId!)
     
+    wfmrSource$ = attPtsWorkDataMap!.get("wfmr_src")
+    
+    if wfmrSource$ = "E" then
+        exceptionIdDisplay$ = " exc id " + str(attPtsWorkDataMap!.get("wfmr_exc_id"))
+    else
+        exceptionIdDisplay$ = ""
+    endif
+    
     isRecordEditable = FALSE
     
     if postedWfmrExcDefId = 0 then
@@ -296,7 +304,7 @@ display_data:
     print @(70,5), attPtsWorkDataMap!.get("sched_shift_id")
     
     print @(0,7), 'br', ROW_OF_BLANKS$
-    print @(0,7), "INCOMING from WFMR: (modified ", fmtWFMRLastModDate$, ")"
+    print @(0,7), "INCOMING from WFMR: (modified ", fmtWFMRLastModDate$, exceptionIdDisplay$, ")"
     print @(71,7), currentRecordNo, " of ", attPtsWorkRecordsMapSize
     print @(79,7), 'er'
 
