@@ -27,6 +27,12 @@ declare java.util.Vector attPtsWorkIds!
 declare java.util.HashMap minimalExceptionRecordsMap!
 declare java.util.HashMap minimalExceptionsDataMap!
 
+declare java.util.LinkedHashMap duplicateExceptionRecordsMap!
+declare java.util.HashMap duplicateExceptionsDataMap!
+
+declare java.util.Vector keepRecordIds!
+declare java.util.Vector allRecordIds!
+
 declare java.util.LinkedHashMap attPtsRecordsToFlagMap!
 
 
@@ -129,6 +135,28 @@ get_count_by_exc_date_and_source_map:
     gosub setup_constants
     
     gosub load_count_by_exc_date_and_source_map
+    
+    exit
+    
+
+get_data_for_duplicate_exceptions_map:    
+
+    enter fromYymdIn$, toYymdIn$, attPtsRecordsMapOut!
+    
+    gosub setup_constants
+    
+    gosub load_data_for_duplicate_exceptions_map
+    
+    exit
+    
+
+flag_duplicate_exceptions_using_map:    
+
+    enter duplicateExceptionRecordsMap!, duplicatesFlaggedCountOut
+    
+    gosub setup_constants
+    
+    gosub flag_duplicate_exceptions_in_map
     
     exit
 
@@ -363,187 +391,6 @@ ml_process_wfmr_data:
     wend
 
     return; rem 3
-    
-
-REM  ------------------------------------------------------------------------------------------
-REM  Mass Load Update a Row
-REM  ------------------------------------------------------------------------------------------
-
-ml_update_row:
-    
-    REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
-
-REM     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
-REM :        "update attend_pts_work " + 
-REM :        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
-REM :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
-REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
-    
-    if fnIsMassLoadingExceptions(TRUE) then
-    
-        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
-:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
-    
-        tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
-    
-        sqlexec(attendPtsUpdateRowChannel) 
-:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, 
-:           cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id, wfmrResultRow.job_id,
-:           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, str(erpPts), tempLastModDate$,
-:           wfmrResultRow.exception_id, tempLastModDate$
-    else
-    
-        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
-:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
-    
-        tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
-        tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
-    
-        sqlexec(attendPtsUpdateRowChannel) 
-:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id,
-:           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$, wfmrResultRow.reason_id,
-:           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
-:           tempLastModDate$  
-    endif
-
-    return; rem 4
-    
-
-REM  ------------------------------------------------------------------------------------------
-REM  Mass Load: Add a values phrase to an Insert Statement
-REM  ------------------------------------------------------------------------------------------
-
-ml_add_to_insert_batch:
-
-    insertCount = insertCount + 1
-    
-    if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
-    
-    if fnIsMassLoadingExceptions(TRUE) then
-    
-        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
-:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
-    
-        valuesClause$ =
-:          "(ATTEND_PTS_WORK_SEQ.nextval, " +
-:          "'E', " +
-:          str(wfmrResultRow.exception_id) + ", " +
-:          "0, " +
-:          str(wfmrResultRow.business_unit_id) + ", " +
-:          str(wfmrResultRow.department_id) + ", " +
-:          "'" + cvs(wfmrResultRow.shift$,2) + "', " +
-:          str(wfmrResultRow.employee_id) + ", " +
-:          "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
-:          str(wfmrResultRow.job_id) + ", " +
-:          "'" + wfmrResultRow.exception_date$ + "', " +
-:          str(wfmrResultRow.exception_definition_id) + ", " +
-:          str(erpPts) + ", " +
-:          "'" + wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) + "', " +
-:          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
-:          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
-:          "'" + erpCode$ + "', " +
-:          "'" + erpNote$ + "', " +
-:          str(erpPts) + ", " +
-:          "'" + erpSts$ + "', " +
-:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
-:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
-:          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
-:          "'" + DEFAULT_POSTED_USER$ + "', " + 
-:          "0, " +
-:          "0, " +
-:          "'', " +
-:          str(wfmrResultRow.scheduled_shift_id) + 
-:          ")"
-
-    else
-    
-        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
-:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
-
-        REM  If a reason code has been entered on the missed shift record, tack a description onto the erpNote$
-        
-        reasonName$ = cvs(wfmrResultRow.reason_name$, 2)
-        
-        if len(reasonName$) > 0 then
-            erpNote$ = cvs(erpNote$, 2) + " - " + reasonName$
-        endif
-    
-        valuesClause$ =
-:          "(ATTEND_PTS_WORK_SEQ.nextval, " +
-:          "'M', " +
-:          "0, " +
-:          "'" + wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) + "', " +
-:          str(wfmrResultRow.business_unit_id) + ", " +
-:          str(wfmrResultRow.department_id) + ", " +
-:          "'" + cvs(wfmrResultRow.shift$,2) + "', " +
-:          str(wfmrResultRow.employee_id) + ", " +
-:          "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
-:          str(wfmrResultRow.job_id) + ", " +
-:          "'" + wfmrResultRow.missed_shift_date$ + "', " +
-:          str(derived_exception_id) + ", " +
-:          str(erpPts) + ", " +
-:          "'" + wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) + "', " +
-:          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
-:          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
-:          "'" + erpCode$ + "', " +
-:          "'" + erpNote$ + "', " +
-:          str(erpPts) + ", " +
-:          "'" + erpSts$ + "', " +
-:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
-:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
-:          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
-:          "'" + DEFAULT_POSTED_USER$ + "', " + 
-:          "0, " +
-:          str(wfmrResultRow.reason_id) + ", " +
-:          "'', " +
-:          str(wfmrResultRow.scheduled_shift_id) + 
-:          ")"
-    endif
-    
-    attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + valuesClause$ 
-
-    if insertCount = BATCH_SIZE then gosub ml_write_batch
-
-    return; rem 5
-
-
-REM  ------------------------------------------------------------------------------------------
-REM  Mass Load: Write the Insert Batch
-REM  ------------------------------------------------------------------------------------------
-
-ml_write_batch:
-
-    batchNo = batchNo + 1
-    
-    print "batchNo = ", batchNo
-
-    sqlprep(attendPtsInsertRowsChannel) attendPtsDynamicInsertStmt$
-    sqlexec(attendPtsInsertRowsChannel)
-    
-    totalInserted = totalInserted + insertCount
-    
-    insertCount = 0
-    
-    attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
-
-    return; rem 6
-
-
-REM  ------------------------------------------------------------------------------------------
-REM  Mass Load: Close SQL Channels
-REM  ------------------------------------------------------------------------------------------
-
-ml_close_sql_channels:
-
-    sqlclose(wfmrSelectRowsChannel)
-    
-    if insertCount > 0 then gosub ml_write_batch
-    
-    sqlclose(attendPtsFindRowChannel)
-    sqlclose(attendPtsInsertRowsChannel)
-    sqlclose(attendPtsUpdateRowChannel)
-
-    return; rem 7    
 
 
 REM  ------------------------------------------------------------------------------------------
@@ -709,6 +556,156 @@ load_count_by_exc_date_and_source_map:
 
 
 REM  ------------------------------------------------------------------------------------------
+REM  Get a count and data for duplicate exception records.  Records are grouped by 
+REM  WFMR exception date, employee, scheduled shift and excedption definition ID.  For 
+REM  each group-by record, add a HashMap of data into the attPtsRecordsMapOut! LinkedHashMap
+REM  ------------------------------------------------------------------------------------------
+    
+load_data_for_duplicate_exceptions_map:
+
+    attPtsRecordsMapOut!.clear()
+
+    tempChannel = sqlunt
+    sqlopen(tempChannel) attendPtsDataSource$
+    
+    sqlprep(tempChannel) GET_COUNT_AND_DATA_FOR_DUP_EXCEPTIONS_STMT$
+
+    sqlexec(tempChannel) fromYymdIn$, toYymdIn$ 
+    dim resultRow$:sqltmpl(tempChannel)
+    
+    tempCount = 0
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(tempChannel,err=*break)
+        attPtsWorkDataMap! = new java.util.HashMap()
+
+        attPtsWorkDataMap!.put("wfmr_exc_date", resultRow.wfmr_exc_date$)
+        attPtsWorkDataMap!.put("emp_badge_no", resultRow.emp_badge_no$)
+        attPtsWorkDataMap!.put("sched_shift_id", resultRow.sched_shift_id)
+        attPtsWorkDataMap!.put("wfmr_exc_def_id", resultRow.wfmr_exc_def_id)
+        attPtsWorkDataMap!.put("dup_count", resultRow.dup_count)
+
+        tempCount = tempCount + 1
+        attPtsRecordsMapOut!.put(tempCount, attPtsWorkDataMap!)
+        
+    wend
+    
+    sqlclose(tempChannel)
+
+    return
+    
+
+REM  ------------------------------------------------------------------------------------------
+REM  For employees/dates identified in duplicate exceptions map, duplicateExceptionsDataMap!,
+REM  flag unposted, not handled ones as being duplicates to ignore.  This was needed because
+REM  on 11/2/15, ops supervisors noticed a bunch of duplicate records (305) -- especially
+REM  between 10/18 and 10/24/15 -- caused by WFMR deleting original exceptions and then
+REM  re-adding new ones with different keys. 
+REM  ------------------------------------------------------------------------------------------
+
+
+flag_duplicate_exceptions_in_map:
+
+    duplicatesFlaggedCountOut = 0
+
+    readMapChannel = sqlunt
+    sqlopen(readMapChannel) attendPtsDataSource$
+    sqlprep(readMapChannel) GET_ROWS_PER_DATE_AND_EMPLOYEE_WITH_DUP_EXCEPTIONS_STMT$
+
+    flagChannel = sqlunt
+    sqlopen(flagChannel) attendPtsDataSource$
+    sqlprep(flagChannel) FLAG_AS_WFMR_EXCEPTION_DUPLICATE_STMT$
+
+    iter! = duplicateExceptionRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+        idKey! = iter!.next()
+        duplicateExceptionsDataMap! = cast( java.util.HashMap, duplicateExceptionRecordsMap!.get(idKey!) )
+        
+        wfmrExcDate$ = duplicateExceptionsDataMap!.get("wfmr_exc_date")
+        badgeNo$ = duplicateExceptionsDataMap!.get("emp_badge_no")
+        schedShiftId = duplicateExceptionsDataMap!.get("sched_shift_id")
+        wfmrExcDefId = duplicateExceptionsDataMap!.get("wfmr_exc_def_id")
+        
+        sqlexec(readMapChannel) wfmrExcDate$, badgeNo$, schedShiftId, wfmrExcDefId  
+        dim resultRow$:sqltmpl(readMapChannel)
+
+        
+        REM  Step 1. Determine which records to keep
+        REM  Note: Records will be read in (1) most recent posted order; then (2) most recent last mod order
+        
+        keepRecordIds! = new java.util.Vector()
+        allRecordIds! = new java.util.Vector()
+
+        REM  Keep the following:
+        REM     1. posted ones 
+        REM     2. those other than "Not Handled" (disposition code "N")
+        REM     3. the first "Not Handled" (but only if ALL are "Not Handled")
+        
+        notHandledCount = 0
+        otherCount = 0
+        firstNotHandledId = 0
+                 
+        while TRUE
+        
+            resultRow$ = sqlfetch(readMapChannel,err=*break)
+            allRecordIds!.add(resultRow.id)
+            
+            wasPosted = len( cvs(resultRow.posted_timestamp$, 3) ) > 0
+            
+            if wasPosted or !(resultRow.disp_cd$ = "N") then
+                keepRecordIds!.add(resultRow.id)
+            endif
+            
+            if resultRow.disp_cd$ = "N" then
+                notHandledCount = notHandledCount + 1
+                
+                if firstNotHandledId = 0 then
+                    firstNotHandledId = resultRow.id
+                endif
+            else
+                otherCount = otherCount + 1
+            endif
+            
+        wend
+        
+        REM  This is the keeper for "3. the first "Not Handled" (but only if ALL are "Not Handled")"
+        
+        if otherCount = 0 and firstNotHandledId > 0 and !( keepRecordIds!.contains(firstNotHandledId) ) then
+            keepRecordIds!.add(firstNotHandledId)
+        endif
+        
+        
+        REM  Step 2. Flag non-keepers as duplicates
+        
+        if allRecordIds!.size() > keepRecordIds!.size() then
+
+            call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
+            
+            REM  Remove keepers from allRecordIds!
+            
+            allRecordIds!.removeAll(keepRecordIds!)
+            
+            idCount = allRecordIds!.size()
+    
+            for i = 0 to idCount - 1
+                idToRemove = allRecordIds!.get(i)
+                sqlexec(flagChannel) currentTimestamp$, idToRemove
+                duplicatesFlaggedCountOut = duplicatesFlaggedCountOut + 1  
+            next i
+
+        endif
+
+    wend
+    
+    sqlclose(flagChannel)
+    sqlclose(readMapChannel)
+
+    return
+    
+
+REM  ------------------------------------------------------------------------------------------
 REM  Get date of most recent exception loaded
 REM  ------------------------------------------------------------------------------------------
     
@@ -826,6 +823,201 @@ flag_work_records_map_where_exceptions_no_longer_exist:
     sqlclose(flagChannel)
 
     return
+    
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Update posted fields: timestamp, by user, WFMR exception def id
+REM  ------------------------------------------------------------------------------------------
+    
+update_posted_flag_on_record:
+
+        call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
+        sqlexec(flagPostingChannelIn) currentTimestamp$, userIdIn$, wfmrExceptionDefIdIn, recordIdIn
+
+    return
+    
+
+REM  ------------------------------------------------------------------------------------------
+REM  Mass Load Update a Row
+REM  ------------------------------------------------------------------------------------------
+
+ml_update_row:
+    
+    REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
+
+REM     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
+REM :        "update attend_pts_work " + 
+REM :        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
+REM :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
+REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
+    
+    if fnIsMassLoadingExceptions(TRUE) then
+    
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
+        tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
+    
+        sqlexec(attendPtsUpdateRowChannel) 
+:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, 
+:           cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id, wfmrResultRow.job_id,
+:           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, str(erpPts), tempLastModDate$,
+:           wfmrResultRow.exception_id, tempLastModDate$
+    else
+    
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
+        tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
+        tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
+    
+        sqlexec(attendPtsUpdateRowChannel) 
+:           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id,
+:           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$, wfmrResultRow.reason_id,
+:           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
+:           tempLastModDate$  
+    endif
+
+    return; rem 4
+    
+
+REM  ------------------------------------------------------------------------------------------
+REM  Mass Load: Add a values phrase to an Insert Statement
+REM  ------------------------------------------------------------------------------------------
+
+ml_add_to_insert_batch:
+
+    insertCount = insertCount + 1
+    
+    if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
+    
+    if fnIsMassLoadingExceptions(TRUE) then
+    
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+    
+        valuesClause$ =
+:          "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:          "'E', " +
+:          str(wfmrResultRow.exception_id) + ", " +
+:          "0, " +
+:          str(wfmrResultRow.business_unit_id) + ", " +
+:          str(wfmrResultRow.department_id) + ", " +
+:          "'" + cvs(wfmrResultRow.shift$,2) + "', " +
+:          str(wfmrResultRow.employee_id) + ", " +
+:          "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
+:          str(wfmrResultRow.job_id) + ", " +
+:          "'" + wfmrResultRow.exception_date$ + "', " +
+:          str(wfmrResultRow.exception_definition_id) + ", " +
+:          str(erpPts) + ", " +
+:          "'" + wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) + "', " +
+:          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
+:          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
+:          "'" + erpCode$ + "', " +
+:          "'" + erpNote$ + "', " +
+:          str(erpPts) + ", " +
+:          "'" + erpSts$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
+:          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_POSTED_USER$ + "', " + 
+:          "0, " +
+:          "0, " +
+:          "'', " +
+:          str(wfmrResultRow.scheduled_shift_id) + ", " +
+:          "''" +
+:          ")"
+
+    else
+    
+        call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, derived_exception_id, 
+:           transDataRecordFound, erpCode$, erpSts$, erpPts, erpNote$
+
+        REM  If a reason code has been entered on the missed shift record, tack a description onto the erpNote$
+        
+        reasonName$ = cvs(wfmrResultRow.reason_name$, 2)
+        
+        if len(reasonName$) > 0 then
+            erpNote$ = cvs(erpNote$, 2) + " - " + reasonName$
+        endif
+    
+        valuesClause$ =
+:          "(ATTEND_PTS_WORK_SEQ.nextval, " +
+:          "'M', " +
+:          "0, " +
+:          "'" + wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) + "', " +
+:          str(wfmrResultRow.business_unit_id) + ", " +
+:          str(wfmrResultRow.department_id) + ", " +
+:          "'" + cvs(wfmrResultRow.shift$,2) + "', " +
+:          str(wfmrResultRow.employee_id) + ", " +
+:          "'" + cvs(wfmrResultRow.badge_number$, 2) + "', " +
+:          str(wfmrResultRow.job_id) + ", " +
+:          "'" + wfmrResultRow.missed_shift_date$ + "', " +
+:          str(derived_exception_id) + ", " +
+:          str(erpPts) + ", " +
+:          "'" + wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) + "', " +
+:          "'" + DEFAULT_DISPOSITION_CODE$ + "', " +
+:          str(DEFAULT_DISPOSITION_EDIT_REASON_ID) + ", " +
+:          "'" + erpCode$ + "', " +
+:          "'" + erpNote$ + "', " +
+:          str(erpPts) + ", " +
+:          "'" + erpSts$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
+:          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
+:          "'" + DEFAULT_POSTED_USER$ + "', " + 
+:          "0, " +
+:          str(wfmrResultRow.reason_id) + ", " +
+:          "'', " +
+:          str(wfmrResultRow.scheduled_shift_id) + ", " +
+:          "''" +
+:          ")"
+    endif
+    
+    attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + valuesClause$ 
+
+    if insertCount = BATCH_SIZE then gosub ml_write_batch
+
+    return; rem 5
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Mass Load: Write the Insert Batch
+REM  ------------------------------------------------------------------------------------------
+
+ml_write_batch:
+
+    batchNo = batchNo + 1
+    
+    print "batchNo = ", batchNo
+
+    sqlprep(attendPtsInsertRowsChannel) attendPtsDynamicInsertStmt$
+    sqlexec(attendPtsInsertRowsChannel)
+    
+    totalInserted = totalInserted + insertCount
+    
+    insertCount = 0
+    
+    attendPtsDynamicInsertStmt$ = STARTING_INSERT_STMT$
+
+    return; rem 6
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Mass Load: Close SQL Channels
+REM  ------------------------------------------------------------------------------------------
+
+ml_close_sql_channels:
+
+    sqlclose(wfmrSelectRowsChannel)
+    
+    if insertCount > 0 then gosub ml_write_batch
+    
+    sqlclose(attendPtsFindRowChannel)
+    sqlclose(attendPtsInsertRowsChannel)
+    sqlclose(attendPtsUpdateRowChannel)
+
+    return; rem 7    
 
 
 REM  ------------------------------------------------------------------------------------------
@@ -962,18 +1154,6 @@ save_record_from_map:
     sqlclose(attendPtsWorkDatesChannel)
 
     return
-    
-    
-REM  ------------------------------------------------------------------------------------------
-REM  Update posted fields: timestamp, by user, WFMR exception def id
-REM  ------------------------------------------------------------------------------------------
-    
-update_posted_flag_on_record:
-
-        call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
-        sqlexec(flagPostingChannelIn) currentTimestamp$, userIdIn$, wfmrExceptionDefIdIn, recordIdIn
-
-    return
 
 
 REM  ------------------------------------------------------------------------------------------
@@ -1030,7 +1210,7 @@ setup_constants:
 :        "wfmr_exc_date, wfmr_exc_def_id, wfmr_pts_assess, wfmr_exc_lastmod, disp_cd, " +
 :        "disp_edt_reas_id, erp_cd, erp_note, erp_pts_assessed, erp_sts_cd, " +
 :        "last_mod, last_mod_user, posted_timestamp, posted_by_user, posted_exc_defid, " +
-:        "wfmr_reason_id, exc_gone_stamp, sched_shift_id) " +
+:        "wfmr_reason_id, exc_gone_stamp, sched_shift_id, exc_dup_stamp) " +
 :        "values "
 
 
@@ -1193,20 +1373,23 @@ setup_constants:
     ATTEND_PTS_WORK_GET_TOTALS_STMT$ = 
 :       "select wfmr_exc_date, count(*) as total " +
 :       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? " +
+:       "and exc_gone_stamp = '' and exc_dup_stamp = '' " +
 :       "group by wfmr_exc_date " +
 :       "order by wfmr_exc_date desc"
 
     ATTEND_PTS_WORK_GET_POSTED_STMT$ = 
 :       "select wfmr_exc_date, posted_timestamp, count(*) as posted_count " +
 :       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? " +
+:       "and exc_gone_stamp = '' and exc_dup_stamp = '' " +
 :       "group by wfmr_exc_date, posted_timestamp"
 
     ATTEND_PTS_WORK_GET_DISPOSITION_STMT$ = 
 :       "select wfmr_exc_date, disp_cd, count(*) as disp_count " +
 :       "from attend_pts_work " + 
-:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? and exc_gone_stamp = '' " +
+:       "where dept_id = ? and wfmr_exc_date >= ? and wfmr_exc_date <= ? and shift = ? " +
+:       "and exc_gone_stamp = '' and exc_dup_stamp = '' " +
 :       "group by wfmr_exc_date, disp_cd"
 
     ATTEND_PTS_WORK_GET_EMPLOYEES_STMT$ = 
@@ -1225,7 +1408,8 @@ setup_constants:
 :       "from attend_pts_work " +
 :       "inner join employ on employ.badg = attend_pts_work.EMP_BADGE_NO " +
 :       "where " + 
-:       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? and exc_gone_stamp = '' " +
+:       "attend_pts_work.dept_id = ? and attend_pts_work.wfmr_exc_date = ? and attend_pts_work.shift = ? " +
+:       "and exc_gone_stamp = '' and exc_dup_stamp = '' " +
 :       "order by last_first_mi"
 
     ATTEND_PTS_WORK_SAVE_ONE_RECORD_STMT$ = 
@@ -1243,7 +1427,8 @@ setup_constants:
 :       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N'"
 
     ATTEND_PTS_WORK_GET_NOT_HANDLED_PUNCH_EXCEPTIONS_SKIP_FLAGGED_STMT$ =
-:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N' and exc_gone_stamp = ''"
+:       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N' " +
+:       "and exc_gone_stamp = '' and exc_dup_stamp = ''"
 
     ATTEND_PTS_WORK_FLAG_THAT_WFMR_EXCEPTION_NO_LONGER_EXISTS_STMT$ =
 :       "update attend_pts_work set exc_gone_stamp = ? where id = ?"
@@ -1257,6 +1442,48 @@ setup_constants:
 :       "from ATTEND_PTS_WORK " +
 :       "where WFMR_EXC_DATE >= ? and WFMR_EXC_DATE <= ? " +
 :       "group by WFMR_EXC_DATE, WFMR_SRC"
+
+    GET_COUNT_AND_DATA_FOR_DUP_EXCEPTIONS_STMT$ = 
+:       "select " + 
+:       "attend_pts_work.WFMR_EXC_DATE, " +
+:       "attend_pts_work.EMP_BADGE_NO, " +
+:       "attend_pts_work.SCHED_SHIFT_ID, " +
+:       "attend_pts_work.WFMR_EXC_DEF_ID, " +
+:       "count(*) as dup_count " +
+:       "from attend_pts_work " +
+:       "where " +
+:       "attend_pts_work.WFMR_SRC = 'E' " +
+:       "and attend_pts_work.EXC_GONE_STAMP = '' " +
+:       "and attend_pts_work.EXC_DUP_STAMP = '' " +
+:       "and attend_pts_work.WFMR_EXC_DATE >= ? " +
+:       "and attend_pts_work.WFMR_EXC_DATE <= ? " +
+:       "group by " + 
+:       "attend_pts_work.WFMR_EXC_DATE, " + 
+:       "attend_pts_work.EMP_BADGE_NO, " +
+:       "attend_pts_work.SCHED_SHIFT_ID, " +
+:       "attend_pts_work.WFMR_EXC_DEF_ID " +
+:       "having count(*) > 1"
+
+    GET_ROWS_PER_DATE_AND_EMPLOYEE_WITH_DUP_EXCEPTIONS_STMT$ = 
+:       "select " + 
+:       "id, " +
+:       "disp_cd, " +
+:       "posted_timestamp, " +
+:       "last_mod " +
+:       "from attend_pts_work " +
+:       "where " +
+:       "WFMR_EXC_DATE = ? " +
+:       "and EMP_BADGE_NO = ? " +
+:       "and sched_shift_id = ? " +
+:       "and wfmr_exc_def_id = ? " +
+:       "and EXC_GONE_STAMP = '' " +
+:       "and EXC_DUP_STAMP = '' " +
+:       "order by " +
+:       "posted_timestamp desc, " +
+:       "last_mod desc"
+
+    FLAG_AS_WFMR_EXCEPTION_DUPLICATE_STMT$ =
+:       "update attend_pts_work set exc_dup_stamp = ? where id = ?"
 
     return
     

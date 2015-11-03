@@ -6,6 +6,10 @@ REM  * Written: September 2015
 REM  * 
 REM  * Description: For punch exceptions in ATTEND_PTS_WORK, see if exception ID is still in WFMR Lab_Exception.
 REM  *              If not, flag the ATTEND_PTS_WORK record by putting a timestamp in column EXC_GONE_STAMP.
+REM  * 
+REM  *              Also, if the ATTEND_PTS_WORK table has more than WFMR exception for the same
+REM  *              date/employee/sched shift/wfmr exception def ID, then attempt to flag the
+REM  *              duplicates, so they are ignored.  Column EXC_DUP_STAMP is used for this.
 REM  *
 REM  */
 
@@ -16,7 +20,35 @@ declare java.util.LinkedHashMap attPtsWorkRecordsMap!
  
 begin
 
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+    main_routine:
+
     print "Started at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+    
+    gosub flag_deleted_exceptions
+    
+    gosub flag_duplicate_exceptions
+
+    print "Finished at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
+    
+    release
+
+end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Flag exceptions that used to exist in WFMR but WFMR has now deleted
+REM  ------------------------------------------------------------------------------------------
+
+flag_deleted_exceptions:
+
 
     skipAlreadyFlaggedOnes = 1
     attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
@@ -31,8 +63,26 @@ begin
     
     print "Punch exceptions flagged as deleted: ", punchExceptionsFlagged 
 
-    print "Finished at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
-    
-    REM release
+    return
 
-end
+
+REM  ------------------------------------------------------------------------------------------
+REM  Flag duplicate exceptions.  WFMR has somehow added the same exception (with a new 
+REM  ID) even though it had previously generated the same exception (with a different ID).
+REM  ------------------------------------------------------------------------------------------
+
+flag_duplicate_exceptions:
+
+    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", -30, fromYymd$ 
+    call "DateUtilities.bbj::get_current_yyyymmdd", toYymd$ 
+
+    attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
+
+    call "AttendPtsWorkDAO.bbj::get_data_for_duplicate_exceptions_map", fromYymd$, toYymd$, attPtsWorkRecordsMap!
+
+    call "AttendPtsWorkDAO.bbj::flag_duplicate_exceptions_using_map", attPtsWorkRecordsMap!, duplicatesFlagged
+
+    print "Punch exceptions flagged as duplicates: ", duplicatesFlagged 
+
+    return
+    
