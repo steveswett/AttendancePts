@@ -1,0 +1,50 @@
+REM /**
+REM  * GetConfigVarsSP.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+REM Open the file
+ chan = UNT
+ OPEN (chan) "CONFIG_VARS"
+
+ REM Get the parameter value specified by the calling program
+ sp! = BBJAPI().getFileSystem().getStoredProcedureData()
+ maxRows = sp!.getParameter("MAX_ROWS")
+
+ REM Create a memory record set to hold the results of
+ REM our read operations.
+ rs! = BBJAPI().createMemoryRecordSet("KEY:C(64)")
+
+ REM Iterate over the file and find the items that
+ REM have the specified PROD_CAT
+ TMPL$ = "CV_KEY:C(64),CV_VALUE:C(256),VALUE_TYPE:C(1),USAGE_HINT:C(256)"
+ DIM REC$:TMPL$
+ 
+ count = 0
+ 
+ keepReading = 1
+ 
+ while (keepReading)
+     READ RECORD (chan, ERR=eof) rec$
+     count = count + 1
+
+     if count > maxRows then 
+        keepReading = 0
+     else
+    
+         REM Found a match, so add it to the Record Set
+         data! = rs!.getEmptyRecordData()
+         data!.setFieldValue("KEY", rec.CV_KEY$)
+         rs!.insert(data!)
+         
+     endif
+ wend
+
+
+eof:
+ CLOSE (chan)
+
+ REM Set the returned result set value to the record set.
+ sp!.setRecordSet(rs!)
