@@ -82,9 +82,10 @@ main_routine:
     GOTO eoj
     
     handle_error:
-    CALL "LOGERR",P$,ERR,TCB(5)
     print "err = ", err
     print "errmes(-1) = ", errmes(-1)
+    
+    CALL "LOGERR",P$,ERR,TCB(5)
     
     
     eoj:
@@ -134,24 +135,23 @@ common_init:
 
     REM  Erase and re-create output files 
 
-    LET oldPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-oldpol.csv"
-    ERASE oldPolicyOutputFileName$,ERR=*next
-    wait 2
-    STRING oldPolicyOutputFileName$
-
     LET newPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-newpol.csv"
+    
+    print "Output file name: ", newPolicyOutputFileName$
 
-    ERASE newPolicyOutputFileName$,ERR=newpol_could_not_erase
+    ERASE newPolicyOutputFileName$,ERR=newpol_erase_error
+    print "erased OK"
     goto newpol_erased_ok
-    newpol_could_not_erase:
-    print "Could not erase new policy output file: ", newPolicyOutputFileName$ 
+    newpol_erase_error:
+    print "Erase err, errmes(-1): ", err, ", ", errmes(-1) 
     newpol_erased_ok:
     
     wait 2
-    STRING newPolicyOutputFileName$,ERR=newpol_could_not_create
+    STRING newPolicyOutputFileName$,ERR=newpol_create_error
+    print "created OK"
     goto newpol_created_ok
-    newpol_could_not_create:
-    print "Could not create new policy output file: ", newPolicyOutputFileName$ 
+    newpol_create_error:
+    print "Create err, errmes(-1): ", err, ", ", errmes(-1) 
     newpol_created_ok:
     
     mailReturnCode = 0
@@ -165,6 +165,12 @@ common_init:
 
 
 old_policy_init:
+
+    LET oldPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-oldpol.csv"
+    ERASE oldPolicyOutputFileName$,ERR=*next
+    wait 2
+    STRING oldPolicyOutputFileName$
+
 
     LET TODY$=FNQ$(DAY)
     LET X$=DAY
