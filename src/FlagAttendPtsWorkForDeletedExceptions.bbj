@@ -10,6 +10,9 @@ REM  *
 REM  *              Also, if the ATTEND_PTS_WORK table has more than WFMR exception for the same
 REM  *              date/employee/sched shift/wfmr exception def ID, then attempt to flag the
 REM  *              duplicates, so they are ignored.  Column EXC_DUP_STAMP is used for this.
+REM  * 
+REM  * Revised: 11/06/15 - See if missed shift is still in WFMR Lab_Employee_Missed_Shifts.
+REM  *                     If not, flag the ATTEND_PTS_WORK record by putting a timestamp in column EXC_GONE_STAMP.
 REM  *
 REM  */
 
@@ -30,6 +33,8 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
     gosub flag_deleted_exceptions
     
     gosub flag_duplicate_exceptions
+    
+    gosub flag_deleted_missed_shifts
 
     print "Finished at ", date(0:"%Y/%Mz/%Dz %hz:%mz:%sz%p")
     
@@ -58,7 +63,7 @@ flag_deleted_exceptions:
     punchExceptionsFlagged = attPtsWorkRecordsMap!.size()
      
     if punchExceptionsFlagged > 0 then
-        call "AttendPtsWorkDAO.bbj::flag_records_where_exceptions_no_longer_exist", attPtsWorkRecordsMap!
+        call "AttendPtsWorkDAO.bbj::flag_records_where_wfmr_recds_no_longer_exist", attPtsWorkRecordsMap!
     endif
     
     print "Punch exceptions flagged as deleted: ", punchExceptionsFlagged 
@@ -83,6 +88,29 @@ flag_duplicate_exceptions:
     call "AttendPtsWorkDAO.bbj::flag_duplicate_exceptions_using_map", attPtsWorkRecordsMap!, duplicatesFlagged
 
     print "Punch exceptions flagged as duplicates: ", duplicatesFlagged 
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Flag missed shifts that used to exist in WFMR but WFMR has now deleted
+REM  ------------------------------------------------------------------------------------------
+
+flag_deleted_missed_shifts:
+
+
+    skipAlreadyFlaggedOnes = 1
+    attPtsWorkRecordsMap! = new java.util.LinkedHashMap()
+    
+    call "AttendPtsWorkDAO.bbj::get_records_where_missed_shifts_no_longer_exist", skipAlreadyFlaggedOnes, attPtsWorkRecordsMap!
+
+    missedShiftsFlagged = attPtsWorkRecordsMap!.size()
+     
+    if missedShiftsFlagged > 0 then
+        call "AttendPtsWorkDAO.bbj::flag_records_where_wfmr_recds_no_longer_exist", attPtsWorkRecordsMap!
+    endif
+    
+    print "Missed shifts flagged as deleted: ", missedShiftsFlagged 
 
     return
     

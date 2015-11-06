@@ -1,0 +1,73 @@
+REM /**
+REM  * TestExistenceOfMissedShifts.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+begin
+
+    TRUE = 1
+    FALSE = 0
+
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+
+
+    ERP_QRY$ = "select id, emp_id, bus_unit_id, job_id, wfmr_in_tm_miss from attend_pts_work "
+    ERP_QRY$ = ERP_QRY$ + "where attend_pts_work.WFMR_SRC = 'M' and bus_unit_id = 1000104 and attend_pts_work.WFMR_EXC_DATE >= '20150906'"
+    
+
+    WFMR_QRY$ = "select count(*) as hits from lab_employee_missed_shifts "
+    WFMR_QRY$ = WFMR_QRY$ + "where employee_id = ? and business_unit_id = ? and job_id = ? and in_timestamp = ?"
+    
+    
+    erpChannel = sqlunt
+    sqlopen(erpChannel) attendPtsDataSource$
+    sqlprep(erpChannel) ERP_QRY$
+    sqlexec(erpChannel)  
+    dim resultRow$:sqltmpl(erpChannel)
+    
+    wfmrChannel = sqlunt
+    sqlopen(wfmrChannel) wfmrDataSource$
+    sqlprep(wfmrChannel) WFMR_QRY$
+    
+    erpRecs = 0
+    missingRecs = 0
+    
+    while TRUE
+    
+            resultRow$ = sqlfetch(erpChannel,err=*break)
+
+            erpRecs = erpRecs + 1
+            wfmrRecFound = FALSE
+            
+            rem  example of wfmr_in_tm_miss$ = 20150906223000    2015-09-06 22:30:00
+            
+            time$ = resultRow.wfmr_in_tm_miss$
+            fmtTime$ = time$(1,4) + "-" + time$(5,2) + "-" + time$(7,2) + " " + time$(9,2) + ":" + time$(11,2) + ":" + time$(13,2)    
+            
+            sqlexec(wfmrChannel) resultRow.emp_id, resultRow.bus_unit_id, resultRow.job_id, fmtTime$  
+            dim resRow$:sqltmpl(wfmrChannel)
+            resRow$ = sqlfetch(wfmrChannel,err=not_found)
+            
+            if resRow.hits > 0 then
+                wfmrRecFound = TRUE
+            endif
+            
+            not_found:
+            
+            if !(wfmrRecFound) then
+                missingRecs = missingRecs + 1
+                print "Record with ID not found: ", resultRow.id
+            endif
+    
+    wend
+    
+    sqlclose(erpChannel)
+    sqlclose(wfmrChannel)
+
+    print "Records: total, missing = ", erpRecs, ", ", missingRecs
+
+end

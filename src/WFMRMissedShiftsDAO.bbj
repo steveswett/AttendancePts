@@ -1,0 +1,110 @@
+REM /**
+REM  * WFMRMissedShiftsDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: November 2015
+REM  * 
+REM  * Description: Data Access Object for WFMR table lab_employee_missed_shifts
+REM  *
+REM  */
+
+
+declare java.util.HashMap minimalMissedShiftsRecordsMap!
+declare java.util.HashMap minimalMissedShiftsDataMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+append_missing_missed_shift_info_to_map:
+
+    enter minimalMissedShiftsRecordsMap!
+    
+    gosub setup_constants
+    
+    gosub add_missing_missed_shift_info_to_map
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  For incoming records map minimalMissedShiftsRecordsMap!, add whether or not the missed
+REM  shift record is missing
+REM  ------------------------------------------------------------------------------------------
+
+
+add_missing_missed_shift_info_to_map:
+
+    missedShiftChannel = sqlunt
+    sqlopen(missedShiftChannel) wfmrDataSource$
+    sqlprep(missedShiftChannel) FIND_MISSED_SHIFT_STMT$
+    
+    iter! = minimalMissedShiftsRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        minimalMissedShiftsDataMap! = cast( java.util.HashMap, minimalMissedShiftsRecordsMap!.get(idKey!) )
+        
+        hits = 0
+
+        empId = minimalMissedShiftsDataMap!.get("emp_id")
+        busUnitId = minimalMissedShiftsDataMap!.get("bus_unit_id")
+        jobId = minimalMissedShiftsDataMap!.get("job_id")
+        time$ = minimalMissedShiftsDataMap!.get("wfmr_in_tm_miss")
+
+        fmtTime$ = time$(1,4) + "-" + time$(5,2) + "-" + time$(7,2) + " " + time$(9,2) + ":" + time$(11,2) + ":" + time$(13,2)    
+
+        sqlexec(missedShiftChannel) empId, busUnitId, jobId, fmtTime$
+        
+        dim resultRow$:sqltmpl(missedShiftChannel)
+        resultRow$ = sqlfetch(missedShiftChannel,err=hit_check_bombed)
+        hits = resultRow.hit_count
+        hit_check_bombed:
+        
+        if hits = 0 then
+            minimalMissedShiftsDataMap!.put("missing_in_wfmr", TRUE)
+        endif
+
+    wend
+    
+    sqlclose(missedShiftChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    wfmrDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.data.source.name", configVarFound, configVarDataType$, wfmrDataSource$
+    
+    FIND_MISSED_SHIFT_STMT$ = 
+:       "select count(*) as hit_count from lab_employee_missed_shifts " +
+:       "where employee_id = ? and business_unit_id = ? and job_id = ? and in_timestamp = ?"
+    
+    return

@@ -126,6 +126,17 @@ get_records_where_exceptions_no_longer_exist:
     gosub get_work_records_map_where_exceptions_no_longer_exist
     
     exit
+
+
+get_records_where_missed_shifts_no_longer_exist:
+
+    enter skipAlreadyFlaggedOnes, attPtsRecordsMapOut!
+    
+    gosub setup_constants
+    
+    gosub get_work_records_map_where_missed_shifts_no_longer_exist
+    
+    exit
     
 
 get_count_by_exc_date_and_source_map:    
@@ -172,13 +183,13 @@ get_date_of_most_recent_exception_loaded:
     exit
 
 
-flag_records_where_exceptions_no_longer_exist:
+flag_records_where_wfmr_recds_no_longer_exist:
 
     enter attPtsRecordsToFlagMap!
     
     gosub setup_constants
     
-    gosub flag_work_records_map_where_exceptions_no_longer_exist
+    gosub flag_work_records_map_where_wfmr_recds_no_longer_exist
     
     exit
 
@@ -801,15 +812,86 @@ get_work_records_map_where_exceptions_no_longer_exist:
 
 
 REM  ------------------------------------------------------------------------------------------
+REM  Load a set of info into the attPtsRecordsMapOut! -- but only for
+REM  records that no longer exist in the WFMR Lab_Employee_Missed_Shifts table.
+REM  ------------------------------------------------------------------------------------------
+
+
+get_work_records_map_where_missed_shifts_no_longer_exist:
+
+    REM  Step 1. Get all missed shifts in the ATTEND_PTS_WORK table
+    
+    minimalExceptionsChannel = sqlunt
+    sqlopen(minimalExceptionsChannel) attendPtsDataSource$
+    
+    if skipAlreadyFlaggedOnes then
+        sqlprep(minimalExceptionsChannel) ATTEND_PTS_WORK_GET_NOT_HANDLED_MISSED_SHIFTS_SKIP_FLAGGED_STMT$
+    else
+        sqlprep(minimalExceptionsChannel) ATTEND_PTS_WORK_GET_NOT_HANDLED_MISSED_SHIFTS_STMT$
+    endif
+
+    sqlexec(minimalExceptionsChannel) 
+    dim resultRow$:sqltmpl(minimalExceptionsChannel)
+        
+    minimalExceptionRecordsMap! = new java.util.HashMap()
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(minimalExceptionsChannel,err=*break)
+        minimalExceptionsDataMap! = new java.util.HashMap()
+        minimalExceptionsDataMap!.put("emp_id", resultRow.emp_id)
+        minimalExceptionsDataMap!.put("bus_unit_id", resultRow.bus_unit_id)
+        minimalExceptionsDataMap!.put("job_id", resultRow.job_id)
+        minimalExceptionsDataMap!.put("wfmr_in_tm_miss", resultRow.wfmr_in_tm_miss$)
+        minimalExceptionRecordsMap!.put(resultRow.id, minimalExceptionsDataMap!)
+        
+    wend
+    
+    sqlclose(minimalExceptionsChannel)
+
+    
+    REM  Step 2. Check to see if any of the missed shifts are missing in WFMR.  If so,
+    REM          add ATTEND_PTS_WORK ID to attPtsWorkIds! vector. 
+    
+    call "WFMRMissedShiftsDAO.bbj::append_missing_missed_shift_info_to_map", minimalExceptionRecordsMap!
+    
+    attPtsWorkIds! = new java.util.Vector()
+    
+    iter! = minimalExceptionRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        idKey! = iter!.next()
+        minimalExceptionsDataMap! = cast( java.util.HashMap, minimalExceptionRecordsMap!.get(idKey!) )
+        
+        if minimalExceptionsDataMap!.containsKey("missing_in_wfmr") then
+            attPtsWorkIds!.add(idKey!)
+        endif
+
+    wend
+    
+    
+    REM  Step 3. For all IDs in the attPtsWorkIds! vector, load the map of attendance point records (to return)
+
+    attPtsRecordsMapOut!.clear()
+
+    if attPtsWorkIds!.size() > 0 then
+        gosub load_work_records_map
+    endif
+
+    return
+    
+
+REM  ------------------------------------------------------------------------------------------
 REM  Flag all records in attPtsRecordsToFlagMap! with current timestamp
 REM  ------------------------------------------------------------------------------------------
     
     
-flag_work_records_map_where_exceptions_no_longer_exist:
+flag_work_records_map_where_wfmr_recds_no_longer_exist:
 
     flagChannel = sqlunt
     sqlopen(flagChannel) attendPtsDataSource$
-    sqlprep(flagChannel) ATTEND_PTS_WORK_FLAG_THAT_WFMR_EXCEPTION_NO_LONGER_EXISTS_STMT$
+    sqlprep(flagChannel) ATTEND_PTS_WORK_FLAG_THAT_WFMR_RECORD_NO_LONGER_EXISTS_STMT$
     
     call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
 
@@ -1430,7 +1512,15 @@ setup_constants:
 :       "select id, wfmr_exc_id from attend_pts_work where wfmr_src = 'E' and disp_cd = 'N' " +
 :       "and exc_gone_stamp = '' and exc_dup_stamp = ''"
 
-    ATTEND_PTS_WORK_FLAG_THAT_WFMR_EXCEPTION_NO_LONGER_EXISTS_STMT$ =
+    ATTEND_PTS_WORK_GET_NOT_HANDLED_MISSED_SHIFTS_STMT$ =
+:       "select id, emp_id, bus_unit_id, job_id, wfmr_in_tm_miss from attend_pts_work " +
+:       "where wfmr_src = 'M' and disp_cd = 'N'"
+
+    ATTEND_PTS_WORK_GET_NOT_HANDLED_MISSED_SHIFTS_SKIP_FLAGGED_STMT$ =
+:       "select id, emp_id, bus_unit_id, job_id, wfmr_in_tm_miss from attend_pts_work " +
+:       "where wfmr_src = 'M' and disp_cd = 'N' and exc_gone_stamp = '' and exc_dup_stamp = ''"
+
+    ATTEND_PTS_WORK_FLAG_THAT_WFMR_RECORD_NO_LONGER_EXISTS_STMT$ =
 :       "update attend_pts_work set exc_gone_stamp = ? where id = ?"
 
     GET_MOST_RECENT_EXCEPTION_DATE_LOADED_STMT$ =
