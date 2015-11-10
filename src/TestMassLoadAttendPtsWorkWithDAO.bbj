@@ -4,4 +4,4 @@ REM  * @author stevett
 REM  *
 REM  */
 
-call "AttendPtsWorkDAO.bbj::mass_load_wfmr_data", "2015-10-18", "2015-11-01"
+call "AttendPtsWorkDAO.bbj::mass_load_wfmr_data", "2015-11-02", "2015-11-08"

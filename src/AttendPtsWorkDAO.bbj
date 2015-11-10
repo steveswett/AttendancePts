@@ -973,6 +973,8 @@ ml_add_to_insert_batch:
     
     if insertCount > 1 then attendPtsDynamicInsertStmt$ = attendPtsDynamicInsertStmt$ + ","
     
+    call "DateUtilities.bbj::get_current_timestamp", insertTimestamp$
+    
     if fnIsMassLoadingExceptions(TRUE) then
     
         call "AttendPtsTransDAO.bbj::get_erp_values", attendPtsPolicyCode$, wfmrResultRow.exception_definition_id, 
@@ -999,7 +1001,7 @@ ml_add_to_insert_batch:
 :          "'" + erpNote$ + "', " +
 :          str(erpPts) + ", " +
 :          "'" + erpSts$ + "', " +
-:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
+:          "'" + insertTimestamp$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_POSTED_USER$ + "', " + 
@@ -1044,7 +1046,7 @@ ml_add_to_insert_batch:
 :          "'" + erpNote$ + "', " +
 :          str(erpPts) + ", " +
 :          "'" + erpSts$ + "', " +
-:          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ + "', " +
+:          "'" + insertTimestamp$ + "', " +
 :          "'" + DEFAULT_LAST_MANUALLY_MODIFIED_USER$ + "', " +
 :          "'" + DEFAULT_POSTED_TIMESTAMP$ + "', " +
 :          "'" + DEFAULT_POSTED_USER$ + "', " + 
@@ -1257,7 +1259,6 @@ setup_constants:
     
     DEFAULT_DISPOSITION_CODE$ = "N"
     DEFAULT_DISPOSITION_EDIT_REASON_ID = 0
-    DEFAULT_LAST_MANUALLY_MODIFIED_TIMESTAMP$ = ""
     DEFAULT_LAST_MANUALLY_MODIFIED_USER$ = ""
     DEFAULT_POSTED_TIMESTAMP$ = ""
     DEFAULT_POSTED_USER$ = ""
