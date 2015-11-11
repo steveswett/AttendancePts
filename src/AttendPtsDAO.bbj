@@ -193,7 +193,7 @@ does_pts_record_exist:
     
 add_pts_and_next_drop_info_to_map:
 
-    enter employeeRecordsMap!
+    enter employeeRecordsMap!, yyyymmddFromIn$, yyyymmddToIn$
     
     gosub setup_constants
     
@@ -228,10 +228,6 @@ append_pts_and_next_drop_date_info:
 
     REM  Step 1. Get total attendance points and put in EmployeeRecordsMap!
 
-    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", -365, yyyymmddOneYearAgo$
-
-    call "DateUtilities.bbj::get_current_yyyymmdd", yyyymmddToday$
-
     ptsChannel = sqlunt
     sqlopen(ptsChannel) attendPtsDataSource$
     sqlprep(ptsChannel) GET_PTS_TOTAL_RANGE_STMT$
@@ -242,7 +238,7 @@ append_pts_and_next_drop_date_info:
     
         badgeKey! = iter!.next()
         
-        sqlexec(ptsChannel) "0" + badgeKey!, yyyymmddOneYearAgo$, yyyymmddToday$
+        sqlexec(ptsChannel) "0" + badgeKey!, yyyymmddFromIn$, yyyymmddToIn$
         dim resultRow$:sqltmpl(ptsChannel)
         
         resultRow$ = sqlfetch(ptsChannel,err=*next)
@@ -263,7 +259,7 @@ append_pts_and_next_drop_date_info:
     
         badgeKey! = iter!.next()
         
-        sqlexec(ptsChannel) "0" + badgeKey!, yyyymmddOneYearAgo$
+        sqlexec(ptsChannel) "0" + badgeKey!, yyyymmddFromIn$
         dim resultRow$:sqltmpl(ptsChannel)
         
         resultRow$ = sqlfetch(ptsChannel,err=*next)

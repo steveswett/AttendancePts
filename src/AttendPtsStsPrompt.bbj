@@ -31,7 +31,9 @@ SHOW_FIELD_TERMINATOR_PRESSED = FALSE
 SHIFT_FIELD_NO = 1
 PTS_FROM_FIELD_NO = 2
 PTS_TO_FIELD_NO = 3
-ORDER_BY_FIELD_NO = 4
+DATE_FROM_FIELD_NO = 4
+DATE_TO_FIELD_NO = 5
+ORDER_BY_FIELD_NO = 6
 
 FIRST_FIELD_NO = SHIFT_FIELD_NO
 LAST_FIELD_NO =  ORDER_BY_FIELD_NO
@@ -176,6 +178,10 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     shift$ = "1"
     ptsFrom = .1
     ptsTo = 10
+    
+    fromDate$ = "000000"
+    toDate$ = "000000"
+    
     orderBy$ = "1"
     
     return
@@ -206,12 +212,25 @@ display_data:
     
     print @(2, 3), "Records to list:"
     
-    print @(20, 4), "Dept:   ", cvs(deptName$, 2), "    (F2=prompt)"
+    print @(20, 3), "Dept:   ", cvs(deptName$, 2), "    (F2=prompt)"
     
-    print @(20, 5), "Shift:  ", 'BU', shift$, 'EU'
-    print @(32, 5), "(1, 2, 3)"
+    print @(20, 4), "Shift:  ", 'BU', shift$, 'EU'
+    print @(32, 4), "(1, 2, 3)"
     
-    print @(20, 6), "Points: ", 'BU', str(ptsFrom:"##.0"), 'EU', " - ", 'BU', str(ptsTo:"##.0"), 'EU'
+    print @(20, 5), "Points: ", 'BU', str(ptsFrom:"##.0"), 'EU', " - ", 'BU', str(ptsTo:"##.0"), 'EU'
+    
+    if len(fromDate$) < 6 then
+        fromDate$ = pad(fromDate$, 6, "0")
+    endif
+    
+    if len(toDate$) < 6 then
+        toDate$ = pad(toDate$, 6, "0")
+    endif
+    
+    call "DateUtilities.bbj::get_mdy_with_slashes_added", fromDate$, fmtFromDate$
+    call "DateUtilities.bbj::get_mdy_with_slashes_added", toDate$, fmtToDate$
+
+    print @(20, 6), "Dates:  ", 'BU', fmtFromDate$, 'EU', " - ", 'BU', fmtToDate$, 'EU', "  (optional)"
     
     print @(20, 8), "(Can leave above fields blank to list all records.)"
     
@@ -260,27 +279,39 @@ handle_input:
         switch currentFieldNo
 
             case SHIFT_FIELD_NO
-                print @(28, 5), 'BU'
-                inpute 28, 5, 1, "", shift$
-                print @(29, 5), 'EU'
+                print @(28, 4), 'BU'
+                inpute 28, 4, 1, "", shift$
+                print @(29, 4), 'EU'
                 break
             
             case PTS_FROM_FIELD_NO
-                print @(28, 6), 'BU'
-                inputn 28, 6, "##.0", "##.0", "", 5, ptsFrom
-                print @(32, 6), 'EU'
+                print @(28, 5), 'BU'
+                inputn 28, 5, "##.0", "##.0", "", 5, ptsFrom
+                print @(32, 5), 'EU'
                 break
             
             case PTS_TO_FIELD_NO
-                print @(35, 6), 'BU'
-                inputn 35, 6, "##.0", "##.0", "", 5, ptsTo
-                print @(39, 6), 'EU'
+                print @(35, 5), 'BU'
+                inputn 35, 5, "##.0", "##.0", "", 5, ptsTo
+                print @(39, 5), 'EU'
                 break
             
             case ORDER_BY_FIELD_NO
                 print @(20, 10), 'BU'
                 inpute 20, 10, 1, "", orderBy$
                 print @(21, 10), 'EU'
+                break
+
+            case DATE_FROM_FIELD_NO
+                print @(28, 6), 'BU'
+                inpute 28, 6, "00/00/00", "", fromDate$
+                print @(36, 6), 'EU' 
+                break
+
+            case DATE_TO_FIELD_NO
+                print @(39, 6), 'BU'
+                inpute 39, 6, "00/00/00", "", toDate$
+                print @(47, 6), 'EU' 
                 break
 
         swend
@@ -323,7 +354,7 @@ handle_input:
                     if len(errMsg$) > 0 then
                         gosub display_err_msg
                     else
-                        call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$, levelsMap!
+                        call "AttendPtsStsList.bbj", deptId, deptName$, shift$, ptsFrom, ptsTo, orderBy$, levelsMap!, datesEntered, fromDate$, toDate$ 
                     endif
                     
                     break
@@ -430,6 +461,57 @@ validate_input:
         currentFieldNo = PTS_FROM_FIELD_NO
         goto end_validate
     endif
+
+
+    REM  Validate Dates
+    
+    call "StringUtilities.bbj::replace_all_in_string", fromDate$, "0", " ", fromTest$ 
+    call "StringUtilities.bbj::replace_all_in_string", toDate$, "0", " ", toTest$
+    fromTest$ = cvs(fromTest$,3) 
+    toTest$ = cvs(toTest$,3) 
+
+    datesEntered = len(fromTest$) > 0 or len(toTest$) > 0
+    
+    if datesEntered then
+
+        if len(fromDate$) < 6 then
+            errMsg$ = "The From Date must contain 6 digits (MM/DD/YY)."
+            currentFieldNo = DATE_FROM_FIELD_NO
+            goto end_validate
+        endif
+        
+        fromYyyymmddTemp$ = "20" + fromDate$(5,2) + fromDate$(1,4) 
+        call "DateUtilities.bbj::is_valid_yyyymmdd_date", fromYyyymmddTemp$, isValidDate 
+    
+        if !(isValidDate) then
+            errMsg$ = "From Date is not valid (MM/DD/YY)."
+            currentFieldNo = DATE_FROM_FIELD_NO
+            goto end_validate
+        endif
+        
+        if len(toDate$) < 6 then
+            errMsg$ = "The To Date must contain 6 digits (MM/DD/YY)."
+            currentFieldNo = DATE_TO_FIELD_NO
+            goto end_validate
+        endif
+        
+        toYyyymmddTemp$ = "20" + toDate$(5,2) + toDate$(1,4) 
+        call "DateUtilities.bbj::is_valid_yyyymmdd_date", toYyyymmddTemp$, isValidDate 
+    
+        if !(isValidDate) then
+            errMsg$ = "To Date is not valid (MM/DD/YY)."
+            currentFieldNo = DATE_TO_FIELD_NO
+            goto end_validate
+        endif
+        
+        if num(fromYyyymmddTemp$) > num(toYyyymmddTemp$) then
+            errMsg$ = "The From Date cannot be after the To Date."
+            currentFieldNo = DATE_FROM_FIELD_NO
+            goto end_validate
+        endif 
+
+    endif
+    
     
     
     REM  Validate Order By

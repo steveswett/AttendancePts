@@ -18,7 +18,7 @@ declare java.util.TreeMap sortedEmployeeRecordsMap!
 declare java.util.LinkedHashMap levelsMap!
 
 
-enter deptIdIn, deptNameIn$, shiftIn$, ptsFromIn, ptsToIn, orderByIn$, levelsMap! 
+enter deptIdIn, deptNameIn$, shiftIn$, ptsFromIn, ptsToIn, orderByIn$, levelsMap!, dateRangePresentIn, fromMDYIn$, toMDYIn$ 
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -175,6 +175,11 @@ REM     input "hit any key", ignoreInput$
     gosub load_employee_records_map
     topLeftMapIndex = 1
     
+    if dateRangePresentIn then
+        call "DateUtilities.bbj::get_mdy_with_slashes_added", fromMDYIn$, fmtFromDate$
+        call "DateUtilities.bbj::get_mdy_with_slashes_added", toMDYIn$, fmtToDate$
+    endif
+    
     return
 
 
@@ -190,8 +195,16 @@ load_employee_records_map:
     employeeRecordsMap! = new java.util.LinkedHashMap()
     
     call "WFMREmployeeDAO.bbj::get_operations_employees_by_dept_shift", deptIdIn, shiftIn$, employeeRecordsMap!
+
+    if dateRangePresentIn then
+        call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", fromMDYIn$, yyyymmddFrom$
+        call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", toMDYIn$, yyyymmddTo$
+    else
+        call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", -365, yyyymmddFrom$
+        call "DateUtilities.bbj::get_current_yyyymmdd", yyyymmddTo$
+    endif
     
-    call "AttendPtsDAO.bbj::add_pts_and_next_drop_info_to_map", employeeRecordsMap!
+    call "AttendPtsDAO.bbj::add_pts_and_next_drop_info_to_map", employeeRecordsMap!,  yyyymmddFrom$, yyyymmddTo$
     
     sortedEmployeeRecordsMap! = new java.util.TreeMap()
     
@@ -255,10 +268,21 @@ display_data:
         print @(22,3), "Dept: ", deptNameIn$
     endif
     
-    print @(48,4), "CURR  WARN  NEXT PTS   PTS AFTER"
+    if dateRangePresentIn then
+        print @(60,4), fmtFromDate$, " - ", fmtToDate$
+    endif
+    
+    if !(dateRangePresentIn) then
+        print @(48,4), "CURR  WARN  NEXT PTS   PTS AFTER"
+    endif
     
     print @(0,5), "LINE  DEPT  SHIFT  NAME"
-    print @(48,5), "PTS   LEV   DROP DATE  DROP DATE"
+    print @(48,5), "PTS"
+    
+    
+    if !(dateRangePresentIn) then
+        print @(54,5), "LEV   DROP DATE  DROP DATE"
+    endif
     
     count = 0
     displayedCount = 0
@@ -327,9 +351,12 @@ display_data:
       print @(14,row), employeeDataMap!.get("shift")
       print @(19,row), fmtName$
       print @(48,row), str(totalPts:"##.0")
-      print @(55,row), warningLevel$
-      print @(60,row), fmtNextPtsDropDate$
-      print @(72,row), fmtPtsAfterDropDate$
+      
+      if !(dateRangePresentIn) then
+          print @(55,row), warningLevel$
+          print @(60,row), fmtNextPtsDropDate$
+          print @(72,row), fmtPtsAfterDropDate$
+      endif
       
     wend
     
