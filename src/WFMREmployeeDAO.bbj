@@ -195,12 +195,17 @@ setup_constants:
 :       "" +
 :   "where " + 
 :   "hrs_worked is not null " +
-:   "and ( (status_code = 'a' and date_status_code_last_changed <= @toDate) or (status_code = 'i' and date_status_code_last_changed >= @fromDate) ) " +
+:   "and ( status_code = 'a' or (status_code = 'i' and date_status_code_last_changed >= @fromDate) ) " +
 :   "and hire_date <= @toDate " +
 :   "" +
 :   "order by " +
 :   "last_name, " +
 :   "first_name"
+    
+    REM  Note: prior to a change/fix for ERP-2161 on 11/17/15, the line above, just below "hrs_worked is not null"
+    REM        used to be the following:
+    
+    REM  "and ( (status_code = 'a' and date_status_code_last_changed <= @toDate) or (status_code = 'i' and date_status_code_last_changed >= @fromDate) ) "  
     
     return
 
