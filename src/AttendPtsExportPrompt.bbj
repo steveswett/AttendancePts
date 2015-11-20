@@ -131,7 +131,7 @@ rem    print 'EL', "2", $0B$, chr(1), BACKTAB_CUSTOM_INPUT_VALUE$,
     toDate$ = "000000"
     
     ptsFrom = 0
-    ptsTo = .5
+    ptsTo = 0
     
     orderBy$ = "1"
     

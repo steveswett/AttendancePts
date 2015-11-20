@@ -1,0 +1,44 @@
+REM /**
+REM  * TestEraseReliability.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+begin
+    
+    count = 0
+    
+    looping = 1
+    
+    while looping
+        count = count + 1
+        gosub do_erase
+        wait 30
+    wend
+
+
+do_erase:
+
+    call "TerminalUtilities.bbj::get_unqualified_program_name", pgm(-2), P$
+    
+    call "DateUtilities.bbj::get_current_timestamp", timestamp$
+
+    LET oldPolicyOutputFileName$="/usr/tmpfiles/"+P$+"-"+FID(0)+"-oldpoltest.csv"
+    print count, " - ", oldPolicyOutputFileName$, " - ", timestamp$
+    
+    ERASE oldPolicyOutputFileName$,ERR=*next
+    wait 2
+    STRING oldPolicyOutputFileName$,ERR=bombed
+    
+    goto did_not_bomb
+    
+    bombed:
+    print "it bombed"
+    looping = 0
+    
+    did_not_bomb:
+    
+    return
+
+
+end

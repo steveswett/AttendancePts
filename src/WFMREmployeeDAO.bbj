@@ -33,24 +33,24 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 entry_points:
 
 
-get_operations_employees_by_dept_shift:
+get_ops_and_admin_employees_by_dept_shift:
 
     enter deptId, shift$, employeeRecordsMap!
     
     gosub setup_constants
     
-    gosub load_operations_employees_by_dept_shift
+    gosub load_ops_and_admin_employees_by_dept_shift
     
     exit
 
 
-get_active_operations_employees:
+get_active_ops_and_admin_employees:
 
     enter yyyymmddFromIn$, yyyymmddToIn$, employeeRecordsMap!
     
     gosub setup_constants
     
-    gosub load_active_operations_employees
+    gosub load_active_ops_and_admin_employees
     
     exit
 
@@ -72,11 +72,11 @@ subroutines:
 
 
 REM  ------------------------------------------------------------------------------------------
-REM  Load active operations employees -- during a date range: yyyymmddFromIn$ - yyyymmddToIn$
+REM  Load active operations and admin employees -- during a date range: yyyymmddFromIn$ - yyyymmddToIn$
 REM  ------------------------------------------------------------------------------------------
 
 
-load_active_operations_employees:
+load_active_ops_and_admin_employees:
 
     employeeRecordsMap!.clear()
     
@@ -87,7 +87,7 @@ load_active_operations_employees:
     sqlopen(employeeChannel) wfmrDataSource$
     sqlprep(employeeChannel) GET_ACTIVE_EMPLOYEES_STMT$
 
-    sqlexec(employeeChannel) sqlFrom$, sqlTo$, opsBusinessUnit$ 
+    sqlexec(employeeChannel) sqlFrom$, sqlTo$, opsBusinessUnit$, adminBusinessUnit$ 
 
     dim resultRow$:sqltmpl(employeeChannel)
     
@@ -126,6 +126,8 @@ setup_constants:
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
 
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.admin.business.unit", configVarFound, configVarDataType$, adminBusinessUnit$
+
     call "ConfigVarsDAO.bbj::get_value", "use.custom.column.table.for.shift", configVarFound, configVarDataType$, useCustomColumnTableForShift$
     useCustomColumnTableForShift = num(useCustomColumnTableForShift$)
 
@@ -148,7 +150,8 @@ setup_constants:
 :       "declare " +
 :       "@fromDate varchar(10) = ?, " +
 :       "@toDate varchar(10) = ?, " +
-:       "@businessUnit int = ? " +
+:       "@opsBusinessUnit int = ?, " +
+:       "@adminBusinessUnit int = ? " +
 :       "" +
 :       "select * from " +
 :       "" +
@@ -188,8 +191,9 @@ setup_constants:
 :        "from employee " +
 :        "join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
 :       "" +
-:        "where " + 
-:        "employee.home_business_unit_id = @businessUnit " +
+:        "where " +
+:        "employee.generate_exceptions_flag = 'y' " +
+:        "and employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
 :       "" + 
 :       " ) inlineView " +
 :       "" +
@@ -211,11 +215,11 @@ setup_constants:
 
 
 REM  ------------------------------------------------------------------------------------------
-REM  load_operations_employees_by_dept_shift
+REM  Load operations and admin employees by department and shift
 REM  ------------------------------------------------------------------------------------------
 
 
-load_operations_employees_by_dept_shift:
+load_ops_and_admin_employees_by_dept_shift:
 
     employeeRecordsMap!.clear()
     
@@ -253,7 +257,7 @@ load_operations_employees_by_dept_shift:
 
     employeesByDeptShiftStmt$ = employeesByDeptShiftStmt$ +
 :       "where " + 
-:       "employee.home_business_unit_id = ? " +
+:       "employee.home_business_unit_id in(?,?) " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
 :       "and lab_employee_primary_job.department_id is not null "
@@ -286,7 +290,7 @@ load_operations_employees_by_dept_shift:
     sqlopen(employeeChannel) wfmrDataSource$
     sqlprep(employeeChannel) employeesByDeptShiftStmt$
 
-    sqlexec(employeeChannel) opsBusinessUnit$ 
+    sqlexec(employeeChannel) opsBusinessUnit$, adminBusinessUnit$ 
 
     dim resultRow$:sqltmpl(employeeChannel)
     

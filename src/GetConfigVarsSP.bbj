@@ -10,8 +10,23 @@ REM Open the file
  OPEN (chan) "CONFIG_VARS"
 
  REM Get the parameter value specified by the calling program
- sp! = BBJAPI().getFileSystem().getStoredProcedureData()
- maxRows = sp!.getParameter("MAX_ROWS")
+
+ REM sp! = BBJAPI().getFileSystem().getStoredProcedureData()
+ REM maxRows = sp!.getParameter("MAX_ROWS")
+ maxRows = 5
+
+
+        SQLCH = SQLUNT
+        SQLOPEN (SQLCH, MODE="PROCEDURE=false") "Steve-Local"
+        SQLPREP (SQLCH) "GET TABLE INFO for CONFIG_VARS"
+        SQLEXEC (SQLCH,ERR=DONE)
+        DIM X$:SQLTMPL(SQLCH)
+        X$=SQLFETCH(SQLCH)
+        TEMPLATE$=X.TEMPLATE$
+        SQLCLOSE (SQLCH)
+        
+DONE:        
+
 
  REM Create a memory record set to hold the results of
  REM our read operations.
@@ -47,4 +62,4 @@ eof:
  CLOSE (chan)
 
  REM Set the returned result set value to the record set.
- sp!.setRecordSet(rs!)
+ REM sp!.setRecordSet(rs!)

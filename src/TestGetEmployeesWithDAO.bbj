@@ -15,7 +15,7 @@ employeeRecordsMap! = new java.util.LinkedHashMap()
 deptId = 1000106
 shift$ = "1"
 
-call "WFMREmployeeDAO.bbj::get_operations_employees_by_dept_shift", deptId, shift$,  employeeRecordsMap!
+call "WFMREmployeeDAO.bbj::get_ops_and_admin_employees_by_dept_shift", deptId, shift$,  employeeRecordsMap!
 
 iter! = employeeRecordsMap!.keySet().iterator()
 

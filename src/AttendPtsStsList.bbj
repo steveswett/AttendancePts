@@ -194,7 +194,7 @@ load_employee_records_map:
 
     employeeRecordsMap! = new java.util.LinkedHashMap()
     
-    call "WFMREmployeeDAO.bbj::get_operations_employees_by_dept_shift", deptIdIn, shiftIn$, employeeRecordsMap!
+    call "WFMREmployeeDAO.bbj::get_ops_and_admin_employees_by_dept_shift", deptIdIn, shiftIn$, employeeRecordsMap!
 
     if dateRangePresentIn then
         call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", fromMDYIn$, yyyymmddFrom$

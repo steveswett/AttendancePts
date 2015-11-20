@@ -83,7 +83,7 @@ load_records_for_employees_with_no_time_off:
 
     sqlprep(timeOffChannel) EMPLOYEES_WITH_NO_TIME_OFF_STMT$
 
-    sqlexec(timeOffChannel) opsBusinessUnit$, opsBusinessUnit$
+    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$
     dim resultRow$:sqltmpl(timeOffChannel)
     
     while TRUE
@@ -115,7 +115,7 @@ load_records_for_employees_with_some_time_off:
 
     sqlprep(timeOffChannel) EMPLOYEES_WITH_SOME_TIME_OFF_STMT$
 
-    sqlexec(timeOffChannel) opsBusinessUnit$, opsBusinessUnit$
+    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$
     dim resultRow$:sqltmpl(timeOffChannel)
     
     while TRUE
@@ -236,10 +236,16 @@ setup_constants:
 
     call "ConfigVarsDAO.bbj::get_value", "wfmr.ops.business.unit", configVarFound, configVarDataType$, opsBusinessUnit$
 
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.admin.business.unit", configVarFound, configVarDataType$, adminBusinessUnit$
+
     call "ConfigVarsDAO.bbj::get_value", "eto.time.off.ids", configVarFound, configVarDataType$, timeOffIdsNoETO$
     
     
     EMPLOYEES_WITH_NO_TIME_OFF_STMT$ = 
+:       "declare " +
+:       "@opsBusinessUnit int = ?, " +
+:       "@adminBusinessUnit int = ? " +
+:       "" +
 :       "select " +
 :       "rad_sys_user.last_name, " +
 :       "rad_sys_user.first_name, " +
@@ -247,7 +253,8 @@ setup_constants:
 :       "employee.badge_number " +
 :       "from employee " +
 :       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
-:       "where employee.home_business_unit_id = ? " +
+:       "where employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
+:       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
 :       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
@@ -258,7 +265,8 @@ setup_constants:
 :           "from lab_employee_time_off " + 
 :           "join employee on employee.employee_id = lab_employee_time_off.employee_id " +
 :           "where " + 
-:           "employee.home_business_unit_id = ? and " +
+:           "employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) and " +
+:           "employee.generate_exceptions_flag = 'y' and " +
 :           "lab_employee_time_off.status_code = 'a' and " +
 :           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
 :           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
@@ -266,7 +274,11 @@ setup_constants:
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
     
-    EMPLOYEES_WITH_SOME_TIME_OFF_STMT$ = 
+    EMPLOYEES_WITH_SOME_TIME_OFF_STMT$ =
+:       "declare " +
+:       "@opsBusinessUnit int = ?, " +
+:       "@adminBusinessUnit int = ? " +
+:       "" +
 :       "select " +
 :       "rad_sys_user.last_name, " +
 :       "rad_sys_user.first_name, " +
@@ -274,7 +286,8 @@ setup_constants:
 :       "employee.badge_number " +
 :       "from employee " +
 :       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
-:       "where employee.home_business_unit_id = ? " +
+:       "where employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
+:       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
 :       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
@@ -285,7 +298,8 @@ setup_constants:
 :           "from lab_employee_time_off " + 
 :           "join employee on employee.employee_id = lab_employee_time_off.employee_id " +
 :           "where " + 
-:           "employee.home_business_unit_id = ? and " +
+:           "employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) and " +
+:           "employee.generate_exceptions_flag = 'y' and " +
 :           "lab_employee_time_off.status_code = 'a' and " +
 :           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
 :           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +

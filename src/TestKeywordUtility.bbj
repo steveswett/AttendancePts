@@ -1,0 +1,7 @@
+REM /**
+REM  * TestKeywordUtility.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+call "_keyword"

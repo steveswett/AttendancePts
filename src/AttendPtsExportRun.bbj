@@ -150,7 +150,7 @@ run_export:
     
     REM  Step 1. Put employees who were active sometime during the pay period into employeeRecordsMap!
 
-    call "WFMREmployeeDAO.bbj::get_active_operations_employees", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
+    call "WFMREmployeeDAO.bbj::get_active_ops_and_admin_employees", yyyymmddFrom$, yyyymmddTo$, employeeRecordsMap!
     
 
     REM  Step 2. Append number of attendance points ("pts_total") to maps in employeeRecordsMap!
