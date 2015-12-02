@@ -1,0 +1,286 @@
+REM /**
+REM  * LoadHeavyHitters.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.HashMap
+
+declare java.util.HashMap recordsMap!
+declare java.util.HashMap oneRecordMap!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+    TRUE = 1
+    FALSE = 0
+    
+    HEAVY_HITTERS_FILE$ = "/tmp/heavy-hitters-20151202145626.txt"
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+def fnGetTimeInSeconds%(aTimeField$)
+
+    tmpTimeField$ = aTimeField$
+    
+    if len(tmpTimeField$) = 5 then
+        tmpTimeField$ = "00:" + tmpTimeField$ 
+    endif
+
+    dashPos = pos("-" = tmpTimeField$)
+    
+    if dashPos then
+        accumulatedHrs = num( tmpTimeField$(1, dashPos - 1) )
+        subTimeField$ = tmpTimeField$(dashPos + 1)
+    else
+        accumulatedHrs = 0
+        subTimeField$ = tmpTimeField$
+    endif
+    
+    hrs = num( subTimeField$(1, 2) )
+    mins = num( subTimeField$(4, 2) )
+    secs = num( subTimeField$(7, 2) )
+    
+    totalSecs = secs + (mins * 60) + (hrs * 60 * 60) + (accumulatedHrs * 60 * 60)
+    
+    return totalSecs 
+
+fnend
+
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub init
+    
+    gosub process_input_records
+    
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    REM release
+    
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time intialization
+    rem ------------------------------------------------------------------------------------------
+    
+init:
+
+    heavyChannel = unt
+    open (heavyChannel) HEAVY_HITTERS_FILE$
+    
+    read (heavyChannel) timestamp$
+    REM  print "timestamp$ = ", timestamp$
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Process records in the input file from the Linux "ps" command.  Put them in the
+    rem  recordsMap! for sending to the database.
+    rem ------------------------------------------------------------------------------------------
+    
+process_input_records:
+
+    recordsMap! = new java.util.HashMap()
+
+    recordNo = 0
+
+    while TRUE
+    
+        read (heavyChannel,err=*break) inputRecord$
+        REM print "inputRecord$ = ", inputRecord$
+        
+        recordNo = recordNo + 1
+        
+        gosub read_one_record
+    
+    wend
+    
+    if recordsMap!.size() > 0 then
+        REM  Post to database here
+        call "ProcessStatsDAO.bbj::add_stat_records", timestamp$, recordsMap!
+
+    endif
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Read one record
+    rem ------------------------------------------------------------------------------------------
+    
+read_one_record:
+
+    gosub init_input_fields
+    
+    rawFieldList! = java.util.Arrays.asList(new java.lang.String(inputRecord$).split(" "))
+    iter! = rawFieldList!.iterator()
+    fieldNo = 0
+    
+    while iter!.hasNext()
+    
+        field! = iter!.next()
+        
+        if len ( cvs(field!, 3) )
+        
+            fieldNo = fieldNo + 1
+            
+            switch fieldNo
+            
+                case 1
+                    pid$ = field!
+                    break
+            
+                case 2
+                    elapsedTime$ = field!
+                    break
+            
+                case 3
+                    cpuTime$ = field!
+                    break
+            
+                case 4
+                    cpuPercent$ = field!
+                    break
+            
+                case 5
+                    user$ = field!
+                    break
+            
+                case 6
+                    tty$ = field!
+                    break
+            
+                case 7
+                    memoryData$ = field!
+                    break
+            
+                case 8
+                    memoryCode$ = field!
+                    break
+            
+                case 9
+                    state$ = field!
+                    break
+            
+            swend
+    
+            if fieldNo > 9 then
+                cmd$ = cmd$ + " " + field!
+            endif
+            
+        endif
+    
+    wend
+    
+    
+    REM  Calculated fields:
+
+    elapsedTimeInSeconds = fnGetTimeInSeconds%(elapsedTime$)
+    cpuTimeInSeconds = fnGetTimeInSeconds%(cpuTime$)
+    
+    if elapsedTimeInSeconds > 0 and cpuTimeInSeconds > 0 then
+        cpuTimePerSecond = cpuTimeInSeconds / elapsedTimeInSeconds  
+    else
+        cpuTimePerSecond = 0
+    endif 
+
+    if recordNo = 3 then
+        gosub print_input_fields
+        gosub print_computed_fields    
+    endif
+    
+    oneRecordMap! = new java.util.HashMap()
+    
+    oneRecordMap!.put("cmd", cmd$)
+    oneRecordMap!.put("user", user$)
+    oneRecordMap!.put("tty", tty$)
+    oneRecordMap!.put("state", state$)
+    oneRecordMap!.put("cpu_pct", cpuPercent$)
+    oneRecordMap!.put("elapsed_tm_secs", elapsedTimeInSeconds)
+    oneRecordMap!.put("cpu_time_secs", cpuTimeInSeconds)  
+    oneRecordMap!.put("cpu_time_per_sec", cpuTimePerSecond)
+    oneRecordMap!.put("data_memory_kb", memoryData$)
+    
+    recordsMap!.put(pid$, oneRecordMap!)
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Initialize input fields
+    rem ------------------------------------------------------------------------------------------
+    
+init_input_fields:
+
+    pid$ = ""
+    elapsedTime$ = ""
+    cpuTime$ = ""
+    cpuPercent$ = ""
+    user$ = ""
+    tty$ = ""
+    memoryData$ = ""
+    memoryCode$ = ""
+    state$ = ""
+    cmd$ = ""
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Print input fields
+    rem ------------------------------------------------------------------------------------------
+    
+print_input_fields:
+
+    print ""
+    print "recordNo = ", recordNo
+    print "pid$ = ", pid$
+    print "elapsedTime$ = ", elapsedTime$
+    print "cpuTime$ = ", cpuTime$
+    print "cpuPercent$ = ", cpuPercent$
+    print "user$ = ", user$
+    print "tty$ = ", tty$
+    print "memoryData$ = ", memoryData$
+    print "memoryCode$ = ", memoryCode$
+    print "state$ = ", state$
+    print "cmd$ = ", cmd$
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Print computed fields
+    rem ------------------------------------------------------------------------------------------
+    
+print_computed_fields:
+
+    print ""
+    print "elapsedTimeInSeconds = ", elapsedTimeInSeconds
+    print "cpuTimeInSeconds = ", cpuTimeInSeconds
+    print "cpuTimePerSecond = ", cpuTimePerSecond
+
+    return

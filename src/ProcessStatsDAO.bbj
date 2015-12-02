@@ -1,0 +1,103 @@
+REM /**
+REM  * ProcessStatsDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: December 2, 2015
+REM  * 
+REM  * Description: Data Access Object for table PROCESS_STATS
+REM  *
+REM  */
+
+use java.util.HashMap
+
+declare java.util.HashMap recordsMapIn!
+declare java.util.HashMap oneRecordMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+add_stat_records:
+
+    enter timestampIn$, recordsMapIn!
+    
+    gosub setup_constants
+    
+    gosub insert_stat_records
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Add stat rows for all records in recordsMapIn!
+REM  ------------------------------------------------------------------------------------------
+
+
+insert_stat_records:
+
+    statsChannel = sqlunt
+    sqlopen(statsChannel) processStatsDataSource$
+
+    sqlprep(statsChannel) INSERT_STATS_STMT$
+    
+    iter! = recordsMapIn!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        pidKey! = iter!.next()
+        oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(pidKey!) )
+        
+        cmd$ = oneRecordMap!.get("cmd")
+        user$ = oneRecordMap!.get("user")
+        tty$ = oneRecordMap!.get("tty")
+        state$ = oneRecordMap!.get("state")
+        cpuPercent$ = oneRecordMap!.get("cpu_pct")
+        elapsedTimeInSeconds = oneRecordMap!.get("elapsed_tm_secs")
+        cpuTimeInSeconds = oneRecordMap!.get("cpu_time_secs")
+        cpuTimePerSecond = oneRecordMap!.get("cpu_time_per_sec")
+        memoryData$ = oneRecordMap!.get("data_memory_kb")
+
+        sqlexec(statsChannel) pidKey!, timestampIn$, cmd$, user$, tty$, state$, cpuPercent$, elapsedTimeInSeconds, cpuTimeInSeconds, cpuTimePerSecond, memoryData$    
+    
+    wend
+    
+    sqlclose(statsChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    processStatsDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "process.stats.data.source.name", configVarFound, configVarDataType$, processStatsDataSource$
+    
+    INSERT_STATS_STMT$ = "insert into process_stats (pid, timestamp, cmd, user, tty, state, cpu_pct, elapsed_tm_secs, cpu_time_secs, cpu_time_per_sec, data_memory_kb) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    
+    return
