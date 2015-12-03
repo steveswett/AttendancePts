@@ -26,6 +26,8 @@ constants:
     TRUE = 1
     FALSE = 0
     
+    MAX_COLLECTIONS = 3
+    DELAY_BETWEEN_RUNS_MINS = 5
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
@@ -62,24 +64,40 @@ def fnGetTimeInSeconds%(aTimeField$)
 fnend
 
 
-
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
-    gosub init
+
+    collectionCount = 0
     
-    gosub process_input_records
-    
-    gosub finalize
-    
+    while TRUE
+        
+        collectionCount = collectionCount + 1
+        
+        print "Processing collection ", collectionCount, " ..."
+         
+        gosub prep_and_open_ps_file
+        gosub process_input_records
+        gosub close_ps_file
+        
+        if collectionCount >= MAX_COLLECTIONS then
+            break
+        endif
+        
+        for i = 1 to DELAY_BETWEEN_RUNS_MINS
+            print "Waiting a minute (", i, "of ", DELAY_BETWEEN_RUNS_MINS, ") ..." 
+            wait 60
+        next i
+         
+    wend
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
 
 eoj:
 
-    REM release
+    release
     
     end
 
@@ -88,14 +106,14 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  One-time intialization
+    rem  Prepare and open "ps" file
     rem ------------------------------------------------------------------------------------------
     
-init:
+prep_and_open_ps_file:
 
-    call "DateUtilities::get_current_timestamp", timestamp$
+    call "DateUtilities.bbj::get_current_timestamp", timestamp$
     
-    psCmdOutputFile$ = "/tmp/heavy-hitters-" + timestamp$ + ".txt"
+    psCmdOutputFile$ = "/tmp/heavy-hitters-ps-" + timestamp$ + ".txt"
 
     psCmd$ = "ps -Ao pid,etime,time,%cpu,user,tty,m_drs,m_trs,state,cmd | grep pro5 > " + psCmdOutputFile$ 
 
@@ -108,10 +126,10 @@ init:
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  One-time finalization
+    rem  Close the "ps" file
     rem ------------------------------------------------------------------------------------------
     
-finalize:
+close_ps_file:
 
     close (psCmdChannel)
 
