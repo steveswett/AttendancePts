@@ -2,6 +2,10 @@ REM /**
 REM  * LoadHeavyHitters.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: December 2, 2015
+REM  * 
+REM  * Description: Load Heavy Hitter production process into database for later analysis
+REM  * 
 REM  */
 
 
@@ -22,7 +26,6 @@ constants:
     TRUE = 1
     FALSE = 0
     
-    HEAVY_HITTERS_FILE$ = "/tmp/heavy-hitters-20151202145626.txt"
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
@@ -68,6 +71,8 @@ main_routine:
     
     gosub process_input_records
     
+    gosub finalize
+    
 
 
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
@@ -88,11 +93,27 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 init:
 
-    heavyChannel = unt
-    open (heavyChannel) HEAVY_HITTERS_FILE$
+    call "DateUtilities::get_current_timestamp", timestamp$
     
-    read (heavyChannel) timestamp$
-    REM  print "timestamp$ = ", timestamp$
+    psCmdOutputFile$ = "/tmp/heavy-hitters-" + timestamp$ + ".txt"
+
+    psCmd$ = "ps -Ao pid,etime,time,%cpu,user,tty,m_drs,m_trs,state,cmd | grep pro5 > " + psCmdOutputFile$ 
+
+    returnCode = scall(psCmd$)
+
+    psCmdChannel = unt
+    open (psCmdChannel) psCmdOutputFile$
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  One-time finalization
+    rem ------------------------------------------------------------------------------------------
+    
+finalize:
+
+    close (psCmdChannel)
 
     return
 
@@ -110,7 +131,7 @@ process_input_records:
 
     while TRUE
     
-        read (heavyChannel,err=*break) inputRecord$
+        read (psCmdChannel,err=*break) inputRecord$
         REM print "inputRecord$ = ", inputRecord$
         
         recordNo = recordNo + 1
@@ -120,9 +141,10 @@ process_input_records:
     wend
     
     if recordsMap!.size() > 0 then
-        REM  Post to database here
-        call "ProcessStatsDAO.bbj::add_stat_records", timestamp$, recordsMap!
-
+    
+        sqlTimeStamp$ = timestamp$(1,4) + "-" + timestamp$(5,2) + "-" + timestamp$(7,2) + " " + timestamp$(9,2) + ":" + timestamp$(11,2) + ":" + timestamp$(13,2) 
+    
+        call "ProcessStatsDAO.bbj::add_stat_records", sqlTimeStamp$, recordsMap!
     endif
 
     return
@@ -208,7 +230,9 @@ read_one_record:
         cpuTimePerSecond = 0
     endif 
 
-    if recordNo = 3 then
+    REM  Use -1 to turn off this output
+    
+    if recordNo = -1 then
         gosub print_input_fields
         gosub print_computed_fields    
     endif

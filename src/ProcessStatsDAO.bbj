@@ -97,7 +97,7 @@ setup_constants:
     processStatsDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "process.stats.data.source.name", configVarFound, configVarDataType$, processStatsDataSource$
     
-    INSERT_STATS_STMT$ = "insert into process_stats (pid, timestamp, cmd, user, tty, state, cpu_pct, elapsed_tm_secs, cpu_time_secs, cpu_time_per_sec, data_memory_kb) " +
+    INSERT_STATS_STMT$ = "insert into ProcessStatistics (ProcessId, CollectionTime, Command, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
 :                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     
     return
