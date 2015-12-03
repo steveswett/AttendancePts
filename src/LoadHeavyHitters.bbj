@@ -26,7 +26,9 @@ constants:
     TRUE = 1
     FALSE = 0
     
-    MAX_COLLECTIONS = 3
+    REM  12 per hour for 24 hrs X 2 days
+    MAX_COLLECTIONS = 12 * 24 * 2
+    
     DELAY_BETWEEN_RUNS_MINS = 5
 
 
@@ -75,7 +77,7 @@ main_routine:
         
         collectionCount = collectionCount + 1
         
-        print "Processing collection ", collectionCount, " ..."
+        REM print "Processing collection ", collectionCount, " ..."
          
         gosub prep_and_open_ps_file
         gosub process_input_records
@@ -86,7 +88,7 @@ main_routine:
         endif
         
         for i = 1 to DELAY_BETWEEN_RUNS_MINS
-            print "Waiting a minute (", i, "of ", DELAY_BETWEEN_RUNS_MINS, ") ..." 
+            REM  print "Waiting a minute (", i, " of ", DELAY_BETWEEN_RUNS_MINS, ") ..." 
             wait 60
         next i
          
