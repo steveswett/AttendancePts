@@ -29,6 +29,8 @@ constants:
     REM  12 per hour for 24 hrs X 2 days
     MAX_COLLECTIONS = 12 * 24 * 2
     
+    REM MAX_COLLECTIONS = 3
+    
     DELAY_BETWEEN_RUNS_MINS = 5
 
 
