@@ -1,0 +1,287 @@
+REM /**
+REM  * LoadLicenseUsage.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: December 4, 2015
+REM  * 
+REM  * Description: Load License Usage into database for later analysis
+REM  * 
+REM  */
+
+
+use java.util.HashMap
+
+declare java.util.HashMap recordsMap!
+declare java.util.HashMap oneRecordMap!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+    TRUE = 1
+    FALSE = 0
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+
+        gosub prep_and_open_lmstat_file
+
+        gosub process_input_records
+
+        gosub close_lmstat_file
+
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    release
+    
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Prepare and open "lmstat" file
+    rem ------------------------------------------------------------------------------------------
+    
+prep_and_open_lmstat_file:
+
+    call "DateUtilities.bbj::get_current_timestamp", timestamp$
+    
+    lmstatCmdOutputFile$ = "/tmp/lmstat-" + timestamp$ + ".txt"
+
+    lmstatCmd$ = "ssh nmcaold ""/usr/local/bbj/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
+
+    returnCode = scall(lmstatCmd$)
+    
+    scpCmd$ = "scp nmcaold:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
+
+    returnCode = scall(scpCmd$)
+
+    lmstatCmdChannel = unt
+    open (lmstatCmdChannel) lmstatCmdOutputFile$
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Close the "lmstat" file
+    rem ------------------------------------------------------------------------------------------
+    
+close_lmstat_file:
+
+    close (lmstatCmdChannel)
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Process records in the input file from the Linux "lmstat" command.  Put them in the
+    rem  recordsMap! for sending to the database.
+    rem ------------------------------------------------------------------------------------------
+    
+process_input_records:
+
+    recordsMap! = new java.util.HashMap()
+
+    recordNo = 0
+
+    while TRUE
+    
+        read (lmstatCmdChannel,err=*break) inputRecord$
+        REM print "inputRecord$ = ", inputRecord$
+        
+        recordNo = recordNo + 1
+        
+        gosub read_one_record
+    
+    wend
+    
+    if recordsMap!.size() > 0 then
+    
+        sqlTimeStamp$ = timestamp$(1,4) + "-" + timestamp$(5,2) + "-" + timestamp$(7,2) + " " + timestamp$(9,2) + ":" + timestamp$(11,2) + ":" + timestamp$(13,2) 
+    
+        call "BasisLicenseUsageDAO.bbj::add_license_records", sqlTimeStamp$, recordsMap!
+    endif
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Read one record
+    rem ------------------------------------------------------------------------------------------
+    
+read_one_record:
+
+    REM  Sample record: aalcum nmcanew5 /dev/pts/847 (v11.0) (nmcaold/27000 54000), start Fri 12/4 11:10
+
+    gosub init_input_fields
+    
+    rawFieldList! = java.util.Arrays.asList(new java.lang.String(inputRecord$).split(" "))
+    iter! = rawFieldList!.iterator()
+    fieldNo = 0
+    
+    while iter!.hasNext()
+    
+        field! = iter!.next()
+        
+        if len ( cvs(field!, 3) )
+        
+            fieldNo = fieldNo + 1
+            
+            switch fieldNo
+            
+                case 1
+                    user$ = field!
+                    break
+            
+                case 2
+                    server$ = field!
+                    break
+            
+                case 3
+                    device$ = field!
+                    break
+            
+                case 4
+                    version$ = field!
+                    break
+            
+                case 5
+                    portInfo1of2$ = field!
+                    break
+            
+                case 6
+                    portInfo2of2$ = field!
+                    break
+            
+                case 7
+                    startConstant$ = field!
+                    break
+            
+                case 8
+                    startDayName$ = field!
+                    break
+            
+                case 9
+                    startDate$ = field!
+                    break
+            
+                case 10
+                    startTime$ = field!
+                    break
+            
+            swend
+            
+        endif
+    
+    wend
+    
+    
+    REM  Calculated fields:
+    
+    trimmedVersion$ = version$( 3, len(version$) - 3 )
+    
+    portInfo$ = portInfo1of2$ + " " + portInfo2of2$
+    portInfo$ = portInfo$( 2, len(portInfo$) - 2 )
+    
+    startInfo$ = startDayName$ + " " + startDate$ + " " + startTime$  
+
+
+    REM  Use -1 to turn off this output
+    
+    if recordNo = -1 then
+        gosub print_input_fields
+        gosub print_computed_fields    
+    endif
+    
+    REM  Only track process if it has used at least some CPU time 
+    
+    if cpuTimeInSeconds > 0 then
+        oneRecordMap! = new java.util.HashMap()
+        
+        oneRecordMap!.put("user", user$)
+        oneRecordMap!.put("server", server$)
+        oneRecordMap!.put("device", device$)
+        oneRecordMap!.put("version", trimmedVersion$)
+        oneRecordMap!.put("port_info", portInfo$)
+        oneRecordMap!.put("start_info", startInfo$)  
+        
+        recordsMap!.put(pid$, oneRecordMap!)
+    endif
+    
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Initialize input fields
+    rem ------------------------------------------------------------------------------------------
+    
+init_input_fields:
+
+    user$ = ""
+    server$ = ""
+    device$ = ""
+    version$ = ""
+    portInfo1of2$ = ""
+    portInfo2of2$ = ""
+    startConstant$ = ""
+    startDayName$ = ""
+    startDate$ = ""
+    startDate$ = ""
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Print input fields
+    rem ------------------------------------------------------------------------------------------
+    
+print_input_fields:
+
+    print ""
+    print "recordNo = ", recordNo
+    print "user$ = ", user$
+    print "server$ = ", server$
+    print "device$ = ", device$
+    print "version$ = ", version$
+    print "portInfo1of2$ = ", portInfo1of2$
+    print "portInfo2of2$ = ", portInfo2of2$
+    print "startConstant$ = ", startConstant$
+    print "startDayName$ = ", startDayName$
+    print "startDate$ = ", startDate$
+    print "startDate$ = ", 
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Print computed fields
+    rem ------------------------------------------------------------------------------------------
+    
+print_computed_fields:
+
+    print ""
+    print "trimmedVersion$ = ", trimmedVersion$
+    print "portInfo$ = ", portInfo$
+    print "startInfo$ = ", startInfo$
+
+    return
