@@ -259,19 +259,24 @@ read_one_record:
         gosub print_computed_fields    
     endif
     
-    oneRecordMap! = new java.util.HashMap()
+    REM  Only track process if it has used at least some CPU time 
     
-    oneRecordMap!.put("cmd", cmd$)
-    oneRecordMap!.put("user", user$)
-    oneRecordMap!.put("tty", tty$)
-    oneRecordMap!.put("state", state$)
-    oneRecordMap!.put("cpu_pct", cpuPercent$)
-    oneRecordMap!.put("elapsed_tm_secs", elapsedTimeInSeconds)
-    oneRecordMap!.put("cpu_time_secs", cpuTimeInSeconds)  
-    oneRecordMap!.put("cpu_time_per_sec", cpuTimePerSecond)
-    oneRecordMap!.put("data_memory_kb", memoryData$)
+    if cpuTimeInSeconds > 0 then
+        oneRecordMap! = new java.util.HashMap()
+        
+        oneRecordMap!.put("cmd", cmd$)
+        oneRecordMap!.put("user", user$)
+        oneRecordMap!.put("tty", tty$)
+        oneRecordMap!.put("state", state$)
+        oneRecordMap!.put("cpu_pct", cpuPercent$)
+        oneRecordMap!.put("elapsed_tm_secs", elapsedTimeInSeconds)
+        oneRecordMap!.put("cpu_time_secs", cpuTimeInSeconds)  
+        oneRecordMap!.put("cpu_time_per_sec", cpuTimePerSecond)
+        oneRecordMap!.put("data_memory_kb", memoryData$)
+        
+        recordsMap!.put(pid$, oneRecordMap!)
+    endif
     
-    recordsMap!.put(pid$, oneRecordMap!)
 
     return
 
