@@ -253,7 +253,7 @@ init_input_fields:
     startDayName$ = ""
     startDate$ = ""
     startTime$ = ""
-    groupedCount$ = "0"
+    groupedCount$ = "1"
 
     return
     
