@@ -63,18 +63,16 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 prep_and_open_lmstat_file:
 
-    call "DateUtilities.bbj::get_current_timestamp", timestamp$
-    
-    lmstatCmdOutputFile$ = "/tmp/lmstat-" + timestamp$ + ".txt"
+    call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
+
+    lmstatCmdOutputFile$ = "/tmp/lmstat-" + currentTimestamp$ + ".txt"
 
     lmstatCmd$ = "ssh nmcaold ""/usr/local/bbj/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
-
     returnCode = scall(lmstatCmd$)
     
     scpCmd$ = "scp nmcaold:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
-
     returnCode = scall(scpCmd$)
-
+    
     lmstatCmdChannel = unt
     open (lmstatCmdChannel) lmstatCmdOutputFile$
 
@@ -115,10 +113,7 @@ process_input_records:
     wend
     
     if recordsMap!.size() > 0 then
-    
-        sqlTimeStamp$ = timestamp$(1,4) + "-" + timestamp$(5,2) + "-" + timestamp$(7,2) + " " + timestamp$(9,2) + ":" + timestamp$(11,2) + ":" + timestamp$(13,2) 
-    
-        call "BasisLicenseUsageDAO.bbj::add_license_records", sqlTimeStamp$, recordsMap!
+        call "BasisLicenseUsageDAO.bbj::add_license_records", currentTimestamp$, recordsMap!
     endif
 
     return
@@ -130,7 +125,12 @@ process_input_records:
     
 read_one_record:
 
-    REM  Sample record: aalcum nmcanew5 /dev/pts/847 (v11.0) (nmcaold/27000 54000), start Fri 12/4 11:10
+    REM  Sample record: 
+    REM  
+    REM  aalcum nmcanew5 /dev/pts/847 (v11.0) (nmcaold/27000 54000), start Fri 12/4 11:10
+    
+    REM  Another sample record (slightly different; see right edge)
+    REm  root 0a0a0136 BASIS15131f019e7X (v15.0) (nmcaold/27000 92113), start Sat 12/5 6:49, 356 licenses
 
     gosub init_input_fields
     
@@ -188,6 +188,10 @@ read_one_record:
                     startTime$ = field!
                     break
             
+                case 11
+                    groupedCount$ = field!
+                    break
+            
             swend
             
         endif
@@ -200,33 +204,35 @@ read_one_record:
     trimmedVersion$ = version$( 3, len(version$) - 3 )
     
     portInfo$ = portInfo1of2$ + " " + portInfo2of2$
-    portInfo$ = portInfo$( 2, len(portInfo$) - 2 )
+    
+    portInfo$ = portInfo$( 2, len(portInfo$) - 3 )
     
     startInfo$ = startDayName$ + " " + startDate$ + " " + startTime$  
+    
+    if startInfo$( len(startInfo$), 1 ) = "," then
+        startInfo$ = startInfo$(1, len(startInfo$) - 1)
+    endif
 
 
     REM  Use -1 to turn off this output
     
     if recordNo = -1 then
         gosub print_input_fields
-        gosub print_computed_fields    
+        gosub print_computed_fields
+        REM  input "hit any key to continue", ignoreInput$    
     endif
     
-    REM  Only track process if it has used at least some CPU time 
+    oneRecordMap! = new java.util.HashMap()
     
-    if cpuTimeInSeconds > 0 then
-        oneRecordMap! = new java.util.HashMap()
-        
-        oneRecordMap!.put("user", user$)
-        oneRecordMap!.put("server", server$)
-        oneRecordMap!.put("device", device$)
-        oneRecordMap!.put("version", trimmedVersion$)
-        oneRecordMap!.put("port_info", portInfo$)
-        oneRecordMap!.put("start_info", startInfo$)  
-        
-        recordsMap!.put(pid$, oneRecordMap!)
-    endif
+    oneRecordMap!.put("user", user$)
+    oneRecordMap!.put("server", server$)
+    oneRecordMap!.put("device", device$)
+    oneRecordMap!.put("version", trimmedVersion$)
+    oneRecordMap!.put("port_info", portInfo$)
+    oneRecordMap!.put("start_info", startInfo$)  
+    oneRecordMap!.put("grouped_count", groupedCount$)
     
+    recordsMap!.put(recordNo, oneRecordMap!)
 
     return
 
@@ -246,7 +252,8 @@ init_input_fields:
     startConstant$ = ""
     startDayName$ = ""
     startDate$ = ""
-    startDate$ = ""
+    startTime$ = ""
+    groupedCount$ = "0"
 
     return
     
@@ -268,7 +275,8 @@ print_input_fields:
     print "startConstant$ = ", startConstant$
     print "startDayName$ = ", startDayName$
     print "startDate$ = ", startDate$
-    print "startDate$ = ", 
+    print "startTime$ = ", startTime$ 
+    print "groupedCount$ = ", groupedCount$
 
     return
     

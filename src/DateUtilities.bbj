@@ -128,6 +128,15 @@ get_current_timestamp:
     exit
     
     
+get_timestamp_as_datetime_string:
+
+    enter timestampIn$, datetimeStringOut$
+    
+    datetimeStringOut$ = timestampIn$(1,4) + "-" + timestampIn$(5,2) + "-" + timestampIn$(7,2) + " " + timestampIn$(9,2) + ":" + timestampIn$(11,2) + ":" + timestampIn$(13,2) 
+
+    exit
+    
+    
 get_current_yyyymmdd:
 
     enter yyyymmdd$

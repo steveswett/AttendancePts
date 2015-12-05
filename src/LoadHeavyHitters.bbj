@@ -115,9 +115,9 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 prep_and_open_ps_file:
 
-    call "DateUtilities.bbj::get_current_timestamp", timestamp$
+    call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
     
-    psCmdOutputFile$ = "/tmp/heavy-hitters-ps-" + timestamp$ + ".txt"
+    psCmdOutputFile$ = "/tmp/heavy-hitters-ps-" + currentTimestamp$ + ".txt"
 
     psCmd$ = "ps -Ao pid,etime,time,%cpu,user,tty,m_drs,m_trs,state,cmd | grep pro5 > " + psCmdOutputFile$ 
 
@@ -163,10 +163,7 @@ process_input_records:
     wend
     
     if recordsMap!.size() > 0 then
-    
-        sqlTimeStamp$ = timestamp$(1,4) + "-" + timestamp$(5,2) + "-" + timestamp$(7,2) + " " + timestamp$(9,2) + ":" + timestamp$(11,2) + ":" + timestamp$(13,2) 
-    
-        call "ProcessStatsDAO.bbj::add_stat_records", sqlTimeStamp$, recordsMap!
+        call "ProcessStatsDAO.bbj::add_stat_records", currentTimestamp$, recordsMap!
     endif
 
     return

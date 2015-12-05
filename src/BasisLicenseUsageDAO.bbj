@@ -1,10 +1,10 @@
 REM /**
-REM  * ProcessStatsDAO.bbj
+REM  * BasisLicenseUsageDAO.bbj
 REM  * @author stevett
 REM  *
-REM  * Written: December 2, 2015
+REM  * Written: December 5, 2015
 REM  * 
-REM  * Description: Data Access Object for table ProcessStatistics
+REM  * Description: Data Access Object for table BasisLicenseUsage
 REM  *
 REM  */
 
@@ -31,7 +31,7 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 entry_points:
 
 
-add_stat_records:
+add_license_records:
 
     enter timestampIn$, recordsMapIn!
 
@@ -39,7 +39,7 @@ add_stat_records:
     
     gosub setup_constants
     
-    gosub insert_stat_records
+    gosub insert_license_records
     
     exit
 
@@ -50,39 +50,37 @@ subroutines:
 
 
 REM  ------------------------------------------------------------------------------------------
-REM  Add stat rows for all records in recordsMapIn!
+REM  Add license usage rows for all records in recordsMapIn!
 REM  ------------------------------------------------------------------------------------------
 
 
-insert_stat_records:
+insert_license_records:
 
-    statsChannel = sqlunt
-    sqlopen(statsChannel) dataWarehouseDataSource$
+    licensesChannel = sqlunt
+    sqlopen(licensesChannel) dataWarehouseDataSource$
 
-    sqlprep(statsChannel) INSERT_STATS_STMT$
+    sqlprep(licensesChannel) INSERT_LICENSES_STMT$
     
     iter! = recordsMapIn!.keySet().iterator()
     
     while iter!.hasNext()
     
-        pidKey! = iter!.next()
-        oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(pidKey!) )
-        
-        cmd$ = oneRecordMap!.get("cmd")
-        user$ = oneRecordMap!.get("user")
-        tty$ = oneRecordMap!.get("tty")
-        state$ = oneRecordMap!.get("state")
-        cpuPercent$ = oneRecordMap!.get("cpu_pct")
-        elapsedTimeInSeconds = oneRecordMap!.get("elapsed_tm_secs")
-        cpuTimeInSeconds = oneRecordMap!.get("cpu_time_secs")
-        cpuTimePerSecond = oneRecordMap!.get("cpu_time_per_sec")
-        memoryData$ = oneRecordMap!.get("data_memory_kb")
+        recordNoKey! = iter!.next()
+        oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(recordNoKey!) )
 
-        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, user$, tty$, state$, cpuPercent$, elapsedTimeInSeconds, cpuTimeInSeconds, cpuTimePerSecond, memoryData$    
+        user$ = oneRecordMap!.get("user")
+        server$ = oneRecordMap!.get("server")
+        device$ = oneRecordMap!.get("device")
+        version$ = oneRecordMap!.get("version")
+        portInfo$ = oneRecordMap!.get("port_info")
+        startInfo$ = oneRecordMap!.get("start_info")
+        groupedCount$ = oneRecordMap!.get("grouped_count")
+
+        sqlexec(licensesChannel) sqlTimeStamp$, recordNoKey!, user$, server$, device$, version$, portInfo$, startInfo$, groupedCount$            
     
     wend
     
-    sqlclose(statsChannel)
+    sqlclose(licensesChannel)
 
     return
 
@@ -99,7 +97,7 @@ setup_constants:
     dataWarehouseDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
     
-    INSERT_STATS_STMT$ = "insert into ProcessStatistics (ProcessId, CollectionTime, Command, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
-:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    INSERT_LICENSES_STMT$ = "insert into BasisLicenseUsage (CollectionTime, EntryNo, UserId, Server, Device, Version, PortInfo, StartInfo, GroupedCount) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     
     return
