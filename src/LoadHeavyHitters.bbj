@@ -25,13 +25,6 @@ constants:
 
     TRUE = 1
     FALSE = 0
-    
-    REM  12 per hour for 24 hrs X 2 days
-    MAX_COLLECTIONS = 12 * 24 * 2
-    
-    REM MAX_COLLECTIONS = 3
-    
-    DELAY_BETWEEN_RUNS_MINS = 5
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
@@ -73,24 +66,22 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 main_routine:
 
 
-    collectionCount = 0
-    
     while TRUE
+
+        gosub get_options_for_this_collection
+
+        call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
         
-        collectionCount = collectionCount + 1
-        
-        REM print "Processing collection ", collectionCount, " ..."
+        if len(terminateAfterTimestamp$) = 14 and currentTimestamp$ >= terminateAfterTimestamp$ then
+            break
+        endif
          
         gosub prep_and_open_ps_file
         gosub process_input_records
         gosub close_ps_file
         
-        if collectionCount >= MAX_COLLECTIONS then
-            break
-        endif
-        
-        for i = 1 to DELAY_BETWEEN_RUNS_MINS
-            REM  print "Waiting a minute (", i, " of ", DELAY_BETWEEN_RUNS_MINS, ") ..." 
+        for i = 1 to collectionIntervalMins
+            REM  print "Waiting a minute (", i, " of ", collectionIntervalMins, ") ..." 
             wait 60
         next i
          
@@ -110,12 +101,27 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 
     rem ------------------------------------------------------------------------------------------
+    rem  Get options (config var settings) for this collection
+    rem ------------------------------------------------------------------------------------------
+    
+get_options_for_this_collection:
+
+    call "ConfigVarsDAO.bbj::get_value", "process.stats.terminate.on.or.after.timestamp", configVarFound, configVarDataType$, terminateAfterTimestamp$
+    
+    call "ConfigVarsDAO.bbj::get_value", "process.stats.collection.interval.mins", configVarFound, configVarDataType$, collectionIntervalMins$
+    collectionIntervalMins = num(collectionIntervalMins$)
+    
+    call "ConfigVarsDAO.bbj::get_value", "process.stats.include.zero.cpu.processes", configVarFound, configVarDataType$, includeZeroCPUProcesses$
+    includeZeroCPUProcesses = num(includeZeroCPUProcesses$)
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
     rem  Prepare and open "ps" file
     rem ------------------------------------------------------------------------------------------
     
 prep_and_open_ps_file:
-
-    call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
     
     psCmdOutputFile$ = "/tmp/heavy-hitters-ps-" + currentTimestamp$ + ".txt"
 
@@ -256,9 +262,9 @@ read_one_record:
         gosub print_computed_fields    
     endif
     
-    REM  Only track process if it has used at least some CPU time 
+    REM  Consider CPU time before storing record, but always store records for root 
     
-    if cpuTimeInSeconds > 0 then
+    if includeZeroCPUProcesses or cpuTimeInSeconds > 0 or user$ = 'root' then
         oneRecordMap! = new java.util.HashMap()
         
         oneRecordMap!.put("cmd", cmd$)
