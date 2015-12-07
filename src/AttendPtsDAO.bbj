@@ -607,7 +607,8 @@ load_point_records_map:
         pointDataMap!.put("pts_removal_date", ptsRemovalDate$)
         pointDataMap!.put("pts_removed", ptsRemoved$)
 
-        pointRecordsMap!.put(resultRow.ptdt$, pointDataMap!)
+        recordKey$ = resultRow.ptdt$ + "," + str(resultRow.work_file_id)
+        pointRecordsMap!.put(recordKey$, pointDataMap!)
         
     wend
     

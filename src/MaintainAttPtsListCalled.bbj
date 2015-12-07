@@ -253,6 +253,22 @@ display_screen_headings:
     
     
     rem ------------------------------------------------------------------------------------------
+    rem  Get the 2-part key from recordKey! -- which will be like "20151128,26615" --
+    rem  where the first part is the points date and the second part is the work_file_id.
+    rem ------------------------------------------------------------------------------------------
+
+
+get_compound_key_fields:
+
+      recordKey$ = recordKey!
+      commaPos = pos("," = recordKey!)
+      dateKeyPart$ = recordKey$(1, commaPos - 1)
+      workFileIdKeyPart = num( recordKey$(commaPos + 1) )
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
     rem  Display data on page, besides page headings
     rem ------------------------------------------------------------------------------------------
 
@@ -284,13 +300,15 @@ display_data:
     count = 0
     displayedCount = 0
     
-    dim datesArray![1:RECORDS_PER_PAGE]
+    dim keysArray![1:RECORDS_PER_PAGE]
 
     iter! = pointRecordsMap!.keySet().iterator()
     
     while iter!.hasNext()
     
-      dateKey! = iter!.next()
+      recordKey! = iter!.next()
+      gosub get_compound_key_fields
+      
       count = count + 1
       
       if count < topLeftMapIndex then continue
@@ -298,13 +316,13 @@ display_data:
       
       displayedCount = displayedCount + 1
       
-      datesArray![displayedCount] = dateKey!
+      keysArray![displayedCount] = recordKey!
       
-      unformattedDate$ = dateKey!
+      unformattedDate$ = dateKeyPart$
 
       call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", unformattedDate$, TRUE, formattedDate$ 
 
-      pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(dateKey!) )
+      pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(recordKey!) )
       
       system$ = iff( cvs(pointDataMap!.get("chgby"), 2) = "cpu", "Y", "N")
       
@@ -575,8 +593,11 @@ handle_ctl_0_or_5:
     if len(errMsg$) > 0 then
         gosub display_err_msg
     else
-        tmpDate! = datesArray![ num(line$) ]
-        pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(tmpDate!) )
+        recordKey! = keysArray![ num(line$) ]
+        gosub get_compound_key_fields
+        
+        pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(recordKey!) )
+        tmpDate! = dateKeyPart$
         call "MaintainAttPtsEdits.bbj", isInquiryMode, FALSE, badge5In$, employeeName$, tmpDate!, pointDataMap!, anyDataChanged
         line$ = " "
         
@@ -750,9 +771,11 @@ position_list_to_date:
     
     while iter!.hasNext()
     
-      dateKey! = iter!.next()
+      recordKey! = iter!.next()
+      gosub get_compound_key_fields
+      
       count = count + 1
-      unformattedDate$ = dateKey!
+      unformattedDate$ = dateKeyPart$
       
       if unformattedDate$ >= positionToDate$ then
           topLeftMapIndex = count
