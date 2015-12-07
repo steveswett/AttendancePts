@@ -1,0 +1,362 @@
+REM /**
+REM  * DisplayBasisLicenseUsage.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+
+declare BBjSysGui sg!
+declare BBjWindow win!
+
+declare BBjInputD date! 
+declare BBjStaticText dateCaption!
+declare BBjToolButton dateButton!
+declare BBjButton okButton!
+
+declare BBjLineChart lineChart!
+declare BBjButton continueButton!
+
+declare java.util.LinkedHashMap licenseCountsMap!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+    TRUE = 1
+    FALSE = 0
+    
+    LINE_CHART_CTL_ID = 203
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+DEF FNFIELD$(X$,X)
+    FIELD$=""
+    P=POS(","=","+X$,1,X)
+    Q=POS(","=","+X$,1,X+1); IF Q=0 THEN Q=LEN(X$)+2
+    FIELD$=X$(P,Q-P-1)
+    RETURN FIELD$
+FNEND
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub display_window
+    
+    gosub display_date_sidebar
+
+    PROCESS_EVENTS
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    release
+    
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the window (just the shell/frame of it)
+    rem ------------------------------------------------------------------------------------------
+
+display_window:
+
+    sysguiChannel = unt 
+    OPEN(sysguiChannel)"X0"
+    
+    rem DIM EVENT$:TMPL(SYSGUI),GENERIC_OBJECT$:NOTICETPL(0,0)
+    
+    sg! = BBjAPI().getSysGui()
+    win! = sg!.addWindow(50,50,1200,600,"Notions Marketing - Basis License Usage (DisplayBasisLicenseUsage.bbj)")
+
+    CALLBACK(ON_CLOSE, close_window, sg!.getContext())
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the date sidebar controls
+    rem ------------------------------------------------------------------------------------------
+
+display_date_sidebar:
+
+    dateCaption! = win!.addStaticText(102, 20, 20, 140, 30, "Enter a Date", "")
+
+    date! = win!.addInputD(101,20,50,90,30)
+    date!.setMask("%Mz/%Dz/%Yl")
+    date!.setPassTab(sg!.TRUE)
+    
+    REM  The following works, if used
+    REM  date!.setEditable(FALSE)
+    
+    dateButton! = win!.addToolButton(1,110,50,30,30,"BITMAP=calendar.png")
+    okButton! = win!.addButton(110,20,150,90,30,"OK",$0800$)
+
+    REM  For now, on date popup button or OK button, just close window when pushed.
+
+    CALLBACK(ON_TOOL_BUTTON_PUSH, close_window, sg!.getContext(), dateButton!.getID())
+    CALLBACK(ON_BUTTON_PUSH, display_chart, sg!.getContext(), okButton!.getID())
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the chart
+    rem ------------------------------------------------------------------------------------------
+
+display_chart:
+
+    REM  Syntax for "addLineChart":
+    
+    REM  addLineChart(int controlID, 
+    REM               int left, int top, int width, int height, 
+    REM               string xLabel, string yLabel, 
+    REM               int numSeries, boolean showLegend, string flags)
+    
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,800,500,"Time","Licenses In Use",5,TRUE)
+    lineChart!.setTitle("Basis License Usage - " + date!.getText())
+    lineChart!.setSeriesName(0, "All")
+
+    licenseCountsMap! = new java.util.LinkedHashMap()
+    
+    REM  Following is hard-wired for now:
+    
+    call "BasisLicenseUsageDAO.bbj::get_counts_for_date_all_users", "20151206", licenseCountsMap!
+    
+    iter! = licenseCountsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+      collectionTime! = iter!.next()
+      collectionTime$ = collectionTime!
+      licensesUsed = licenseCountsMap!.get(collectionTime!)
+      
+      tmpHrs = num(collectionTime$(12, 2))
+      mins = num(collectionTime$(15, 2))
+      secs = num(collectionTime$(18, 2))
+      
+      if (mins = 0) then
+          tmpHrsFromMins = 0
+      else
+          tmpHrsFromMins = mins / 60
+      endif  
+      
+      if (secs = 0) then
+          tmpHrsFromSecs = 0
+      else
+          tmpHrsFromSecs = secs / 3600
+      endif  
+
+      tmpTotalHrs = tmpHrs + tmpHrsFromMins + tmpHrsFromSecs
+      
+      lineChart!.setXYValue(0, tmpTotalHrs, licensesUsed)
+      
+    wend
+
+
+    continueButton! = win!.addButton(120,555,550,90,30,"Continue",$0800$)
+
+    REM  For now, just close the window if the continue button is pressed
+    
+    CALLBACK(ON_BUTTON_PUSH, close_window, sg!.getContext(), continueButton!.getID())
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Close the window
+    rem ------------------------------------------------------------------------------------------
+
+close_window:
+
+    close(sysguiChannel)
+    
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Set to Month End Date
+    rem ------------------------------------------------------------------------------------------
+
+setMonthEnd:
+
+    TODAY = JUL(0,0,0)
+    Y = NUM(DATE(TODAY:"%Y"))
+    M = NUM(DATE(TODAY:"%M"))
+    FOR D=28 TO 30
+        ME = JUL(Y,M,D+1,ERR=*break)
+    NEXT D
+    date!.setValue(JUL(Y,M,D))
+
+    RETURN
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Show popup calendar
+    rem ------------------------------------------------------------------------------------------
+
+PopupCalendar:
+
+    date!.calendar()
+
+    RETURN
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Valid Date Entered?
+    rem ------------------------------------------------------------------------------------------
+
+VALIDATE_DATE:
+
+    IF date!.isValid() THEN EXITTO GOOD_DATE
+    TEXT$ = CVS(date!.getText(),7)
+    IF TEXT$="ME" THEN GOSUB setMonthEnd; EXITTO GOOD_DATE
+    
+    RETURN
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  keypress callback
+    rem ------------------------------------------------------------------------------------------
+
+KEYPRESS:
+
+    EVENT$=sg!.getLastEventString()
+    GENERIC_OBJECT$=NOTICE(SYSGUI,EVENT.X)
+    DIM NOTICE$:NOTICETPL(GENERIC_OBJECT.OBJTYPE,EVENT.FLAGS)
+    NOTICE$=GENERIC_OBJECT$
+    IF NOTICE.KEY$=$014C$ THEN GOSUB PopupCalendar
+
+    RETURN
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  OK pushed
+    rem ------------------------------------------------------------------------------------------
+
+OK_BUTTON_PUSHED:
+
+    RETURN
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Continue button pushed
+    rem ------------------------------------------------------------------------------------------
+
+CONTINUE_BUTTON_PUSHED:
+    continueButton!.destroy()
+    lineChart!.destroy()
+
+    REM ********* Why do an EXITTO here? *******************
+    EXITTO DATE_CALLBACKS
+
+    RETURN
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Continue button pushed
+    rem ------------------------------------------------------------------------------------------
+
+original_logic_bad:
+
+RESTART: 
+
+    SYSGUI=1 
+    OPEN(SYSGUI)"X0"
+    
+    
+    DIM EVENT$:TMPL(SYSGUI),GENERIC_OBJECT$:NOTICETPL(0,0)
+    
+    sg! = BBjAPI().getSysGui()
+    win! = sg!.addWindow(50,50,1200,600,"Notions Marketing - BBx Licenses")
+    Text1! = win!.addStaticText(102,20,20,140,30,"Enter a Date","")
+    Text2! = win!.addStaticText(100,20,90,90,30,"Press [F2] for a Pop Up calendar")
+    date! = win!.addInputD(101,20,50,90,30)
+    date!.setMask("%Mz/%Dz/%Yl")
+    date!.setPassTab(sg!.TRUE)
+    dateButton! = win!.addToolButton(1,110,50,30,30,"BITMAP=calendar.png")
+    okButton! = win!.addButton(110,20,150,90,30,"OK",$0800$)
+    CALLBACK(ON_CLOSE,closeApp,sg!.getContext())
+
+    DATE_CALLBACKS: REM ----- Call Backs for Date Processing -----
+    date!.focus()
+    CALLBACK(ON_LOST_FOCUS,VALIDATE_DATE,sg!.getContext(),date!.getID())
+    CALLBACK(ON_INPUT_KEYPRESS,KEYPRESS,sg!.getContext(),date!.getID())
+    CALLBACK(ON_TOOL_BUTTON_PUSH,PopupCalendar,sg!.getContext(),dateButton!.getID())
+    CALLBACK(ON_BUTTON_PUSH,OK_BUTTON_PUSHED,sg!.getContext(),okButton!.getID())
+
+    PROCESS_EVENTS
+
+    GOOD_DATE: REM ----- Get Date -----
+    
+    REM  It's very odd that they let you type "ME" (for month-end) in a date field.
+    
+    D$=CVS(date!.getText(),7)
+    DT=JUL(NUM(D$(7)),NUM(D$(1,2)),NUM(D$(4,2)))
+
+    OPEN(100)"bbx.license.csv"
+    READ(100)HEADINGS$
+    
+    REM  Syntax for "addLineChart":
+    
+    REM  addLineChart(int controlID, 
+    REM               int left, int top, int width, int height, 
+    REM               string xLabel, string yLabel, 
+    REM               int numSeries, boolean showLegend, string flags)
+    
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,800,500,"Time","Licenses In Use",5,1)
+    continueButton! = win!.addButton(120,555,550,90,30,"Continue",$0800$)
+    continueButton!.focus()
+    
+    lineChart!.setTitle("Non Pro/5 BBx License Usage - "+DATE(DT:"%Mz-%Dz-%Yl"))
+    lineChart!.setSeriesName(0,FNFIELD$(HEADINGS$,5))
+    lineChart!.setSeriesName(1,FNFIELD$(HEADINGS$,6))
+    lineChart!.setSeriesName(2,FNFIELD$(HEADINGS$,7))
+    lineChart!.setSeriesName(3,FNFIELD$(HEADINGS$,8))
+    lineChart!.setSeriesName(4,FNFIELD$(HEADINGS$,9))
+    
+    READ_DATA: REM ----- Get Data to Plot -----
+    READ(100,END=DONE)DATA$
+    IF FNFIELD$(DATA$,1)<>DATE(DT:"%Mz-%Dz-%Yl") THEN GOTO READ_DATA
+    T$=FNFIELD$(DATA$,2),T=NUM(T$(1,2))+NUM(T$(4,2))/60
+
+    lineChart!.setXYValue(0,T,NUM(FNFIELD$(DATA$,5)))
+    lineChart!.setXYValue(1,T,NUM(FNFIELD$(DATA$,6)))
+    lineChart!.setXYValue(2,T,NUM(FNFIELD$(DATA$,7)))
+    lineChart!.setXYValue(3,T,NUM(FNFIELD$(DATA$,8)))
+    lineChart!.setXYValue(4,T,NUM(FNFIELD$(DATA$,9)))
+
+    GOTO READ_DATA
+    DONE:
+    CLOSE (100)
+    
+    CALLBACK(ON_BUTTON_PUSH,CONTINUE_BUTTON_PUSHED,sg!.getContext(),continueButton!.getID())
+    
+    REMOVE_CALLBACK(ON_LOST_FOCUS,0,date!.getID())
+    REMOVE_CALLBACK(ON_INPUT_KEYPRESS,0,date!.getID())
+    REMOVE_CALLBACK(ON_TOOL_BUTTON_PUSH,0,dateButton!.getID())
+    REMOVE_CALLBACK(ON_BUTTON_PUSH,0,okButton!.getID())
+    
+    PROCESS_EVENTS
+
+    GOTO RESTART
+
+    return

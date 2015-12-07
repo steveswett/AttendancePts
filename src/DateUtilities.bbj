@@ -315,7 +315,7 @@ sub_get_yymdhms_as_mdy_with_time:
 REM  The following was expected to work, but doesn't:
 REM      
 REM     tmpHrsFromMins = num(yyyymmddhhmmssIn$(11,2)) / 60
-REM     tmpHrsFromSecs = num(yyyymmddhhmmssIn$(13,2)) / 360
+REM     tmpHrsFromSecs = num(yyyymmddhhmmssIn$(13,2)) / 3600
 REM     tmpTotalHrs = tmpHrs + tmpHrsFromMins + tmpHrsFromSecs
 REM     tmpDate$ = date(tmpJulDate,tmpTotalHrs:"%Mz/%Dz/%Yz %h:%mz:%sz%p")
 

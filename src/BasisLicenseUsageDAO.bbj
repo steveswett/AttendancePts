@@ -9,9 +9,12 @@ REM  *
 REM  */
 
 use java.util.HashMap
+use java.util.LinkedHashMap
 
 declare java.util.HashMap recordsMapIn!
 declare java.util.HashMap oneRecordMap!
+
+declare java.util.LinkedHashMap countsMapOut!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -35,11 +38,20 @@ add_license_records:
 
     enter timestampIn$, recordsMapIn!
 
-    call "DateUtilities.bbj::get_timestamp_as_datetime_string", timestampIn$, sqlTimeStamp$
-    
     gosub setup_constants
     
     gosub insert_license_records
+    
+    exit
+    
+    
+get_counts_for_date_all_users:
+
+    enter yyyymmddIn$, countsMapOut!
+    
+    gosub setup_constants
+    
+    gosub fetch_counts_for_date_all_users
     
     exit
 
@@ -55,6 +67,8 @@ REM  ---------------------------------------------------------------------------
 
 
 insert_license_records:
+
+    call "DateUtilities.bbj::get_timestamp_as_datetime_string", timestampIn$, sqlTimeStamp$
 
     licensesChannel = sqlunt
     sqlopen(licensesChannel) dataWarehouseDataSource$
@@ -83,6 +97,39 @@ insert_license_records:
     sqlclose(licensesChannel)
 
     return
+    
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Fetch counts and load into countsMapOut!
+REM  ------------------------------------------------------------------------------------------
+
+fetch_counts_for_date_all_users:
+
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddIn$, sqlDate$
+    
+    usageChannel = sqlunt
+    sqlopen(usageChannel) dataWarehouseDataSource$
+
+    sqlprep(usageChannel) SELECT_COUNTS_FOR_ALL_USERS_STMT$
+
+    countsMapOut!.clear()
+    
+    fromSqlDate$ = sqlDate$ + " 00:00:00"  
+    toSqlDate$ = sqlDate$ + " 23:59:59"  
+
+    sqlexec(usageChannel) fromSqlDate$, toSqlDate$ 
+    dim resultRow$:sqltmpl(usageChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(usageChannel,err=*break)
+        countsMapOut!.put(resultRow.CollectionTime$, resultRow.LicensesUsed )
+        
+    wend
+    
+    sqlclose(usageChannel)
+
+    return
 
 
 REM  ------------------------------------------------------------------------------------------
@@ -96,8 +143,18 @@ setup_constants:
 
     dataWarehouseDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+
     
     INSERT_LICENSES_STMT$ = "insert into BasisLicenseUsage (CollectionTime, EntryNo, UserId, Server, Device, Version, PortInfo, StartInfo, GroupedCount) " +
 :                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+
+    SELECT_COUNTS_FOR_ALL_USERS_STMT$ = "select " + 
+:       "CollectionTime, " + 
+:       "sum(BasisLicenseUsage.GroupedCount) as LicensesUsed " +
+:       "from dbo.BasisLicenseUsage " +
+:       "where BasisLicenseUsage.CollectionTime between ? and ? " +
+:       "group by BasisLicenseUsage.CollectionTime " +
+:       "order by BasisLicenseUsage.CollectionTime"
     
     return
