@@ -45,13 +45,35 @@ add_license_records:
     exit
     
     
-get_counts_for_date_all_users:
+get_counts_for_all_users:
 
-    enter yyyymmddIn$, countsMapOut!
+    enter yyyymmddFromIn$, yyyymmddToIn$, countsMapOut!
     
     gosub setup_constants
+    gosub prepare_date_variables    
+    gosub fetch_counts_for_all_users
     
-    gosub fetch_counts_for_date_all_users
+    exit
+    
+    
+get_counts_for_one_user:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, userIdIn$, countsMapOut!
+    
+    gosub setup_constants
+    gosub prepare_date_variables    
+    gosub fetch_counts_for_one_user
+    
+    exit
+    
+    
+get_counts_except_for_four_users:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, userId1In$, userId2In$, userId3In$, userId4In$, countsMapOut!
+    
+    gosub setup_constants
+    gosub prepare_date_variables    
+    gosub fetch_counts_except_for_four_users
     
     exit
 
@@ -100,24 +122,89 @@ insert_license_records:
     
     
 REM  ------------------------------------------------------------------------------------------
+REM  Prepare date variables for use in queries
+REM  ------------------------------------------------------------------------------------------
+
+prepare_date_variables:
+
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddFromIn$, formattedFromDate$
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddToIn$, formattedToDate$
+    
+    fromSqlDate$ = formattedFromDate$ + " 00:00:00"  
+    toSqlDate$ = formattedToDate$ + " 23:59:59"  
+
+    return
+    
+REM  ------------------------------------------------------------------------------------------
 REM  Fetch counts and load into countsMapOut!
 REM  ------------------------------------------------------------------------------------------
 
-fetch_counts_for_date_all_users:
+fetch_counts_for_all_users:
 
-    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", yyyymmddIn$, sqlDate$
-    
     usageChannel = sqlunt
     sqlopen(usageChannel) dataWarehouseDataSource$
 
     sqlprep(usageChannel) SELECT_COUNTS_FOR_ALL_USERS_STMT$
 
     countsMapOut!.clear()
-    
-    fromSqlDate$ = sqlDate$ + " 00:00:00"  
-    toSqlDate$ = sqlDate$ + " 23:59:59"  
 
     sqlexec(usageChannel) fromSqlDate$, toSqlDate$ 
+    dim resultRow$:sqltmpl(usageChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(usageChannel,err=*break)
+        countsMapOut!.put(resultRow.CollectionTime$, resultRow.LicensesUsed )
+        
+    wend
+    
+    sqlclose(usageChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Fetch counts and load into countsMapOut!
+REM  ------------------------------------------------------------------------------------------
+
+fetch_counts_for_one_user:
+
+    usageChannel = sqlunt
+    sqlopen(usageChannel) dataWarehouseDataSource$
+
+    sqlprep(usageChannel) SELECT_COUNTS_FOR_ONE_USER_STMT$
+
+    countsMapOut!.clear()
+
+    sqlexec(usageChannel) fromSqlDate$, toSqlDate$, userIdIn$ 
+    dim resultRow$:sqltmpl(usageChannel)
+    
+    while TRUE
+    
+        resultRow$ = sqlfetch(usageChannel,err=*break)
+        countsMapOut!.put(resultRow.CollectionTime$, resultRow.LicensesUsed )
+        
+    wend
+    
+    sqlclose(usageChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Fetch counts and load into countsMapOut!
+REM  ------------------------------------------------------------------------------------------
+
+fetch_counts_except_for_four_users:
+
+    usageChannel = sqlunt
+    sqlopen(usageChannel) dataWarehouseDataSource$
+
+    sqlprep(usageChannel) SELECT_COUNTS_EXCEPT_FOR_FOUR_USERS_STMT$
+
+    countsMapOut!.clear()
+
+    sqlexec(usageChannel) fromSqlDate$, toSqlDate$, userId1In$, userId2In$, userId3In$, userId4In$ 
     dim resultRow$:sqltmpl(usageChannel)
     
     while TRUE
@@ -151,10 +238,30 @@ setup_constants:
 
     SELECT_COUNTS_FOR_ALL_USERS_STMT$ = "select " + 
 :       "CollectionTime, " + 
-:       "sum(BasisLicenseUsage.GroupedCount) as LicensesUsed " +
-:       "from dbo.BasisLicenseUsage " +
-:       "where BasisLicenseUsage.CollectionTime between ? and ? " +
-:       "group by BasisLicenseUsage.CollectionTime " +
-:       "order by BasisLicenseUsage.CollectionTime"
+:       "sum(GroupedCount) as LicensesUsed " +
+:       "from BasisLicenseUsage " +
+:       "where CollectionTime between ? and ? " +
+:       "group by CollectionTime " +
+:       "order by CollectionTime"
+
+
+    SELECT_COUNTS_FOR_ONE_USER_STMT$ = "select " + 
+:       "CollectionTime, " + 
+:       "sum(GroupedCount) as LicensesUsed " +
+:       "from BasisLicenseUsage " +
+:       "where CollectionTime between ? and ? and " +
+:       "UserId = ? " +
+:       "group by CollectionTime " +
+:       "order by CollectionTime"
+
+
+    SELECT_COUNTS_EXCEPT_FOR_FOUR_USERS_STMT$ = "select " + 
+:       "CollectionTime, " + 
+:       "sum(GroupedCount) as LicensesUsed " +
+:       "from BasisLicenseUsage " +
+:       "where CollectionTime between ? and ? and " +
+:       "UserId not in(?,?,?,?) " +
+:       "group by CollectionTime " +
+:       "order by CollectionTime"
     
     return

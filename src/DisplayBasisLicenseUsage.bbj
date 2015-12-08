@@ -10,13 +10,17 @@ use java.util.LinkedHashMap
 declare BBjSysGui sg!
 declare BBjWindow win!
 
-declare BBjInputD date! 
-declare BBjStaticText dateCaption!
-declare BBjToolButton dateButton!
+declare BBjInputD fromDate! 
+declare BBjStaticText fromDateCaption!
+declare BBjToolButton fromDatePickerButton!
+
+declare BBjInputD toDate! 
+declare BBjStaticText toDateCaption!
+declare BBjToolButton toDatePickerButton!
+
 declare BBjButton okButton!
 
 declare BBjLineChart lineChart!
-declare BBjButton continueButton!
 
 declare java.util.LinkedHashMap licenseCountsMap!
 
@@ -32,7 +36,19 @@ constants:
     TRUE = 1
     FALSE = 0
     
-    LINE_CHART_CTL_ID = 203
+    FROM_DATE_CTL_ID = 101
+    FROM_DATE_CAPTION_CTL_ID = 102
+    FROM_DATE_PICKER_ID = 103
+    
+    TO_DATE_CTL_ID = 201
+    TO_DATE_CAPTION_CTL_ID = 202
+    TO_DATE_PICKER_ID = 203
+
+    OK_BTN_CTL_ID = 110
+    
+    LINE_CHART_CTL_ID = 301
+    
+    DATE_CTL_WIDTH = 60
 
 
 rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
@@ -98,21 +114,31 @@ display_window:
 
 display_date_sidebar:
 
-    dateCaption! = win!.addStaticText(102, 20, 20, 140, 30, "Enter a Date", "")
+    fromDateCaption! = win!.addStaticText(FROM_DATE_CAPTION_CTL_ID, 20, 20, 140, 30, "From Date", "")
 
-    date! = win!.addInputD(101,20,50,90,30)
-    date!.setMask("%Mz/%Dz/%Yl")
-    date!.setPassTab(sg!.TRUE)
+    fromDate! = win!.addInputD(FROM_DATE_CTL_ID,20,50,DATE_CTL_WIDTH,30)
+    fromDate!.setMask("%Mz/%Dz/%Yz")
+    fromDate!.setPassTab(sg!.TRUE)
     
     REM  The following works, if used
-    REM  date!.setEditable(FALSE)
+    REM  fromDate!.setEditable(FALSE)
     
-    dateButton! = win!.addToolButton(1,110,50,30,30,"BITMAP=calendar.png")
-    okButton! = win!.addButton(110,20,150,90,30,"OK",$0800$)
+    fromDatePickerButton! = win!.addToolButton(FROM_DATE_PICKER_ID,80,50,30,30,"BITMAP=calendar.png")
 
-    REM  For now, on date popup button or OK button, just close window when pushed.
 
-    CALLBACK(ON_TOOL_BUTTON_PUSH, close_window, sg!.getContext(), dateButton!.getID())
+    toDateCaption! = win!.addStaticText(TO_DATE_CAPTION_CTL_ID, 20, 110, 140, 30, "To Date", "")
+
+    toDate! = win!.addInputD(TO_DATE_CTL_ID,20,140,DATE_CTL_WIDTH,30)
+    toDate!.setMask("%Mz/%Dz/%Yz")
+    toDate!.setPassTab(sg!.TRUE)
+    
+    toDatePickerButton! = win!.addToolButton(TO_DATE_PICKER_ID,80,140,30,30,"BITMAP=calendar.png")
+    
+    
+    okButton! = win!.addButton(OK_BTN_CTL_ID,20,210,90,30,"OK",$0800$)
+
+    CALLBACK(ON_TOOL_BUTTON_PUSH, pick_from_date, sg!.getContext(), fromDatePickerButton!.getID())
+    CALLBACK(ON_TOOL_BUTTON_PUSH, pick_to_date, sg!.getContext(), toDatePickerButton!.getID())
     CALLBACK(ON_BUTTON_PUSH, display_chart, sg!.getContext(), okButton!.getID())
 
     return
@@ -131,17 +157,92 @@ display_chart:
     REM               string xLabel, string yLabel, 
     REM               int numSeries, boolean showLegend, string flags)
     
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,800,500,"Time","Licenses In Use",5,TRUE)
-    lineChart!.setTitle("Basis License Usage - " + date!.getText())
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,1000,550,"Time (Elapsed Hrs)","Licenses In Use",6,TRUE)
+    lineChart!.setTitle("Basis License Usage: " + fromDate!.getText() + " - " + toDate!.getText())
     lineChart!.setSeriesName(0, "All")
+    lineChart!.setSeriesName(1, "root")
+    lineChart!.setSeriesName(2, "offsite")
+    lineChart!.setSeriesName(3, "palm")
+    lineChart!.setSeriesName(4, "whse")
+    lineChart!.setSeriesName(5, "other")
 
     licenseCountsMap! = new java.util.LinkedHashMap()
     
-    REM  Following is hard-wired for now:
+    REM  Turn this bit into a function for repeatability:
     
-    call "BasisLicenseUsageDAO.bbj::get_counts_for_date_all_users", "20151206", licenseCountsMap!
+    tmpDate$ = fromDate!.getText()
+    tmpMMDDYY$ = tmpDate$(1,2) + tmpDate$(4,2) + tmpDate$(7,2)   
+    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", tmpMMDDYY$, yyyymmddFrom$
+    
+    tmpDate$ = toDate!.getText()
+    tmpMMDDYY$ = tmpDate$(1,2) + tmpDate$(4,2) + tmpDate$(7,2)   
+    call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", tmpMMDDYY$, yyyymmddTo$
+    
+    
+    seriesIndex = 0
+    gosub populate_data_for_series
+    
+    seriesIndex = 1
+    seriesUserId$ = "root"
+    gosub populate_data_for_series
+    
+    seriesIndex = 2
+    seriesUserId$ = "offsite"
+    gosub populate_data_for_series
+    
+    seriesIndex = 3
+    seriesUserId$ = "palm"
+    gosub populate_data_for_series
+    
+    seriesIndex = 4
+    seriesUserId$ = "whse"
+    gosub populate_data_for_series
+    
+    seriesIndex = 5
+    seriesUserId$ = "other"
+    gosub populate_data_for_series
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Populate data for series in "seriesIndex"
+    rem ------------------------------------------------------------------------------------------
+
+populate_data_for_series:
+
+    switch seriesIndex
+    
+        case 0
+            call "BasisLicenseUsageDAO.bbj::get_counts_for_all_users", yyyymmddFrom$, yyyymmddTo$, licenseCountsMap!
+            break
+    
+        case 1
+            call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 2
+            call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 3
+            call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 4
+            call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 5
+            call "BasisLicenseUsageDAO.bbj::get_counts_except_for_four_users", yyyymmddFrom$, yyyymmddTo$, "root", "whse", "offsite", "palm", licenseCountsMap!
+            break
+    
+    swend
     
     iter! = licenseCountsMap!.keySet().iterator()
+    
+    yyyymmddPrev$ = yyyymmddFrom$
+    elapsedDays = 0 
     
     while iter!.hasNext()
     
@@ -167,16 +268,23 @@ display_chart:
 
       tmpTotalHrs = tmpHrs + tmpHrsFromMins + tmpHrsFromSecs
       
-      lineChart!.setXYValue(0, tmpTotalHrs, licensesUsed)
+      REM  Handle date range by adding 24 hours for each day that goes by while looping:
+      
+      yyyymmddCurr$ = collectionTime$(1, 4) + collectionTime$(6, 2) + collectionTime$(9, 2)
+      
+      if yyyymmddCurr$ > yyyymmddPrev$ then
+          call "DateUtilities.bbj::get_days_between_inclusive", yyyymmddPrev$, yyyymmddCurr$, daysBetweenInclusive
+          elapsedDays = elapsedDays + daysBetweenInclusive - 1 
+          yyyymmddPrev$ = yyyymmddCurr$
+      endif 
+
+      if elapsedDays > 0 then
+        tmpTotalHrs = tmpTotalHrs + (elapsedDays * 24)
+      endif
+      
+      lineChart!.setXYValue(seriesIndex, tmpTotalHrs, licensesUsed)
       
     wend
-
-
-    continueButton! = win!.addButton(120,555,550,90,30,"Continue",$0800$)
-
-    REM  For now, just close the window if the continue button is pressed
-    
-    CALLBACK(ON_BUTTON_PUSH, close_window, sg!.getContext(), continueButton!.getID())
 
     return
     
@@ -193,6 +301,28 @@ close_window:
 
 
     rem ------------------------------------------------------------------------------------------
+    rem  Pick "from date" from popup calendar
+    rem ------------------------------------------------------------------------------------------
+
+pick_from_date:
+
+    fromDate!.calendar()
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Pick "to date" from popup calendar
+    rem ------------------------------------------------------------------------------------------
+
+pick_to_date:
+
+    toDate!.calendar()
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
     rem  Set to Month End Date
     rem ------------------------------------------------------------------------------------------
 
@@ -204,7 +334,7 @@ setMonthEnd:
     FOR D=28 TO 30
         ME = JUL(Y,M,D+1,ERR=*break)
     NEXT D
-    date!.setValue(JUL(Y,M,D))
+    fromDate!.setValue(JUL(Y,M,D))
 
     RETURN
 
@@ -215,7 +345,7 @@ setMonthEnd:
 
 PopupCalendar:
 
-    date!.calendar()
+    fromDate!.calendar()
 
     RETURN
 
@@ -226,8 +356,8 @@ PopupCalendar:
 
 VALIDATE_DATE:
 
-    IF date!.isValid() THEN EXITTO GOOD_DATE
-    TEXT$ = CVS(date!.getText(),7)
+    IF fromDate!.isValid() THEN EXITTO GOOD_DATE
+    TEXT$ = CVS(fromDate!.getText(),7)
     IF TEXT$="ME" THEN GOSUB setMonthEnd; EXITTO GOOD_DATE
     
     RETURN
@@ -289,18 +419,18 @@ RESTART:
     win! = sg!.addWindow(50,50,1200,600,"Notions Marketing - BBx Licenses")
     Text1! = win!.addStaticText(102,20,20,140,30,"Enter a Date","")
     Text2! = win!.addStaticText(100,20,90,90,30,"Press [F2] for a Pop Up calendar")
-    date! = win!.addInputD(101,20,50,90,30)
-    date!.setMask("%Mz/%Dz/%Yl")
-    date!.setPassTab(sg!.TRUE)
-    dateButton! = win!.addToolButton(1,110,50,30,30,"BITMAP=calendar.png")
+    fromDate! = win!.addInputD(101,20,50,90,30)
+    fromDate!.setMask("%Mz/%Dz/%Yl")
+    fromDate!.setPassTab(sg!.TRUE)
+    fromDatePickerButton! = win!.addToolButton(1,110,50,30,30,"BITMAP=calendar.png")
     okButton! = win!.addButton(110,20,150,90,30,"OK",$0800$)
     CALLBACK(ON_CLOSE,closeApp,sg!.getContext())
 
     DATE_CALLBACKS: REM ----- Call Backs for Date Processing -----
-    date!.focus()
-    CALLBACK(ON_LOST_FOCUS,VALIDATE_DATE,sg!.getContext(),date!.getID())
-    CALLBACK(ON_INPUT_KEYPRESS,KEYPRESS,sg!.getContext(),date!.getID())
-    CALLBACK(ON_TOOL_BUTTON_PUSH,PopupCalendar,sg!.getContext(),dateButton!.getID())
+    fromDate!.focus()
+    CALLBACK(ON_LOST_FOCUS,VALIDATE_DATE,sg!.getContext(),fromDate!.getID())
+    CALLBACK(ON_INPUT_KEYPRESS,KEYPRESS,sg!.getContext(),fromDate!.getID())
+    CALLBACK(ON_TOOL_BUTTON_PUSH,PopupCalendar,sg!.getContext(),fromDatePickerButton!.getID())
     CALLBACK(ON_BUTTON_PUSH,OK_BUTTON_PUSHED,sg!.getContext(),okButton!.getID())
 
     PROCESS_EVENTS
@@ -309,7 +439,7 @@ RESTART:
     
     REM  It's very odd that they let you type "ME" (for month-end) in a date field.
     
-    D$=CVS(date!.getText(),7)
+    D$=CVS(fromDate!.getText(),7)
     DT=JUL(NUM(D$(7)),NUM(D$(1,2)),NUM(D$(4,2)))
 
     OPEN(100)"bbx.license.csv"
@@ -350,9 +480,9 @@ RESTART:
     
     CALLBACK(ON_BUTTON_PUSH,CONTINUE_BUTTON_PUSHED,sg!.getContext(),continueButton!.getID())
     
-    REMOVE_CALLBACK(ON_LOST_FOCUS,0,date!.getID())
-    REMOVE_CALLBACK(ON_INPUT_KEYPRESS,0,date!.getID())
-    REMOVE_CALLBACK(ON_TOOL_BUTTON_PUSH,0,dateButton!.getID())
+    REMOVE_CALLBACK(ON_LOST_FOCUS,0,fromDate!.getID())
+    REMOVE_CALLBACK(ON_INPUT_KEYPRESS,0,fromDate!.getID())
+    REMOVE_CALLBACK(ON_TOOL_BUTTON_PUSH,0,fromDatePickerButton!.getID())
     REMOVE_CALLBACK(ON_BUTTON_PUSH,0,okButton!.getID())
     
     PROCESS_EVENTS
