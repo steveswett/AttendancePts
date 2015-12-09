@@ -2,6 +2,8 @@ REM /**
 REM  * DisplayBasisLicenseUsage.bbj
 REM  * @author stevett
 REM  *
+REM  * Written: December 6th, 8th 2015
+REM  * 
 REM  */
 
 
@@ -56,22 +58,13 @@ rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 functions:
 
 
-DEF FNFIELD$(X$,X)
-    FIELD$=""
-    P=POS(","=","+X$,1,X)
-    Q=POS(","=","+X$,1,X+1); IF Q=0 THEN Q=LEN(X$)+2
-    FIELD$=X$(P,Q-P-1)
-    RETURN FIELD$
-FNEND
-
-
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
     gosub display_window
     
-    gosub display_date_sidebar
+    gosub display_controls
 
     PROCESS_EVENTS
 
@@ -98,8 +91,6 @@ display_window:
     sysguiChannel = unt 
     OPEN(sysguiChannel)"X0"
     
-    rem DIM EVENT$:TMPL(SYSGUI),GENERIC_OBJECT$:NOTICETPL(0,0)
-    
     sg! = BBjAPI().getSysGui()
     win! = sg!.addWindow(50,50,1200,600,"Notions Marketing - Basis License Usage (DisplayBasisLicenseUsage.bbj)")
 
@@ -109,10 +100,10 @@ display_window:
     
     
     rem ------------------------------------------------------------------------------------------
-    rem  Display the date sidebar controls
+    rem  Display the controls
     rem ------------------------------------------------------------------------------------------
 
-display_date_sidebar:
+display_controls:
 
     fromDateCaption! = win!.addStaticText(FROM_DATE_CAPTION_CTL_ID, 20, 20, 140, 30, "From Date", "")
 
@@ -135,21 +126,9 @@ display_date_sidebar:
     toDatePickerButton! = win!.addToolButton(TO_DATE_PICKER_ID,80,140,30,30,"BITMAP=calendar.png")
     
     
-    okButton! = win!.addButton(OK_BTN_CTL_ID,20,210,90,30,"OK",$0800$)
-
-    CALLBACK(ON_TOOL_BUTTON_PUSH, pick_from_date, sg!.getContext(), fromDatePickerButton!.getID())
-    CALLBACK(ON_TOOL_BUTTON_PUSH, pick_to_date, sg!.getContext(), toDatePickerButton!.getID())
-    CALLBACK(ON_BUTTON_PUSH, display_chart, sg!.getContext(), okButton!.getID())
-
-    return
+    okButton! = win!.addButton(OK_BTN_CTL_ID,20,210,90,30,"Reload",$0800$)
     
     
-    rem ------------------------------------------------------------------------------------------
-    rem  Display the chart
-    rem ------------------------------------------------------------------------------------------
-
-display_chart:
-
     REM  Syntax for "addLineChart":
     
     REM  addLineChart(int controlID, 
@@ -158,7 +137,31 @@ display_chart:
     REM               int numSeries, boolean showLegend, string flags)
     
     lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,1000,550,"Time (Elapsed Hrs)","Licenses In Use",6,TRUE)
-    lineChart!.setTitle("Basis License Usage: " + fromDate!.getText() + " - " + toDate!.getText())
+    gosub populate_chart
+    
+
+    CALLBACK(ON_TOOL_BUTTON_PUSH, pick_from_date, sg!.getContext(), fromDatePickerButton!.getID())
+    CALLBACK(ON_TOOL_BUTTON_PUSH, pick_to_date, sg!.getContext(), toDatePickerButton!.getID())
+    CALLBACK(ON_BUTTON_PUSH, populate_chart, sg!.getContext(), okButton!.getID())
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Display the chart
+    rem ------------------------------------------------------------------------------------------
+
+populate_chart:
+
+    lineChart!.clearData()
+
+    if fromDate!.getText() = toDate!.getText() then
+        titleDatePortion$ = fromDate!.getText() 
+    else
+        titleDatePortion$ = fromDate!.getText() + " - " + toDate!.getText()
+    endif
+
+    lineChart!.setTitle("Basis License Usage: " + titleDatePortion$)
     lineChart!.setSeriesName(0, "All")
     lineChart!.setSeriesName(1, "root")
     lineChart!.setSeriesName(2, "offsite")
@@ -318,175 +321,5 @@ pick_from_date:
 pick_to_date:
 
     toDate!.calendar()
-
-    return
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Set to Month End Date
-    rem ------------------------------------------------------------------------------------------
-
-setMonthEnd:
-
-    TODAY = JUL(0,0,0)
-    Y = NUM(DATE(TODAY:"%Y"))
-    M = NUM(DATE(TODAY:"%M"))
-    FOR D=28 TO 30
-        ME = JUL(Y,M,D+1,ERR=*break)
-    NEXT D
-    fromDate!.setValue(JUL(Y,M,D))
-
-    RETURN
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Show popup calendar
-    rem ------------------------------------------------------------------------------------------
-
-PopupCalendar:
-
-    fromDate!.calendar()
-
-    RETURN
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Valid Date Entered?
-    rem ------------------------------------------------------------------------------------------
-
-VALIDATE_DATE:
-
-    IF fromDate!.isValid() THEN EXITTO GOOD_DATE
-    TEXT$ = CVS(fromDate!.getText(),7)
-    IF TEXT$="ME" THEN GOSUB setMonthEnd; EXITTO GOOD_DATE
-    
-    RETURN
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  keypress callback
-    rem ------------------------------------------------------------------------------------------
-
-KEYPRESS:
-
-    EVENT$=sg!.getLastEventString()
-    GENERIC_OBJECT$=NOTICE(SYSGUI,EVENT.X)
-    DIM NOTICE$:NOTICETPL(GENERIC_OBJECT.OBJTYPE,EVENT.FLAGS)
-    NOTICE$=GENERIC_OBJECT$
-    IF NOTICE.KEY$=$014C$ THEN GOSUB PopupCalendar
-
-    RETURN
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  OK pushed
-    rem ------------------------------------------------------------------------------------------
-
-OK_BUTTON_PUSHED:
-
-    RETURN
-
-
-    rem ------------------------------------------------------------------------------------------
-    rem  Continue button pushed
-    rem ------------------------------------------------------------------------------------------
-
-CONTINUE_BUTTON_PUSHED:
-    continueButton!.destroy()
-    lineChart!.destroy()
-
-    REM ********* Why do an EXITTO here? *******************
-    EXITTO DATE_CALLBACKS
-
-    RETURN
-
-    
-    rem ------------------------------------------------------------------------------------------
-    rem  Continue button pushed
-    rem ------------------------------------------------------------------------------------------
-
-original_logic_bad:
-
-RESTART: 
-
-    SYSGUI=1 
-    OPEN(SYSGUI)"X0"
-    
-    
-    DIM EVENT$:TMPL(SYSGUI),GENERIC_OBJECT$:NOTICETPL(0,0)
-    
-    sg! = BBjAPI().getSysGui()
-    win! = sg!.addWindow(50,50,1200,600,"Notions Marketing - BBx Licenses")
-    Text1! = win!.addStaticText(102,20,20,140,30,"Enter a Date","")
-    Text2! = win!.addStaticText(100,20,90,90,30,"Press [F2] for a Pop Up calendar")
-    fromDate! = win!.addInputD(101,20,50,90,30)
-    fromDate!.setMask("%Mz/%Dz/%Yl")
-    fromDate!.setPassTab(sg!.TRUE)
-    fromDatePickerButton! = win!.addToolButton(1,110,50,30,30,"BITMAP=calendar.png")
-    okButton! = win!.addButton(110,20,150,90,30,"OK",$0800$)
-    CALLBACK(ON_CLOSE,closeApp,sg!.getContext())
-
-    DATE_CALLBACKS: REM ----- Call Backs for Date Processing -----
-    fromDate!.focus()
-    CALLBACK(ON_LOST_FOCUS,VALIDATE_DATE,sg!.getContext(),fromDate!.getID())
-    CALLBACK(ON_INPUT_KEYPRESS,KEYPRESS,sg!.getContext(),fromDate!.getID())
-    CALLBACK(ON_TOOL_BUTTON_PUSH,PopupCalendar,sg!.getContext(),fromDatePickerButton!.getID())
-    CALLBACK(ON_BUTTON_PUSH,OK_BUTTON_PUSHED,sg!.getContext(),okButton!.getID())
-
-    PROCESS_EVENTS
-
-    GOOD_DATE: REM ----- Get Date -----
-    
-    REM  It's very odd that they let you type "ME" (for month-end) in a date field.
-    
-    D$=CVS(fromDate!.getText(),7)
-    DT=JUL(NUM(D$(7)),NUM(D$(1,2)),NUM(D$(4,2)))
-
-    OPEN(100)"bbx.license.csv"
-    READ(100)HEADINGS$
-    
-    REM  Syntax for "addLineChart":
-    
-    REM  addLineChart(int controlID, 
-    REM               int left, int top, int width, int height, 
-    REM               string xLabel, string yLabel, 
-    REM               int numSeries, boolean showLegend, string flags)
-    
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,800,500,"Time","Licenses In Use",5,1)
-    continueButton! = win!.addButton(120,555,550,90,30,"Continue",$0800$)
-    continueButton!.focus()
-    
-    lineChart!.setTitle("Non Pro/5 BBx License Usage - "+DATE(DT:"%Mz-%Dz-%Yl"))
-    lineChart!.setSeriesName(0,FNFIELD$(HEADINGS$,5))
-    lineChart!.setSeriesName(1,FNFIELD$(HEADINGS$,6))
-    lineChart!.setSeriesName(2,FNFIELD$(HEADINGS$,7))
-    lineChart!.setSeriesName(3,FNFIELD$(HEADINGS$,8))
-    lineChart!.setSeriesName(4,FNFIELD$(HEADINGS$,9))
-    
-    READ_DATA: REM ----- Get Data to Plot -----
-    READ(100,END=DONE)DATA$
-    IF FNFIELD$(DATA$,1)<>DATE(DT:"%Mz-%Dz-%Yl") THEN GOTO READ_DATA
-    T$=FNFIELD$(DATA$,2),T=NUM(T$(1,2))+NUM(T$(4,2))/60
-
-    lineChart!.setXYValue(0,T,NUM(FNFIELD$(DATA$,5)))
-    lineChart!.setXYValue(1,T,NUM(FNFIELD$(DATA$,6)))
-    lineChart!.setXYValue(2,T,NUM(FNFIELD$(DATA$,7)))
-    lineChart!.setXYValue(3,T,NUM(FNFIELD$(DATA$,8)))
-    lineChart!.setXYValue(4,T,NUM(FNFIELD$(DATA$,9)))
-
-    GOTO READ_DATA
-    DONE:
-    CLOSE (100)
-    
-    CALLBACK(ON_BUTTON_PUSH,CONTINUE_BUTTON_PUSHED,sg!.getContext(),continueButton!.getID())
-    
-    REMOVE_CALLBACK(ON_LOST_FOCUS,0,fromDate!.getID())
-    REMOVE_CALLBACK(ON_INPUT_KEYPRESS,0,fromDate!.getID())
-    REMOVE_CALLBACK(ON_TOOL_BUTTON_PUSH,0,fromDatePickerButton!.getID())
-    REMOVE_CALLBACK(ON_BUTTON_PUSH,0,okButton!.getID())
-    
-    PROCESS_EVENTS
-
-    GOTO RESTART
 
     return
