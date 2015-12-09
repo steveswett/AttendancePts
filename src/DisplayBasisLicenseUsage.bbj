@@ -136,7 +136,7 @@ display_controls:
     REM               string xLabel, string yLabel, 
     REM               int numSeries, boolean showLegend, string flags)
     
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,1000,550,"Time (Elapsed Hrs)","Licenses In Use",6,TRUE)
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,1000,550,"Time (Elapsed Hrs)","Licenses In Use",7,TRUE)
     gosub populate_chart
     
 
@@ -156,9 +156,11 @@ populate_chart:
     lineChart!.clearData()
 
     if fromDate!.getText() = toDate!.getText() then
-        titleDatePortion$ = fromDate!.getText() 
+        titleDatePortion$ = fromDate!.getText()
+        showDaySeries = FALSE 
     else
         titleDatePortion$ = fromDate!.getText() + " - " + toDate!.getText()
+        showDaySeries = TRUE 
     endif
 
     lineChart!.setTitle("Basis License Usage: " + titleDatePortion$)
@@ -168,6 +170,7 @@ populate_chart:
     lineChart!.setSeriesName(3, "palm")
     lineChart!.setSeriesName(4, "whse")
     lineChart!.setSeriesName(5, "other")
+    lineChart!.setSeriesName(6, "1 day")
 
     licenseCountsMap! = new java.util.LinkedHashMap()
     
@@ -205,6 +208,11 @@ populate_chart:
     seriesUserId$ = "other"
     gosub populate_data_for_series
 
+    if showDaySeries and yyyymmddTo$ > yyyymmddFrom$ then
+        seriesIndex = 6
+        gosub populate_day_series
+    endif
+    
     return
     
     
@@ -288,7 +296,36 @@ populate_data_for_series:
       lineChart!.setXYValue(seriesIndex, tmpTotalHrs, licensesUsed)
       
     wend
+    
 
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Use a series to give a visual cue for the span of each day
+    rem ------------------------------------------------------------------------------------------
+
+populate_day_series:
+
+    call "DateUtilities.bbj::get_days_between_inclusive", yyyymmddFrom$, yyyymmddTo$, daysBetweenInclusive
+
+        lineChart!.setXYValue(seriesIndex, 0, 0)
+        
+        y = 0
+        
+        for dayNo = 1 to daysBetweenInclusive
+
+            y = y - 20
+            x1 = (dayNo * 24) - 23.9
+            x2 = (dayNo * 24) - 0.1
+            x3 = (dayNo * 24)
+            
+            lineChart!.setXYValue(seriesIndex, x1, y)
+            lineChart!.setXYValue(seriesIndex, x2, y)
+            lineChart!.setXYValue(seriesIndex, x3, 0)
+
+        next dayNo
+         
     return
     
     
