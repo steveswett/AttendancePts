@@ -1,5 +1,5 @@
 REM /**
-REM  * BasisConnectionStatistics.bbj
+REM  * BasisConnectionStatisticsDAO.bbj
 REM  * @author stevett
 REM  *
 REM  * Written: December 9, 2015
@@ -246,7 +246,7 @@ setup_constants:
 :       "CollectionTime, " + 
 :       "count(*) as ConnectionCount " +
 :       "from BasisConnectionStatistics " +
-:       "where CollectionTime between ? and ? " +
+:       "where CollectionTime between ? and ? and " +
 :       "UserId = ? " +
 :       "group by CollectionTime " +
 :       "order by CollectionTime"
@@ -257,7 +257,7 @@ setup_constants:
 :       "CollectionTime, " + 
 :       "count(*) as ConnectionCount " +
 :       "from BasisConnectionStatistics " +
-:       "where CollectionTime between ? and ? " +
+:       "where CollectionTime between ? and ? and " +
 :       "UserId not in(?,?,?,?) " +
 :       "group by CollectionTime " +
 :       "order by CollectionTime"

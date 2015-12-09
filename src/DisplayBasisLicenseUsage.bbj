@@ -20,6 +20,7 @@ declare BBjInputD toDate!
 declare BBjStaticText toDateCaption!
 declare BBjToolButton toDatePickerButton!
 
+
 declare BBjStaticText licensesCaption!
 
 declare BBjCheckBox licAllCheckBox!
@@ -28,6 +29,17 @@ declare BBjCheckBox licOffsiteCheckBox!
 declare BBjCheckBox licPalmCheckBox!
 declare BBjCheckBox licWhseCheckBox!
 declare BBjCheckBox licOtherCheckBox!
+
+
+declare BBjStaticText connectionsCaption!
+
+declare BBjCheckBox conAllCheckBox!
+declare BBjCheckBox conPortalCheckBox!
+declare BBjCheckBox conIntegrationsCheckBox!
+declare BBjCheckBox conJohnCheckBox!
+declare BBjCheckBox conBlueMirrorCheckBox!
+declare BBjCheckBox conOtherCheckBox!
+
 
 declare BBjButton reloadButton!
 
@@ -62,6 +74,14 @@ constants:
     LIC_PALM_CHK_BOX_CTL_ID = 405
     LIC_WHSE_CHK_BOX_CTL_ID = 406
     LIC_OTHER_CHK_BOX_CTL_ID = 407
+
+    CON_CAPTION_CTL_ID = 501
+    CON_ALL_CHK_BOX_CTL_ID = 502
+    CON_PORTAL_CHK_BOX_CTL_ID = 503
+    CON_INTEGRATIONS_CHK_BOX_CTL_ID = 504
+    CON_JOHN_CHK_BOX_CTL_ID = 505
+    CON_BLUE_MIRROR_CHK_BOX_CTL_ID = 506
+    CON_OTHER_CHK_BOX_CTL_ID = 507
 
     RELOAD_BTN_CTL_ID = 110
     
@@ -107,7 +127,7 @@ display_window:
     OPEN(sysguiChannel)"X0"
     
     sg! = BBjAPI().getSysGui()
-    win! = sg!.addWindow(50,50,1200,600,"Notions Marketing - Basis License Usage (DisplayBasisLicenseUsage.bbj)")
+    win! = sg!.addWindow(50, 50, 1200, 650, "Notions Marketing - Basis License Usage (DisplayBasisLicenseUsage.bbj)")
 
     CALLBACK(ON_CLOSE, close_window, sg!.getContext())
 
@@ -139,7 +159,7 @@ display_controls:
     
     toDatePickerButton! = win!.addToolButton(TO_DATE_PICKER_ID, 90, 120,30,30,"BITMAP=calendar.png")
     
-    REM  Write out checkboxes:
+    REM  Write out license checkboxes:
     
     licensesCaption! = win!.addStaticText(LIC_CAPTION_CTL_ID, 20, 180, 140, 30, "Licenses", "")
     
@@ -161,8 +181,30 @@ display_controls:
     licOtherCheckBox! = win!.addCheckBox(LIC_OTHER_CHK_BOX_CTL_ID, 20, 320, 140, 30, "other")
     licOtherCheckBox!.setSelected(TRUE)
     
+    REM  Write out connection checkboxes:
     
-    reloadButton! = win!.addButton(RELOAD_BTN_CTL_ID,20,420,90,30,"Reload",$0800$)
+    connectionsCaption! = win!.addStaticText(CON_CAPTION_CTL_ID, 20, 380, 140, 30, "J/ODBC Connections", "")
+    
+    conAllCheckBox! = win!.addCheckBox(CON_ALL_CHK_BOX_CTL_ID, 20, 395, 140, 30, "All")
+    conAllCheckBox!.setSelected(TRUE)
+    
+    conPortalCheckBox! = win!.addCheckBox(CON_PORTAL_CHK_BOX_CTL_ID, 20, 420, 140, 30, "portal_user")
+    conPortalCheckBox!.setSelected(TRUE)
+    
+    conIntegrationsCheckBox! = win!.addCheckBox(CON_INTEGRATIONS_CHK_BOX_CTL_ID, 20, 445, 140, 30, "integrations")
+    conIntegrationsCheckBox!.setSelected(TRUE)
+    
+    conJohnCheckBox! = win!.addCheckBox(CON_JOHN_CHK_BOX_CTL_ID, 20, 470, 140, 30, "john")
+    conJohnCheckBox!.setSelected(FALSE)
+    
+    conBlueMirrorCheckBox! = win!.addCheckBox(CON_BLUE_MIRROR_CHK_BOX_CTL_ID, 20, 495, 140, 30, "bluemirror")
+    conBlueMirrorCheckBox!.setSelected(FALSE)
+    
+    conOtherCheckBox! = win!.addCheckBox(CON_OTHER_CHK_BOX_CTL_ID, 20, 520, 140, 30, "other")
+    conOtherCheckBox!.setSelected(FALSE)
+    
+    
+    reloadButton! = win!.addButton(RELOAD_BTN_CTL_ID, 20, 580, 90, 30, "Reload", $0800$)
     
     
     REM  Syntax for "addLineChart":
@@ -172,7 +214,7 @@ display_controls:
     REM               string xLabel, string yLabel, 
     REM               int numSeries, boolean showLegend, string flags)
     
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID,150,10,1000,550,"Time (Elapsed Hrs)","Licenses In Use",7,TRUE)
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 150, 10, 1000, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
     gosub populate_chart
     
 
@@ -207,6 +249,12 @@ populate_chart:
     lineChart!.setSeriesName(4, "whse")
     lineChart!.setSeriesName(5, "other")
     lineChart!.setSeriesName(6, "1 day")
+    lineChart!.setSeriesName(7, "DB All")
+    lineChart!.setSeriesName(8, "DB portal_user")
+    lineChart!.setSeriesName(9, "DB integrations")
+    lineChart!.setSeriesName(10, "DB john")
+    lineChart!.setSeriesName(11, "DB bluemirror")
+    lineChart!.setSeriesName(12, "DB other")
 
     licenseCountsMap! = new java.util.LinkedHashMap()
     
@@ -251,13 +299,46 @@ populate_chart:
     
     if licOtherCheckBox!.isSelected() then
         seriesIndex = 5
-        seriesUserId$ = "other"
         gosub populate_data_for_series
     endif
 
     if showDaySeries and yyyymmddTo$ > yyyymmddFrom$ then
         seriesIndex = 6
         gosub populate_day_series
+    endif
+    
+    if conAllCheckBox!.isSelected() then
+        seriesIndex = 7
+        gosub populate_data_for_series
+    endif
+    
+    if conPortalCheckBox!.isSelected() then
+        seriesIndex = 8
+        seriesUserId$ = "portal_user"
+        gosub populate_data_for_series
+    endif
+    
+    if conIntegrationsCheckBox!.isSelected() then
+        seriesIndex = 9
+        seriesUserId$ = "integrations"
+        gosub populate_data_for_series
+    endif
+    
+    if conJohnCheckBox!.isSelected() then
+        seriesIndex = 10
+        seriesUserId$ = "john"
+        gosub populate_data_for_series
+    endif
+    
+    if conBlueMirrorCheckBox!.isSelected() then
+        seriesIndex = 11
+        seriesUserId$ = "bluemirror"
+        gosub populate_data_for_series
+    endif
+    
+    if conOtherCheckBox!.isSelected() then
+        seriesIndex = 12
+        gosub populate_data_for_series
     endif
     
     return
@@ -293,6 +374,30 @@ populate_data_for_series:
     
         case 5
             call "BasisLicenseUsageDAO.bbj::get_counts_except_for_four_users", yyyymmddFrom$, yyyymmddTo$, "root", "whse", "offsite", "palm", licenseCountsMap!
+            break
+    
+        case 7
+            call "BasisConnectionStatisticsDAO.bbj::get_counts_for_all_users", yyyymmddFrom$, yyyymmddTo$, licenseCountsMap!
+            break
+    
+        case 8
+            call "BasisConnectionStatisticsDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 9
+            call "BasisConnectionStatisticsDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 10
+            call "BasisConnectionStatisticsDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 11
+            call "BasisConnectionStatisticsDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
+            break
+    
+        case 12
+            call "BasisConnectionStatisticsDAO.bbj::get_counts_except_for_four_users", yyyymmddFrom$, yyyymmddTo$, "portal_user", "integrations", "john", "bluemirror", licenseCountsMap!
             break
     
     swend
