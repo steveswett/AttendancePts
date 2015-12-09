@@ -3,7 +3,11 @@ REM  * DisplayBasisLicenseUsage.bbj
 REM  * @author stevett
 REM  *
 REM  * Written: December 6th, 8th 2015
-REM  * 
+REM  *
+REM  * Apparently, you can customize behavior further by grabbing a JFreeChart and manipulating at a lower
+REM  * level.  See https://groups.google.com/d/msg/bbj-developer/_10TW_20KWE/jiRWk3rm_QAJ
+REM  * and http://www.jfree.org/jfreechart/api/javadoc/index.html .
+REM  *  
 REM  */
 
 
@@ -245,10 +249,10 @@ populate_chart:
     lineChart!.setSeriesName(0, "All")
     lineChart!.setSeriesName(1, "root")
     lineChart!.setSeriesName(2, "offsite")
-    lineChart!.setSeriesName(3, "palm")
+    lineChart!.setSeriesName(3, "1 day")
     lineChart!.setSeriesName(4, "whse")
     lineChart!.setSeriesName(5, "other")
-    lineChart!.setSeriesName(6, "1 day")
+    lineChart!.setSeriesName(6, "palm")
     lineChart!.setSeriesName(7, "DB All")
     lineChart!.setSeriesName(8, "DB portal_user")
     lineChart!.setSeriesName(9, "DB integrations")
@@ -284,11 +288,10 @@ populate_chart:
         seriesUserId$ = "offsite"
         gosub populate_data_for_series
     endif
-    
-    if licPalmCheckBox!.isSelected() then
+
+    if showDaySeries and yyyymmddTo$ > yyyymmddFrom$ then
         seriesIndex = 3
-        seriesUserId$ = "palm"
-        gosub populate_data_for_series
+        gosub populate_day_series
     endif
     
     if licWhseCheckBox!.isSelected() then
@@ -301,10 +304,11 @@ populate_chart:
         seriesIndex = 5
         gosub populate_data_for_series
     endif
-
-    if showDaySeries and yyyymmddTo$ > yyyymmddFrom$ then
+    
+    if licPalmCheckBox!.isSelected() then
         seriesIndex = 6
-        gosub populate_day_series
+        seriesUserId$ = "palm"
+        gosub populate_data_for_series
     endif
     
     if conAllCheckBox!.isSelected() then
@@ -364,16 +368,16 @@ populate_data_for_series:
             call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
             break
     
-        case 3
-            call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
-            break
-    
         case 4
             call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
             break
     
         case 5
             call "BasisLicenseUsageDAO.bbj::get_counts_except_for_four_users", yyyymmddFrom$, yyyymmddTo$, "root", "whse", "offsite", "palm", licenseCountsMap!
+            break
+    
+        case 6
+            call "BasisLicenseUsageDAO.bbj::get_counts_for_one_user", yyyymmddFrom$, yyyymmddTo$, seriesUserId$, licenseCountsMap!
             break
     
         case 7
