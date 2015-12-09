@@ -10,9 +10,17 @@ REM  */
 
 
 use java.util.HashMap
+use java.lang.String
+use org.apache.commons.codec.binary.Base64
 
 declare java.util.HashMap recordsMap!
 declare java.util.HashMap oneRecordMap!
+
+
+declare java.lang.String encodedEncrypted!
+declare java.lang.String decoded!
+declare java.lang.String decrypted!
+
 
 
 begin
@@ -36,12 +44,18 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
+    call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
+
+
+    REM  Process licenses:
 
         gosub prep_and_open_lmstat_file
-
-        gosub process_input_records
-
+        gosub process_lmstat_input_records
         gosub close_lmstat_file
+
+    REM  Process database connections:
+    
+        gosub load_database_connections
 
 
 
@@ -58,12 +72,67 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 
     rem ------------------------------------------------------------------------------------------
+    rem  Load database connections into BasisConnectionStatistics table
+    rem ------------------------------------------------------------------------------------------
+    
+load_database_connections:
+
+    call "ConfigVarsDAO.bbj::get_value", "cryptpass", configVarFound, configVarDataType$, cryptpass$
+
+    call "ConfigVarsDAO.bbj::get_value", "bbj.services.admin.user", configVarFound, configVarDataType$, adminUser$
+
+    call "ConfigVarsDAO.bbj::get_value", "bbj.services.admin.hex.encrypted.password", configVarFound, configVarDataType$, adminEncryptedPwd$
+    
+    hexEncrypted$ = ath(adminEncryptedPwd$)
+    adminDecryptedPwd$ = decrypt(hexEncrypted$,mode="cryptpass=" + cryptpass$)
+    admin!=BBjAPI().getAdmin(adminUser$, adminDecryptedPwd$)
+
+    connectionsVector! = admin!.getJdbcOdbcConnections()
+    
+    connectionCount = connectionsVector!.size()
+    
+    if connectionCount > 0 then
+    
+        recordsMap! = new java.util.HashMap()
+    
+        for i = 0 to connectionCount - 1
+        
+            connectionInfo! = connectionsVector!.get(i)
+    
+            oneRecordMap! = new java.util.HashMap()
+            
+            connectionId = num(connectionInfo!.getID())
+            user$ = str(connectionInfo!.getUser())
+            host$ = str(connectionInfo!.getHost())
+            dbName$ = str(connectionInfo!.getDatabase())
+            connectTime$ = str(connectionInfo!.getConnectTime())
+            connectTime$ = connectTime$(1, 19)
+            
+            oneRecordMap!.put("user", user$)
+            oneRecordMap!.put("host", host$)
+            oneRecordMap!.put("db_name", dbName$)
+            oneRecordMap!.put("connect_time", connectTime$)
+            
+            recordsMap!.put(connectionId, oneRecordMap!)
+            
+        next i
+        
+        REM  Write connection info to database:
+        
+        call "BasisConnectionStatisticsDAO.bbj::add_connection_records", currentTimestamp$, recordsMap!
+
+        
+    endif
+
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
     rem  Prepare and open "lmstat" file
     rem ------------------------------------------------------------------------------------------
     
 prep_and_open_lmstat_file:
-
-    call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
 
     lmstatCmdOutputFile$ = "/tmp/lmstat-" + currentTimestamp$ + ".txt"
 
@@ -95,7 +164,7 @@ close_lmstat_file:
     rem  recordsMap! for sending to the database.
     rem ------------------------------------------------------------------------------------------
     
-process_input_records:
+process_lmstat_input_records:
 
     recordsMap! = new java.util.HashMap()
 
@@ -108,7 +177,7 @@ process_input_records:
         
         recordNo = recordNo + 1
         
-        gosub read_one_record
+        gosub read_one_lmstat_record
     
     wend
     
@@ -123,7 +192,7 @@ process_input_records:
     rem  Read one record
     rem ------------------------------------------------------------------------------------------
     
-read_one_record:
+read_one_lmstat_record:
 
     REM  Sample record: 
     REM  
