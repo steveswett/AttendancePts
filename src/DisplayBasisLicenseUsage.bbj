@@ -20,7 +20,16 @@ declare BBjInputD toDate!
 declare BBjStaticText toDateCaption!
 declare BBjToolButton toDatePickerButton!
 
-declare BBjButton okButton!
+declare BBjStaticText licensesCaption!
+
+declare BBjCheckBox licAllCheckBox!
+declare BBjCheckBox licRootCheckBox!
+declare BBjCheckBox licOffsiteCheckBox!
+declare BBjCheckBox licPalmCheckBox!
+declare BBjCheckBox licWhseCheckBox!
+declare BBjCheckBox licOtherCheckBox!
+
+declare BBjButton reloadButton!
 
 declare BBjLineChart lineChart!
 
@@ -46,7 +55,15 @@ constants:
     TO_DATE_CAPTION_CTL_ID = 202
     TO_DATE_PICKER_ID = 203
 
-    OK_BTN_CTL_ID = 110
+    LIC_CAPTION_CTL_ID = 401
+    LIC_ALL_CHK_BOX_CTL_ID = 402
+    LIC_ROOT_CHK_BOX_CTL_ID = 403
+    LIC_OFFSITE_CHK_BOX_CTL_ID = 404
+    LIC_PALM_CHK_BOX_CTL_ID = 405
+    LIC_WHSE_CHK_BOX_CTL_ID = 406
+    LIC_OTHER_CHK_BOX_CTL_ID = 407
+
+    RELOAD_BTN_CTL_ID = 110
     
     LINE_CHART_CTL_ID = 301
     
@@ -72,8 +89,6 @@ main_routine:
 rem *- - - - - - - - - - EOJ - - - - - - - - - -*
 
 eoj:
-
-    release
     
     end
 
@@ -107,26 +122,47 @@ display_controls:
 
     fromDateCaption! = win!.addStaticText(FROM_DATE_CAPTION_CTL_ID, 20, 20, 140, 30, "From Date", "")
 
-    fromDate! = win!.addInputD(FROM_DATE_CTL_ID,20,50,DATE_CTL_WIDTH,30)
+    fromDate! = win!.addInputD(FROM_DATE_CTL_ID, 20, 40, DATE_CTL_WIDTH, 30)
     fromDate!.setMask("%Mz/%Dz/%Yz")
     fromDate!.setPassTab(sg!.TRUE)
+    fromDate!.setEditable(FALSE)
     
-    REM  The following works, if used
-    REM  fromDate!.setEditable(FALSE)
-    
-    fromDatePickerButton! = win!.addToolButton(FROM_DATE_PICKER_ID,90,50,30,30,"BITMAP=calendar.png")
+    fromDatePickerButton! = win!.addToolButton(FROM_DATE_PICKER_ID, 90, 40,30,30,"BITMAP=calendar.png")
 
 
-    toDateCaption! = win!.addStaticText(TO_DATE_CAPTION_CTL_ID, 20, 110, 140, 30, "To Date", "")
+    toDateCaption! = win!.addStaticText(TO_DATE_CAPTION_CTL_ID, 20, 100, 140, 30, "To Date", "")
 
-    toDate! = win!.addInputD(TO_DATE_CTL_ID,20,140,DATE_CTL_WIDTH,30)
+    toDate! = win!.addInputD(TO_DATE_CTL_ID, 20, 120, DATE_CTL_WIDTH,30)
     toDate!.setMask("%Mz/%Dz/%Yz")
     toDate!.setPassTab(sg!.TRUE)
+    toDate!.setEditable(FALSE)
     
-    toDatePickerButton! = win!.addToolButton(TO_DATE_PICKER_ID,90,140,30,30,"BITMAP=calendar.png")
+    toDatePickerButton! = win!.addToolButton(TO_DATE_PICKER_ID, 90, 120,30,30,"BITMAP=calendar.png")
+    
+    REM  Write out checkboxes:
+    
+    licensesCaption! = win!.addStaticText(LIC_CAPTION_CTL_ID, 20, 180, 140, 30, "Licenses", "")
+    
+    licAllCheckBox! = win!.addCheckBox(LIC_ALL_CHK_BOX_CTL_ID, 20, 195, 140, 30, "All")
+    licAllCheckBox!.setSelected(TRUE)
+    
+    licRootCheckBox! = win!.addCheckBox(LIC_ROOT_CHK_BOX_CTL_ID, 20, 220, 140, 30, "root")
+    licRootCheckBox!.setSelected(TRUE)
+    
+    licOffsiteCheckBox! = win!.addCheckBox(LIC_OFFSITE_CHK_BOX_CTL_ID, 20, 245, 140, 30, "offsite")
+    licOffsiteCheckBox!.setSelected(FALSE)
+    
+    licPalmCheckBox! = win!.addCheckBox(LIC_PALM_CHK_BOX_CTL_ID, 20, 270, 140, 30, "palm")
+    licPalmCheckBox!.setSelected(FALSE)
+    
+    licWhseCheckBox! = win!.addCheckBox(LIC_WHSE_CHK_BOX_CTL_ID, 20, 295, 140, 30, "whse")
+    licWhseCheckBox!.setSelected(TRUE)
+    
+    licOtherCheckBox! = win!.addCheckBox(LIC_OTHER_CHK_BOX_CTL_ID, 20, 320, 140, 30, "other")
+    licOtherCheckBox!.setSelected(TRUE)
     
     
-    okButton! = win!.addButton(OK_BTN_CTL_ID,20,210,90,30,"Reload",$0800$)
+    reloadButton! = win!.addButton(RELOAD_BTN_CTL_ID,20,420,90,30,"Reload",$0800$)
     
     
     REM  Syntax for "addLineChart":
@@ -142,7 +178,7 @@ display_controls:
 
     CALLBACK(ON_TOOL_BUTTON_PUSH, pick_from_date, sg!.getContext(), fromDatePickerButton!.getID())
     CALLBACK(ON_TOOL_BUTTON_PUSH, pick_to_date, sg!.getContext(), toDatePickerButton!.getID())
-    CALLBACK(ON_BUTTON_PUSH, populate_chart, sg!.getContext(), okButton!.getID())
+    CALLBACK(ON_BUTTON_PUSH, populate_chart, sg!.getContext(), reloadButton!.getID())
 
     return
     
@@ -184,29 +220,40 @@ populate_chart:
     tmpMMDDYY$ = tmpDate$(1,2) + tmpDate$(4,2) + tmpDate$(7,2)   
     call "DateUtilities.bbj::convert_mmdddyy_to_20yymmdd", tmpMMDDYY$, yyyymmddTo$
     
+    if licAllCheckBox!.isSelected() then
+        seriesIndex = 0
+        gosub populate_data_for_series
+    endif
     
-    seriesIndex = 0
-    gosub populate_data_for_series
+    if licRootCheckBox!.isSelected() then
+        seriesIndex = 1
+        seriesUserId$ = "root"
+        gosub populate_data_for_series
+    endif
     
-    seriesIndex = 1
-    seriesUserId$ = "root"
-    gosub populate_data_for_series
+    if licOffsiteCheckBox!.isSelected() then
+        seriesIndex = 2
+        seriesUserId$ = "offsite"
+        gosub populate_data_for_series
+    endif
     
-    seriesIndex = 2
-    seriesUserId$ = "offsite"
-    gosub populate_data_for_series
+    if licPalmCheckBox!.isSelected() then
+        seriesIndex = 3
+        seriesUserId$ = "palm"
+        gosub populate_data_for_series
+    endif
     
-    seriesIndex = 3
-    seriesUserId$ = "palm"
-    gosub populate_data_for_series
+    if licWhseCheckBox!.isSelected() then
+        seriesIndex = 4
+        seriesUserId$ = "whse"
+        gosub populate_data_for_series
+    endif
     
-    seriesIndex = 4
-    seriesUserId$ = "whse"
-    gosub populate_data_for_series
-    
-    seriesIndex = 5
-    seriesUserId$ = "other"
-    gosub populate_data_for_series
+    if licOtherCheckBox!.isSelected() then
+        seriesIndex = 5
+        seriesUserId$ = "other"
+        gosub populate_data_for_series
+    endif
 
     if showDaySeries and yyyymmddTo$ > yyyymmddFrom$ then
         seriesIndex = 6
@@ -311,11 +358,19 @@ populate_day_series:
 
         lineChart!.setXYValue(seriesIndex, 0, 0)
         
-        y = 0
+        y = -20
+        isOdd = TRUE
         
         for dayNo = 1 to daysBetweenInclusive
 
-            y = y - 20
+            if isOdd then
+                y = y - 20
+                isOdd = FALSE
+            else
+                y = y + 20
+                isOdd = TRUE
+            endif
+            
             x1 = (dayNo * 24) - 23.9
             x2 = (dayNo * 24) - 0.1
             x3 = (dayNo * 24)
@@ -337,7 +392,7 @@ close_window:
 
     close(sysguiChannel)
     
-    bye
+    release
     
     return
 
