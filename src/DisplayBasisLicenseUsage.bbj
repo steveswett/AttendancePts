@@ -180,7 +180,7 @@ display_controls:
     licensesCaption! = win!.addStaticText(LIC_CAPTION_CTL_ID, 20, 180, 60, 30, "Licenses", "")
     
     licAllButton! = win!.addButton(LIC_ALL_BTN_CTL_ID, 75, 175, 35, 20, "All", $0800$)
-    licNoneButton! = win!.addButton(LIC_NONE_BTN_CTL_ID, 115, 175, 35, 20, "None", $0800$)
+    licNoneButton! = win!.addButton(LIC_NONE_BTN_CTL_ID, 115, 175, 45, 20, "None", $0800$)
     
     
     licAllCheckBox! = win!.addCheckBox(LIC_ALL_CHK_BOX_CTL_ID, 20, 195, 80, 30, "All")
@@ -206,7 +206,7 @@ display_controls:
     connectionsCaption! = win!.addStaticText(CON_CAPTION_CTL_ID, 20, 380, 60, 30, "DB Conns", "")
     
     conAllButton! = win!.addButton(CON_ALL_BTN_CTL_ID, 80, 375, 35, 20, "All", $0800$)
-    conNoneButton! = win!.addButton(CON_NONE_BTN_CTL_ID, 120, 375, 35, 20, "None", $0800$)
+    conNoneButton! = win!.addButton(CON_NONE_BTN_CTL_ID, 120, 375, 45, 20, "None", $0800$)
     
     conAllCheckBox! = win!.addCheckBox(CON_ALL_CHK_BOX_CTL_ID, 20, 395, 140, 30, "All")
     conAllCheckBox!.setSelected(TRUE)
@@ -237,7 +237,7 @@ display_controls:
     REM               string xLabel, string yLabel, 
     REM               int numSeries, boolean showLegend, string flags)
     
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 180, 20, 1000, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 190, 20, 990, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
     gosub populate_chart
     
 
