@@ -8,6 +8,10 @@ REM  * Apparently, you can customize behavior further by grabbing a JFreeChart a
 REM  * level.  See https://groups.google.com/d/msg/bbj-developer/_10TW_20KWE/jiRWk3rm_QAJ
 REM  * and http://www.jfree.org/jfreechart/api/javadoc/index.html .
 REM  *  
+REM  * TODO: Get rid of redundancy.  In each category, licenses and DB connections, there are 6 subcategories
+REM  * of stuff (checkboxes, line chart series, etc.).  Seems like an array or some sort of collection
+REM  * structure could be used to reduce redundancy.
+REM  * 
 REM  */
 
 
@@ -45,6 +49,10 @@ declare BBjCheckBox conBlueMirrorCheckBox!
 declare BBjCheckBox conOtherCheckBox!
 
 
+declare BBjButton licAllButton!
+declare BBjButton licNoneButton!
+declare BBjButton conAllButton!
+declare BBjButton conNoneButton!
 declare BBjButton reloadButton!
 
 declare BBjLineChart lineChart!
@@ -72,6 +80,8 @@ constants:
     TO_DATE_PICKER_ID = 203
 
     LIC_CAPTION_CTL_ID = 401
+    LIC_ALL_BTN_CTL_ID = 408
+    LIC_NONE_BTN_CTL_ID = 409
     LIC_ALL_CHK_BOX_CTL_ID = 402
     LIC_ROOT_CHK_BOX_CTL_ID = 403
     LIC_OFFSITE_CHK_BOX_CTL_ID = 404
@@ -80,6 +90,8 @@ constants:
     LIC_OTHER_CHK_BOX_CTL_ID = 407
 
     CON_CAPTION_CTL_ID = 501
+    CON_ALL_BTN_CTL_ID = 508
+    CON_NONE_BTN_CTL_ID = 509
     CON_ALL_CHK_BOX_CTL_ID = 502
     CON_PORTAL_CHK_BOX_CTL_ID = 503
     CON_INTEGRATIONS_CHK_BOX_CTL_ID = 504
@@ -165,29 +177,36 @@ display_controls:
     
     REM  Write out license checkboxes:
     
-    licensesCaption! = win!.addStaticText(LIC_CAPTION_CTL_ID, 20, 180, 140, 30, "Licenses", "")
+    licensesCaption! = win!.addStaticText(LIC_CAPTION_CTL_ID, 20, 180, 60, 30, "Licenses", "")
     
-    licAllCheckBox! = win!.addCheckBox(LIC_ALL_CHK_BOX_CTL_ID, 20, 195, 140, 30, "All")
+    licAllButton! = win!.addButton(LIC_ALL_BTN_CTL_ID, 75, 175, 35, 20, "All", $0800$)
+    licNoneButton! = win!.addButton(LIC_NONE_BTN_CTL_ID, 115, 175, 35, 20, "None", $0800$)
+    
+    
+    licAllCheckBox! = win!.addCheckBox(LIC_ALL_CHK_BOX_CTL_ID, 20, 195, 80, 30, "All")
     licAllCheckBox!.setSelected(TRUE)
     
-    licRootCheckBox! = win!.addCheckBox(LIC_ROOT_CHK_BOX_CTL_ID, 20, 220, 140, 30, "root")
+    licRootCheckBox! = win!.addCheckBox(LIC_ROOT_CHK_BOX_CTL_ID, 20, 220, 80, 30, "root")
     licRootCheckBox!.setSelected(TRUE)
     
-    licOffsiteCheckBox! = win!.addCheckBox(LIC_OFFSITE_CHK_BOX_CTL_ID, 20, 245, 140, 30, "offsite")
+    licOffsiteCheckBox! = win!.addCheckBox(LIC_OFFSITE_CHK_BOX_CTL_ID, 20, 245, 80, 30, "offsite")
     licOffsiteCheckBox!.setSelected(FALSE)
     
-    licPalmCheckBox! = win!.addCheckBox(LIC_PALM_CHK_BOX_CTL_ID, 20, 270, 140, 30, "palm")
+    licPalmCheckBox! = win!.addCheckBox(LIC_PALM_CHK_BOX_CTL_ID, 20, 270, 80, 30, "palm")
     licPalmCheckBox!.setSelected(FALSE)
     
-    licWhseCheckBox! = win!.addCheckBox(LIC_WHSE_CHK_BOX_CTL_ID, 20, 295, 140, 30, "whse")
+    licWhseCheckBox! = win!.addCheckBox(LIC_WHSE_CHK_BOX_CTL_ID, 20, 295, 80, 30, "whse")
     licWhseCheckBox!.setSelected(TRUE)
     
-    licOtherCheckBox! = win!.addCheckBox(LIC_OTHER_CHK_BOX_CTL_ID, 20, 320, 140, 30, "other")
+    licOtherCheckBox! = win!.addCheckBox(LIC_OTHER_CHK_BOX_CTL_ID, 20, 320, 80, 30, "other")
     licOtherCheckBox!.setSelected(TRUE)
     
     REM  Write out connection checkboxes:
     
-    connectionsCaption! = win!.addStaticText(CON_CAPTION_CTL_ID, 20, 380, 140, 30, "J/ODBC Connections", "")
+    connectionsCaption! = win!.addStaticText(CON_CAPTION_CTL_ID, 20, 380, 60, 30, "DB Conns", "")
+    
+    conAllButton! = win!.addButton(CON_ALL_BTN_CTL_ID, 80, 375, 35, 20, "All", $0800$)
+    conNoneButton! = win!.addButton(CON_NONE_BTN_CTL_ID, 120, 375, 35, 20, "None", $0800$)
     
     conAllCheckBox! = win!.addCheckBox(CON_ALL_CHK_BOX_CTL_ID, 20, 395, 140, 30, "All")
     conAllCheckBox!.setSelected(TRUE)
@@ -208,7 +227,7 @@ display_controls:
     conOtherCheckBox!.setSelected(FALSE)
     
     
-    reloadButton! = win!.addButton(RELOAD_BTN_CTL_ID, 20, 580, 90, 30, "Reload", $0800$)
+    reloadButton! = win!.addButton(RELOAD_BTN_CTL_ID, 20, 590, 90, 30, "Reload", $0800$)
     
     
     REM  Syntax for "addLineChart":
@@ -218,16 +237,87 @@ display_controls:
     REM               string xLabel, string yLabel, 
     REM               int numSeries, boolean showLegend, string flags)
     
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 150, 10, 1000, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 180, 20, 1000, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
     gosub populate_chart
     
 
     CALLBACK(ON_TOOL_BUTTON_PUSH, pick_from_date, sg!.getContext(), fromDatePickerButton!.getID())
     CALLBACK(ON_TOOL_BUTTON_PUSH, pick_to_date, sg!.getContext(), toDatePickerButton!.getID())
+
     CALLBACK(ON_BUTTON_PUSH, populate_chart, sg!.getContext(), reloadButton!.getID())
+
+    CALLBACK(ON_BUTTON_PUSH, select_all_licenses, sg!.getContext(), licAllButton!.getID())
+    CALLBACK(ON_BUTTON_PUSH, select_no_licenses, sg!.getContext(), licNoneButton!.getID())
+
+    CALLBACK(ON_BUTTON_PUSH, select_all_conns, sg!.getContext(), conAllButton!.getID())
+    CALLBACK(ON_BUTTON_PUSH, select_no_conns, sg!.getContext(), conNoneButton!.getID())
 
     return
     
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Licenses - "All" button pushed
+    rem ------------------------------------------------------------------------------------------
+
+select_all_licenses:
+
+    licAllCheckBox!.setSelected(TRUE)
+    licRootCheckBox!.setSelected(TRUE)
+    licOffsiteCheckBox!.setSelected(TRUE)
+    licPalmCheckBox!.setSelected(TRUE)
+    licWhseCheckBox!.setSelected(TRUE)
+    licOtherCheckBox!.setSelected(TRUE)
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Licenses - "None" button pushed
+    rem ------------------------------------------------------------------------------------------
+
+select_no_licenses:
+
+    licAllCheckBox!.setSelected(FALSE)
+    licRootCheckBox!.setSelected(FALSE)
+    licOffsiteCheckBox!.setSelected(FALSE)
+    licPalmCheckBox!.setSelected(FALSE)
+    licWhseCheckBox!.setSelected(FALSE)
+    licOtherCheckBox!.setSelected(FALSE)
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Connections - "All" button pushed
+    rem ------------------------------------------------------------------------------------------
+
+select_all_conns:
+
+    conAllCheckBox!.setSelected(TRUE)
+    conPortalCheckBox!.setSelected(TRUE)
+    conIntegrationsCheckBox!.setSelected(TRUE)
+    conJohnCheckBox!.setSelected(TRUE)
+    conBlueMirrorCheckBox!.setSelected(TRUE)
+    conOtherCheckBox!.setSelected(TRUE)
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Connections - "None" button pushed
+    rem ------------------------------------------------------------------------------------------
+
+select_no_conns:
+
+    conAllCheckBox!.setSelected(FALSE)
+    conPortalCheckBox!.setSelected(FALSE)
+    conIntegrationsCheckBox!.setSelected(FALSE)
+    conJohnCheckBox!.setSelected(FALSE)
+    conBlueMirrorCheckBox!.setSelected(FALSE)
+    conOtherCheckBox!.setSelected(FALSE)
+
+    return
+
     
     rem ------------------------------------------------------------------------------------------
     rem  Display the chart
