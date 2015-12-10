@@ -1,0 +1,14 @@
+REM /**
+REM  * TestJvmPause.bbj
+REM  * @author stevett
+REM  *
+REM  * This program runs for roughly 30 seconds, outputting a line 4 times per second.  It can
+REM  * be used during garbage collection to see if it gets paused.
+REM  * 
+REM  */
+
+
+for x = 1 to 120
+    print "x = ", x, "; Basic tim var = ", tim, "; Java current ms = ", System.currentTimeMillis() 
+    wait .25
+next x

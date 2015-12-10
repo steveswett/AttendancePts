@@ -1,0 +1,23 @@
+REM /**
+REM  * RunJvmGarbageCollection.bbj
+REM  * @author stevett
+REM  *
+REM  * Written 12/10/15
+REM  * 
+REM  */
+
+
+begin
+
+
+    call "ConfigVarsDAO.bbj::get_value", "auto.gc.enabled", configVarFound, configVarDataType$, isAutoGcEnabled$
+    isAutoGcEnabled = num(isAutoGcEnabled$)
+    
+    if isAutoGcEnabled then
+        System.gc()
+    endif
+
+
+release
+
+end
