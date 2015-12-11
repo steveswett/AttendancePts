@@ -78,6 +78,15 @@ get_counts_except_for_four_users:
     exit
 
 
+get_most_recent_collection_time:
+
+    enter collectionTimeOut$
+    
+    gosub setup_constants
+    gosub fetch_most_recent_collection_time
+
+    exit
+
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 subroutines:
@@ -215,6 +224,33 @@ fetch_counts_except_for_four_users:
 
     return
 
+    
+REM  ------------------------------------------------------------------------------------------
+REM  Fetch the most recent collection time on file
+REM  ------------------------------------------------------------------------------------------
+
+fetch_most_recent_collection_time:
+
+    countsChannel = sqlunt
+    sqlopen(countsChannel) dataWarehouseDataSource$
+
+    sqlprep(countsChannel) SELECT_MOST_RECENT_COLLECTION_TIME_STMT$
+
+    sqlexec(countsChannel) 
+    dim resultRow$:sqltmpl(countsChannel)
+    
+    collectionTimeOut$ = ""
+    
+    resultRow$ = sqlfetch(countsChannel,err=no_collection_time)
+    
+    collectionTimeOut$ = resultRow.CollectionTime$
+    
+    no_collection_time:
+    
+    sqlclose(countsChannel)
+
+    return
+    
 
 REM  ------------------------------------------------------------------------------------------
 REM  setup_constants
@@ -252,7 +288,6 @@ setup_constants:
 :       "order by CollectionTime"
 
 
-
     SELECT_COUNTS_EXCEPT_FOR_FOUR_USERS_STMT$ = "select " + 
 :       "CollectionTime, " + 
 :       "count(*) as ConnectionCount " +
@@ -262,5 +297,10 @@ setup_constants:
 :       "group by CollectionTime " +
 :       "order by CollectionTime"
 
+
+    SELECT_MOST_RECENT_COLLECTION_TIME_STMT$ = "select top 1 CollectionTime " +
+:       "from BasisConnectionStatistics " +
+:       "order by CollectionTime desc"
+    
     
     return

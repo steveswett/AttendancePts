@@ -17,6 +17,7 @@ REM  */
 
 use java.util.LinkedHashMap
 
+declare BBjAPI bbjApi!
 declare BBjSysGui sg!
 declare BBjWindow win!
 
@@ -48,7 +49,6 @@ declare BBjCheckBox conJohnCheckBox!
 declare BBjCheckBox conBlueMirrorCheckBox!
 declare BBjCheckBox conOtherCheckBox!
 
-
 declare BBjButton licAllButton!
 declare BBjButton licNoneButton!
 declare BBjButton conAllButton!
@@ -56,6 +56,8 @@ declare BBjButton conNoneButton!
 declare BBjButton reloadButton!
 
 declare BBjLineChart lineChart!
+
+declare BBjCheckBox refreshCheckBox!
 
 declare java.util.LinkedHashMap licenseCountsMap!
 
@@ -102,6 +104,8 @@ constants:
     RELOAD_BTN_CTL_ID = 110
     
     LINE_CHART_CTL_ID = 301
+
+    REFRESH_CHK_BOX_CTL_ID = 601
     
     DATE_CTL_WIDTH = 70
 
@@ -115,9 +119,13 @@ rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
 main_routine:
 
+    bbjApi! = BBjAPI()
+    
     gosub display_window
     
     gosub display_controls
+    
+    gosub other_init
 
     PROCESS_EVENTS
 
@@ -132,6 +140,38 @@ eoj:
 rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
 
 
+    rem ------------------------------------------------------------------------------------------
+    rem  Other init (non UI stuff)
+    rem ------------------------------------------------------------------------------------------
+
+other_init:
+
+    call "BasisConnectionStatisticsDAO.bbj::get_most_recent_collection_time", mostRecentCollectionTime$
+    
+    bbjApi!.createTimer("refresh_timer", 120, "consider_auto_refresh")
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Consider automatically refreshing the chart
+    rem ------------------------------------------------------------------------------------------
+
+consider_auto_refresh:
+
+    if refreshCheckBox!.isSelected() then
+
+        call "BasisConnectionStatisticsDAO.bbj::get_most_recent_collection_time", tempCollectionTime$
+        
+        if !(tempCollectionTime$ = mostRecentCollectionTime$) then
+            mostRecentCollectionTime$ = tempCollectionTime$
+            gosub populate_chart 
+        endif
+        
+    endif
+
+    return
+
 
     rem ------------------------------------------------------------------------------------------
     rem  Display the window (just the shell/frame of it)
@@ -142,8 +182,8 @@ display_window:
     sysguiChannel = unt 
     OPEN(sysguiChannel)"X0"
     
-    sg! = BBjAPI().getSysGui()
-    win! = sg!.addWindow(50, 50, 1200, 650, "Notions Marketing - Basis License Usage (DisplayBasisLicenseUsage.bbj)")
+    sg! = bbjApi!.getSysGui()
+    win! = sg!.addWindow(50, 50, 1200, 680, "Notions Marketing - Basis License Usage (DisplayBasisLicenseUsage.bbj)")
 
     CALLBACK(ON_CLOSE, close_window, sg!.getContext())
 
@@ -238,6 +278,12 @@ display_controls:
     REM               int numSeries, boolean showLegend, string flags)
     
     lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 190, 20, 970, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
+    
+    
+    refreshCheckBox! = win!.addCheckBox(REFRESH_CHK_BOX_CTL_ID, 1020, 630, 280, 30, "Refresh automatically")
+    refreshCheckBox!.setSelected(TRUE)
+    
+    
     gosub populate_chart
     
 
@@ -251,6 +297,8 @@ display_controls:
 
     CALLBACK(ON_BUTTON_PUSH, select_all_conns, sg!.getContext(), conAllButton!.getID())
     CALLBACK(ON_BUTTON_PUSH, select_no_conns, sg!.getContext(), conNoneButton!.getID())
+
+    CALLBACK(ON_CHECK_ON, consider_auto_refresh, sg!.getContext(), refreshCheckBox!.getID())
 
     return
     
@@ -590,6 +638,8 @@ populate_day_series:
 close_window:
 
     close(sysguiChannel)
+    
+    bbjApi!.removeAllTimers()
     
     release
     
