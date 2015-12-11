@@ -237,7 +237,7 @@ display_controls:
     REM               string xLabel, string yLabel, 
     REM               int numSeries, boolean showLegend, string flags)
     
-    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 190, 20, 990, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
+    lineChart! = win!.addLineChart(LINE_CHART_CTL_ID, 190, 20, 970, 600, "Time (Elapsed Hrs)","Licenses In Use", 13, TRUE)
     gosub populate_chart
     
 
@@ -336,13 +336,13 @@ populate_chart:
     endif
 
     lineChart!.setTitle("Basis License Usage: " + titleDatePortion$)
-    lineChart!.setSeriesName(0, "All")
-    lineChart!.setSeriesName(1, "root")
-    lineChart!.setSeriesName(2, "offsite")
+    lineChart!.setSeriesName(0, "LIC All")
+    lineChart!.setSeriesName(1, "LIC root")
+    lineChart!.setSeriesName(2, "LIC offsite")
     lineChart!.setSeriesName(3, "1 day")
-    lineChart!.setSeriesName(4, "whse")
-    lineChart!.setSeriesName(5, "other")
-    lineChart!.setSeriesName(6, "palm")
+    lineChart!.setSeriesName(4, "LIC whse")
+    lineChart!.setSeriesName(5, "LIC other")
+    lineChart!.setSeriesName(6, "LIC palm")
     lineChart!.setSeriesName(7, "DB All")
     lineChart!.setSeriesName(8, "DB portal_user")
     lineChart!.setSeriesName(9, "DB integrations")
