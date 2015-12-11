@@ -1,0 +1,103 @@
+REM /**
+REM  * ProcessIOStatsDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: December 11, 2015
+REM  * 
+REM  * Description: Data Access Object for table ProcessIOStats
+REM  *
+REM  */
+
+use java.util.HashMap
+
+declare java.util.HashMap recordsMapIn!
+declare java.util.HashMap oneRecordMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+add_stat_records:
+
+    enter timestampIn$, recordsMapIn!
+
+    call "DateUtilities.bbj::get_timestamp_as_datetime_string", timestampIn$, sqlTimeStamp$
+    
+    gosub setup_constants
+    
+    gosub insert_stat_records
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Add stat rows for all records in recordsMapIn!
+REM  ------------------------------------------------------------------------------------------
+
+
+insert_stat_records:
+
+    statsChannel = sqlunt
+    sqlopen(statsChannel) dataWarehouseDataSource$
+
+    sqlprep(statsChannel) INSERT_STATS_STMT$
+    
+    iter! = recordsMapIn!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        pidKey! = iter!.next()
+        oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(pidKey!) )
+        
+        cmd$ = oneRecordMap!.get("cmd")
+        priority$ = oneRecordMap!.get("priority")
+        user$ = oneRecordMap!.get("user")
+        diskRead$ = oneRecordMap!.get("disk_read")
+        diskWrite$ = oneRecordMap!.get("disk_write")
+        swapIn$ = oneRecordMap!.get("swap_in")
+        io$ = oneRecordMap!.get("io")
+
+        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, user$, priority$, diskRead$, diskWrite$, swapIn$, io$     
+    
+    wend
+    
+    sqlclose(statsChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    dataWarehouseDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+    
+    INSERT_STATS_STMT$ = "insert into ProcessIOStats (ProcessId, CollectionTime, Command, UserId, Priority, DiskReadKBperSec, DiskWriteKBperSec, SwapInPercent, IOPercent) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    
+    return
