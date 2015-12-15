@@ -2,6 +2,29 @@ REM /**
 REM  * LoadProgramInfo.bbj
 REM  * @author stevett
 REM  *
+REM  * Written October 2015
+REM  * 
+REM  * Load metadata from our source codebase into the ProgramInfoXxxx tables.
+REM  * 
+REM  * Pro/5:
+REM  *
+REM  *      NOTE: The following command can NOT be run, so you must use the "ListPrograms.bbj"
+REM  *            program instead.
+REM  * 
+REM  *      /usr/local/basis/pro5/pro5lst -d/home/stevett/bbxListedPrograms -w500 -cont ./*
+REM  * 
+REM  * BBj: 
+REM  * 
+REM  *  Once BBj programs were identified, listed them on nmcDev using the following commands:
+REM  *
+REM  *      NOTE: MUST BE IN THE /usr/notpgm DIRECTORY WHEN RUNNING COMMANDS
+REM  *  
+REM  *      /usr/local/bbj/bin/bbjlst -@/home/stevett/bbjlist.txt -d/home/stevett/bbjListedPrograms
+REM  * 
+REM  *      Also to get the clearly identified *.bbj files, use the following command:
+REM  * 
+REM  *      /usr/local/bbj/bin/bbjlst -d/home/stevett/bbjListedPrograms ./*.bbj
+REM  *  
 REM  */
 
 use java.io.File
@@ -83,7 +106,7 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 init:
 
-    call "ConfigVarsDAO.bbj::get_value", "program.info.data.source.name", configVarFound, configVarDataType$, programInfoDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, programInfoDataSource$
 
     REM  Delete all program info (will reload)
     
@@ -413,27 +436,51 @@ setup_constants:
     
     LOADING_BBJ_PROGRAM_TYPE = TRUE
     
-    rem SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
-    SOURCE_PROGRAM_PATH$ = "/bbjListedPrograms"
+    SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
+    rem SOURCE_PROGRAM_PATH$ = "/bbjListedPrograms"
     
-    DELETE_PROGRAMS_QUERY$ = "delete from program"
+    DELETE_PROGRAMS_QUERY$ = "delete from ProgramInfoGeneral"
     
-    DELETE_PROGRAM_FILES_QUERY$ = "delete from program_files"
+    DELETE_PROGRAM_FILES_QUERY$ = "delete from ProgramInfoFiles"
     
-    DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from program_programs"
+    DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from ProgramInfoCalledPrograms"
     
-    DELETE_PROGRAM_REJECTS_QUERY$ = "delete from program_rejects"
+    DELETE_PROGRAM_REJECTS_QUERY$ = "delete from ProgramInfoRejects"
     
-    INSERT_PROGRAMS_QUERY$ = "insert into program (program_name, description, date_written, last_revised) " +
+    INSERT_PROGRAMS_QUERY$ = "insert into ProgramInfoGeneral (ProgramName, Description, DateWrittenText, DateLastRevisedText) " +
 :       "values(?,?,?,?)"
 
-    INSERT_PROGRAM_FILES_QUERY$ = "insert into program_files (program_name, file_path, file_channel) " +
-:       "values(?,?,?)"
 
-    INSERT_PROGRAM_PROGRAMS_QUERY$ = "insert into program_programs (program_name, called_program) " +
+REM  Note: This version doesn't check for duplicates:
+
+REM     INSERT_PROGRAM_FILES_QUERY$ = "insert into ProgramInfoFiles (ProgramName, FilePath, FileChannel) " +
+REM :       "values(?,?,?)"
+
+
+REM  Note: This version checks for duplicates but isn't as efficient as possible
+
+REM     INSERT_PROGRAM_FILES_QUERY$ = "insert ProgramInfoFiles (ProgramName, FilePath, FileChannel) " + 
+REM :       "select ?,?,? " +
+REM :       "except " +
+REM :       "select ProgramName, FilePath, FileChannel from ProgramInfoFiles"
+
+
+REM  Note: This version checks for duplicates and is efficient
+
+    INSERT_PROGRAM_FILES_QUERY$ = "" +
+:       "declare " +
+:       "@pgm varchar(60) = ?, " +
+:       "@path varchar(100) = ?, " +
+:       "@channel varchar(30) = ? " +
+:       "" +
+:       "if not exists " +
+:       "(select * from ProgramInfoFiles where ProgramName = @pgm and FilePath = @path and FileChannel = @channel) " +
+:       "insert ProgramInfoFiles (ProgramName, FilePath, FileChannel)  values ( @pgm, @path, @channel);"
+
+    INSERT_PROGRAM_PROGRAMS_QUERY$ = "insert into ProgramInfoCalledPrograms (ProgramName, CalledProgramName) " +
 :       "values(?,?)"
 
-    INSERT_PROGRAM_REJECTS_QUERY$ = "insert into program_rejects (program_name, file_first_part, file_extension) " +
+    INSERT_PROGRAM_REJECTS_QUERY$ = "insert into ProgramInfoRejects (ProgramName, FileNameFirstPart, FileExtension) " +
 :       "values(?,?,?)"
 
     return

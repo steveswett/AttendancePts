@@ -2,6 +2,8 @@ REM /**
 REM  * ListPrograms.bbj
 REM  * @author stevett
 REM  *
+REM  * Written October, 2015
+REM  * 
 REM  */
 
 use java.io.File
