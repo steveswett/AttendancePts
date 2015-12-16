@@ -62,13 +62,17 @@ setup_constants:
     VZ_KEY_CONFIG_VAR_DATA_SOURCE$ = "CV"
 
     REM  Default value:
-    configVarsDataSource$ = "Steve-Local"
+    configVarsDataSource$ = "DftConfigVarsDB"
+    
+    seterr abort_vz_read
 
     call "OPEN90", vzChannel, "VZ", noTemplate$
     read(vzChannel, key=VZ_KEY_CONFIG_VAR_DATA_SOURCE$, err=vz_read_fail) dataSourceName$
     configVarsDataSource$ = cvs(dataSourceName$, 2)
     vz_read_fail:
     close(vzChannel)
+    
+    abort_vz_read:
     
     GET_CONFIG_VAR_SELECT_STMT$ = "select cv_value, value_type from config_vars where cv_key = ?"
     

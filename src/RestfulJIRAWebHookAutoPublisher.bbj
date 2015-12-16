@@ -1,0 +1,161 @@
+REM /**
+REM  * RestfulJIRAWebHookAutoPublisher.bbj
+REM  * 
+REM  * @author stevett
+REM  * 
+REM  * written 12/16/15
+REM  *
+REM  * To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
+REM  * 
+REM  */
+
+
+declare BBjAdmin admin!
+declare BBjServletRegistry servletRegistry!
+declare BBjConfig config!
+declare BBjAppConfig appConfig!
+
+
+begin
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+constants:
+
+
+TRUE = 1
+FALSE = 0
+
+
+rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
+
+main_routine:
+
+    gosub config_and_publish
+
+
+rem *- - - - - - - - - - EOJ - - - - - - - - - -*
+
+eoj:
+
+    release
+    
+    end
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Publish the servlet.  Unpublish it first.
+    rem ------------------------------------------------------------------------------------------
+
+
+config_and_publish:
+
+    seterr unexpected_error
+    
+    call "ConfigVarsDAO.bbj::get_value", "is.windows.environment", configVarFound, configVarDataType$, isWindowsEnv$
+    isWindowsEnv = num(isWindowsEnv$)
+    
+
+    rem  Get login credentials:
+    
+    call "ConfigVarsDAO.bbj::get_value", "cryptpass", configVarFound, configVarDataType$, cryptpass$
+
+    call "ConfigVarsDAO.bbj::get_value", "bbj.services.admin.user", configVarFound, configVarDataType$, adminUser$
+
+    call "ConfigVarsDAO.bbj::get_value", "bbj.services.admin.hex.encrypted.password", configVarFound, configVarDataType$, adminEncryptedPwd$
+    
+    hexEncrypted$ = ath(adminEncryptedPwd$)
+    adminDecryptedPwd$ = decrypt(hexEncrypted$,mode="cryptpass=" + cryptpass$)
+    
+
+    REM  admin! = BBjAPI().getAdmin(adminUser$, adminDecryptedPwd$, err=login_failed)
+    
+    rem  Create application configuration
+
+    config! = BBjAPI().getConfig()
+    appConfig! = config!.makeEmptyAppConfig()
+    
+    appConfig!.setWorkingDirectory(dsk("")+dir(""))
+    appConfig!.setProgramName("RestfulJIRAWebHook.bbj")
+
+    if isWindowsEnv then
+        appConfig!.setConfigFile(System.getProperty("com.basis.server.configDirectory") + "/bbj-config.txt")
+    else
+        appConfig!.setConfigFile("/usr/notpgm/config-rest.bbx")
+
+        REM  Needed the following to gain access to the Pro/5 Data Server
+        
+        appConfig!.setApplicationUserName("notions")
+    endif
+ 
+    rem  Obtain servlet registry
+    
+    servletRegistry! = admin!.getServletRegistry()
+ 
+    rem  Using the registry, unpublish and then republish the servlet driver.  "JIRAWebHook" is the servlet name
+    
+    servletRegistry!.unpublish("/JIRAWebHook", err=*next)
+    servletRegistry!.publish("/JIRAWebHook", appConfig!)
+    
+    System.out.println("RestfulJIRAWebHookAutoPublisher.bbj - successfully published JIRAWebHook")
+    goto end_subr_publish
+
+    
+    login_failed:
+    
+    errmsg$ = "RestfulJIRAWebHookAutoPublisher.bbj - unable to publish JIRAWebHook due to login failure."
+    System.out.println(errmsg$)
+    gosub send_error_email
+    goto end_subr_publish
+
+    
+    unexpected_error:
+    
+    errmsg$ = "RestfulJIRAWebHookAutoPublisher.bbj - unable to publish JIRAWebHook."
+    
+    if err > 0 then
+        errmsg$ = errmsg$ + "  Line#: " + str(tcb(5)) + ".  Error#: " + str(err) + ".  Descr: " + errmes(err)
+    endif
+    
+    System.out.println(errmsg$)
+    gosub send_error_email
+    goto end_subr_publish
+    
+    
+    end_subr_publish:
+
+    return  
+    
+    
+send_error_email:
+    
+    call "ConfigVarsDAO.bbj::get_value", "notions.dmz.smtp.server", configVarFound, configVarDataType$, smtpServer$
+    
+    call "ConfigVarsDAO.bbj::get_value", "mail.recipients.jira.web.hook.issues", configVarFound, configVarDataType$, recipients$
+
+    subject$ = "Problem publishing RestfulJIRAWebHook on " + info(3,4)
+    body$ = errmsg$
+
+    if isWindowsEnv then
+        call "MailUtilities.bbj::send_simple_email_msg", recipients$, subject$, body$, returnCode
+    else
+        bodyFileName$ = "/tmp/RestfulJIRAWebHookAutoPublisher.email.body." + str(tim) + ".txt"
+
+        erase bodyFileName$,ERR=*next
+        string bodyFileName$
+        bodyFileChannel = unt
+        open(bodyFileChannel) bodyFileName$
+        print(bodyFileChannel) body$
+        close(bodyFileChannel)
+
+        emailCmd$ = "cat " + bodyFileName$ + " | mail -s """ + subject$ + """ -S smtp=""" + smtpServer$ + """ " + recipients$
+        returnCode = scall(emailCmd$)
+    endif
+
+
+    return
+
