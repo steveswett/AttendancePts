@@ -72,7 +72,7 @@ config_and_publish:
     adminDecryptedPwd$ = decrypt(hexEncrypted$,mode="cryptpass=" + cryptpass$)
     
 
-    REM  admin! = BBjAPI().getAdmin(adminUser$, adminDecryptedPwd$, err=login_failed)
+    admin! = BBjAPI().getAdmin(adminUser$, adminDecryptedPwd$, err=login_failed)
     
     rem  Create application configuration
 
