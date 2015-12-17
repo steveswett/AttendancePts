@@ -83,7 +83,7 @@ load_records_for_employees_with_no_time_off:
 
     sqlprep(timeOffChannel) EMPLOYEES_WITH_NO_TIME_OFF_STMT$
 
-    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$
+    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$, customColumnIdForStatus$
     dim resultRow$:sqltmpl(timeOffChannel)
     
     while TRUE
@@ -115,7 +115,7 @@ load_records_for_employees_with_some_time_off:
 
     sqlprep(timeOffChannel) EMPLOYEES_WITH_SOME_TIME_OFF_STMT$
 
-    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$
+    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$, customColumnIdForStatus$
     dim resultRow$:sqltmpl(timeOffChannel)
     
     while TRUE
@@ -239,12 +239,17 @@ setup_constants:
     call "ConfigVarsDAO.bbj::get_value", "wfmr.admin.business.unit", configVarFound, configVarDataType$, adminBusinessUnit$
 
     call "ConfigVarsDAO.bbj::get_value", "eto.time.off.ids", configVarFound, configVarDataType$, timeOffIdsNoETO$
+
+    call "ConfigVarsDAO.bbj::get_value", "wfmr.custom.col.def.id.status", configVarFound, configVarDataType$, customColumnIdForStatus$
+
     
+    REM  In below queries, "Lab_Employee_Custom_Column.column_value != 'F'" means don't include temporary employees
     
     EMPLOYEES_WITH_NO_TIME_OFF_STMT$ = 
 :       "declare " +
 :       "@opsBusinessUnit int = ?, " +
-:       "@adminBusinessUnit int = ? " +
+:       "@adminBusinessUnit int = ?, " +
+:       "@customColumnIdForStatus int = ? " +
 :       "" +
 :       "select " +
 :       "rad_sys_user.last_name, " +
@@ -253,11 +258,14 @@ setup_constants:
 :       "employee.badge_number " +
 :       "from employee " +
 :       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
+:       "inner join Lab_Employee_Custom_Column on employee.employee_id = Lab_Employee_Custom_Column.employee_id " +  
 :       "where employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
 :       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
 :       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
+:       "and Lab_Employee_Custom_Column.custom_column_def_id = @customColumnIdForStatus " +
+:       "and Lab_Employee_Custom_Column.column_value != 'F' " +
 :       "and employee.employee_id not " +
 :       "in(" +
 :           "select " + 
@@ -273,11 +281,13 @@ setup_constants:
 :           "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
+
     
     EMPLOYEES_WITH_SOME_TIME_OFF_STMT$ =
 :       "declare " +
 :       "@opsBusinessUnit int = ?, " +
-:       "@adminBusinessUnit int = ? " +
+:       "@adminBusinessUnit int = ?, " +
+:       "@customColumnIdForStatus int = ? " +
 :       "" +
 :       "select " +
 :       "rad_sys_user.last_name, " +
@@ -286,11 +296,14 @@ setup_constants:
 :       "employee.badge_number " +
 :       "from employee " +
 :       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
+:       "inner join Lab_Employee_Custom_Column on employee.employee_id = Lab_Employee_Custom_Column.employee_id " +  
 :       "where employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
 :       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
 :       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
+:       "and Lab_Employee_Custom_Column.custom_column_def_id = @customColumnIdForStatus " +
+:       "and Lab_Employee_Custom_Column.column_value != 'F' " +
 :       "and employee.employee_id " +
 :       "in(" +
 :           "select " + 

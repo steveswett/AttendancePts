@@ -117,7 +117,7 @@ query_for_missed_shifts:
 
 
     rem ------------------------------------------------------------------------------------------
-    rem  Setup constants - makes last subroutine due to line continuations
+    rem  Setup constants - made last subroutine due to line continuations
     rem ------------------------------------------------------------------------------------------
 
 

@@ -44,6 +44,8 @@ rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 
 rem *- - - - - - - - - - MAIN ROUTINE - - - - - - - - - -*
 
+main_routine:
+
     gosub init
     
     gosub award_eto
