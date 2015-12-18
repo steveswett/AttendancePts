@@ -34,7 +34,10 @@ entry_points:
 
 get_employees_with_no_time_off:
 
-    enter employeeRecordsMap!
+    enter employeeRecordsMap!, startDateIn$, endDateIn$
+    
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", startDateIn$, startDateWithHyphens$ 
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", endDateIn$, endDateWithHyphens$
     
     gosub setup_constants
     
@@ -45,7 +48,10 @@ get_employees_with_no_time_off:
 
 get_employees_with_some_time_off:
 
-    enter employeeRecordsMap!
+    enter employeeRecordsMap!, startDateIn$, endDateIn$
+    
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", startDateIn$, startDateWithHyphens$ 
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", endDateIn$, endDateWithHyphens$
     
     gosub setup_constants
     
@@ -56,7 +62,13 @@ get_employees_with_some_time_off:
 
 compute_start_date_for_90_day_window_for_employees:
 
-    enter employeeRecordsMap!, defaultStartDateIn$
+    enter employeeRecordsMap!, defaultStartDateIn$, endDateIn$, fromRelativeDaysIn
+    
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", defaultStartDateIn$, startDateWithHyphens$ 
+    call "DateUtilities.bbj::get_yyyymmdd_with_hyphen_separators", endDateIn$, endDateWithHyphens$
+    
+    startDateTimeForSql$ = startDateWithHyphens$ + " 00:00:00"
+    endDateTimeForSql$ = endDateWithHyphens$ + " 23:59:59"
     
     gosub setup_constants
     
@@ -83,7 +95,7 @@ load_records_for_employees_with_no_time_off:
 
     sqlprep(timeOffChannel) EMPLOYEES_WITH_NO_TIME_OFF_STMT$
 
-    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$, customColumnIdForStatus$
+    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$, customColumnIdForStatus$, startDateWithHyphens$, endDateWithHyphens$ 
     dim resultRow$:sqltmpl(timeOffChannel)
     
     while TRUE
@@ -115,7 +127,7 @@ load_records_for_employees_with_some_time_off:
 
     sqlprep(timeOffChannel) EMPLOYEES_WITH_SOME_TIME_OFF_STMT$
 
-    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$, customColumnIdForStatus$
+    sqlexec(timeOffChannel) opsBusinessUnit$, adminBusinessUnit$, customColumnIdForStatus$, startDateWithHyphens$, endDateWithHyphens$
     dim resultRow$:sqltmpl(timeOffChannel)
     
     while TRUE
@@ -163,7 +175,7 @@ compute_and_store_90_day_start_date:
         
         daysOff = 0
         
-        sqlexec(timeOffChannel) employeeId!
+        sqlexec(timeOffChannel) employeeId!, startDateTimeForSql$, endDateTimeForSql$ 
         dim resultRow$:sqltmpl(timeOffChannel)
         
         while TRUE
@@ -181,7 +193,8 @@ compute_and_store_90_day_start_date:
         
         if daysOff > 0 then
         
-            relativeDayNumber = -90
+            REM  fromRelativeDaysIn is typically -90 minus a few days lag (like -95 in the end)
+            relativeDayNumber = fromRelativeDaysIn
             daysOn = 0
             
             REM  Look back up to 365 days prior to standard 90-day window.  This is mostly a protection to avoid an endless loop.  
@@ -250,7 +263,9 @@ setup_constants:
 :       "declare " +
 :       "@opsBusinessUnit int = ?, " +
 :       "@adminBusinessUnit int = ?, " +
-:       "@customColumnIdForStatus int = ? " +
+:       "@customColumnIdForStatus int = ?, " +
+:       "@fromYyyymmddWithHyphens char(10) = ?, " +
+:       "@toYyyymmddWithHyphens char(10) = ? " +
 :       "" +
 :       "select " +
 :       "rad_sys_user.last_name, " +
@@ -264,7 +279,7 @@ setup_constants:
 :       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
-:       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
+:       "and hire_date <= @fromYyyymmddWithHyphens " +
 :       "and Lab_Employee_Custom_Column.custom_column_def_id = @customColumnIdForStatus " +
 :       "and Lab_Employee_Custom_Column.column_value not in('D','F') " +
 :       "and employee.employee_id not " +
@@ -277,8 +292,8 @@ setup_constants:
 :           "employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) and " +
 :           "employee.generate_exceptions_flag = 'y' and " +
 :           "lab_employee_time_off.status_code = 'a' and " +
-:           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
-:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
+:           "lab_employee_time_off.start_timestamp <= @toYyyymmddWithHyphens + ' 23:59:59' and " +
+:           "lab_employee_time_off.end_timestamp >= @fromYyyymmddWithHyphens + ' 00:00:00' and " +
 :           "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
@@ -288,7 +303,9 @@ setup_constants:
 :       "declare " +
 :       "@opsBusinessUnit int = ?, " +
 :       "@adminBusinessUnit int = ?, " +
-:       "@customColumnIdForStatus int = ? " +
+:       "@customColumnIdForStatus int = ?, " +
+:       "@fromYyyymmddWithHyphens char(10) = ?, " +
+:       "@toYyyymmddWithHyphens char(10) = ? " +
 :       "" +
 :       "select " +
 :       "rad_sys_user.last_name, " +
@@ -302,7 +319,7 @@ setup_constants:
 :       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
 :       "and rad_sys_user.status_code = 'a' " +
-:       "and hire_date <= convert(varchar(10), dateadd(day, -90, getdate()), 120) " +
+:       "and hire_date <= @fromYyyymmddWithHyphens " +
 :       "and Lab_Employee_Custom_Column.custom_column_def_id = @customColumnIdForStatus " +
 :       "and Lab_Employee_Custom_Column.column_value not in('D','F') " +
 :       "and employee.employee_id " +
@@ -315,23 +332,28 @@ setup_constants:
 :           "employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) and " +
 :           "employee.generate_exceptions_flag = 'y' and " +
 :           "lab_employee_time_off.status_code = 'a' and " +
-:           "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
-:           "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
+:           "lab_employee_time_off.start_timestamp <= @toYyyymmddWithHyphens + ' 23:59:59' and " +
+:           "lab_employee_time_off.end_timestamp >= @fromYyyymmddWithHyphens + ' 00:00:00' and " +
 :           "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       ") " +
 :       "order by rad_sys_user.last_name, rad_sys_user.first_name"
     
     ONE_EMPLOYEE_TIME_OFF_RECORDS_STMT$ =
+:       "declare " +
+:       "@employeeId int = ?, " +
+:       "@startDateTimeForSql char(19) = ?, " +
+:       "@endDateTimeForSql char(19) = ? " +
+:       "" +
 :       "select " +
 :       "lab_employee_time_off.employee_id, " +
 :       "convert(varchar(10), lab_employee_time_off.start_timestamp, 120) as start_date, " +
 :       "convert(varchar(10), lab_employee_time_off.end_timestamp, 120) as end_date " +
 :       "from lab_employee_time_off " + 
 :       "where " + 
-:       "lab_employee_time_off.employee_id = ? and " +
+:       "lab_employee_time_off.employee_id = @employeeId and " +
 :       "lab_employee_time_off.status_code = 'a' and " +
-:       "lab_employee_time_off.start_timestamp <= convert(varchar(10), getdate(), 120) + ' 23:59:59' and " +
-:       "lab_employee_time_off.end_timestamp >= convert(varchar(10), dateadd(day, -90, getdate()), 120) + ' 00:00:00' and " +
+:       "lab_employee_time_off.start_timestamp <= @endDateTimeForSql and " +
+:       "lab_employee_time_off.end_timestamp >= @startDateTimeForSql and " +
 :       "lab_employee_time_off.pay_adjustment_id in(" + timeOffIdsNoETO$ + ") " +
 :       "order by lab_employee_time_off.employee_id, lab_employee_time_off.start_timestamp"
     

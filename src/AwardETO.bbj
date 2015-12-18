@@ -74,6 +74,9 @@ init:
     call "ConfigVarsDAO.bbj::get_value", "mail.recipients.eto.awards", configVarFound, configVarDataType$, mailRecipients$
     
     call "ConfigVarsDAO.bbj::get_value", "adp.company.code", configVarFound, configVarDataType$, adpCompanyCode$
+    
+    call "ConfigVarsDAO.bbj::get_value", "eto.award.lag.days", configVarFound, configVarDataType$, etoAwardLagDays$
+    etoAwardLagDays = num(etoAwardLagDays$)
 
     return
 
@@ -97,9 +100,13 @@ award_eto:
     endif
 
     
-    REM  Get "90 days ago" date
+    REM  Compute date range for "90 day window"
+    
+    fromRelativeDays = 0 - 90 - etoAwardLagDays
+    toRelativeDays = 0 - etoAwardLagDays
 
-    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", -90, yyyymmddNinetyDaysAgo$
+    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", fromRelativeDays, yyyymmddFrom$
+    call "DateUtilities.bbj::get_yyyymmdd_relative_to_today_in_days", toRelativeDays, yyyymmddTo$
     
     
     gosub do_standard_90_day_window_group
@@ -125,21 +132,21 @@ do_standard_90_day_window_group:
     
     noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
-    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!
+    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!, yyyymmddFrom$, yyyymmddTo$
 
     
     REM  Step 2. Get a list of employees having NO attendance pts in the past 90 days
     
     employeesWithZeroPtsSet! = new java.util.HashSet()
     
-    call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithZeroPtsSet!
+    call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", yyyymmddFrom$, yyyymmddTo$, employeesWithZeroPtsSet!
 
     
     REM  Step 3. Get a list of employees having any ETO awards in the past 90 days
     
     employeesWithETOAwardsSet! = new java.util.HashSet()
     
-    call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", yyyymmddNinetyDaysAgo$, yyyymmddCurrent$, employeesWithETOAwardsSet!
+    call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", yyyymmddFrom$, yyyymmddTo$, employeesWithETOAwardsSet!
     
     
     REM Step 4. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
@@ -172,32 +179,32 @@ REM  ---------------------------------------------------------------------------
 
 do_non_standard_90_plus_day_window_group:
 
-    REM  Step 1. Get a list of employees having NO time off requests in the past 90 days
+    REM  Step 1. Get a list of employees having SOME time off requests in the past 90 days
     
     someTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
-    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", someTimeOffEmployeeRecordsMap!
+    call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", someTimeOffEmployeeRecordsMap!, yyyymmddFrom$, yyyymmddTo$
     
     
     REM  Step 2. Compute and tack on "custom" start date (prior to the standard 90-day window) for each employee -- 
     REM          depending on how much time off they had.  Each start date is stored as an entry with key "start_date"
     REM          in the HashMap within someTimeOffEmployeeRecordsMap! 
     
-    call "WFMREmployeeTimeOffDAO.bbj::compute_start_date_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddNinetyDaysAgo$
+    call "WFMREmployeeTimeOffDAO.bbj::compute_start_date_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddFrom$, yyyymmddTo$, fromRelativeDays
 
 
     REM  Step 3. Compute and tack on attendance pts during the 90-day+ custom window for each employee.  The number of
     REM          attendance points is stored as an entry with key "attend_pts"
     REM          in the HashMap within someTimeOffEmployeeRecordsMap!   
     
-    call "AttendPtsDAO.bbj::compute_pts_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddCurrent$
+    call "AttendPtsDAO.bbj::compute_pts_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddTo$
 
 
     REM  Step 4. Compute and tack on most recent ETO award history date for each employee.  The date is stored 
     REM          as an entry with key "award_history_date"
     REM          in the HashMap within someTimeOffEmployeeRecordsMap!   
 
-    call "ETOHistoryDAO.bbj::compute_award_history_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddCurrent$
+    call "ETOHistoryDAO.bbj::compute_award_history_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddTo$
 
 
     REM Step 5. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
@@ -240,10 +247,10 @@ combine_and_process_qualified_eto_awardees:
     
     employeesEarningNewETOSet! = new java.util.LinkedHashSet()
     
-    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddNinetyDaysAgo$, FALSE, formattedFromDate$
-    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddCurrent$, FALSE, formattedToDate$
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddFrom$, FALSE, formattedFromDate$
+    call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", yyyymmddTo$, FALSE, formattedToDate$
 
-    call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", yyyymmddCurrent$, FALSE, formattedADPDate$
+    call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", yyyymmddTo$, FALSE, formattedADPDate$
     
     lineFeed$ = iff(useWindowsMailSend, "<br/>", $0A$)
     bodyDetail$ = ""
@@ -292,7 +299,7 @@ combine_and_process_qualified_eto_awardees:
     
         REM  Step 2. Write output file for ADP 
 
-        outputFileName$="/usr/tmpfiles/eto_awards_" + yyyymmddCurrent$ + ".csv"
+        outputFileName$="/usr/tmpfiles/eto_awards_" + yyyymmddTo$ + ".csv"
         erase outputFileName$,ERR=*next
         string outputFileName$
         
@@ -320,7 +327,7 @@ combine_and_process_qualified_eto_awardees:
         
         REM  Step 3. Write award history records
         
-        call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddCurrent$, 8
+        call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddTo$, 8
 
     endif
 
