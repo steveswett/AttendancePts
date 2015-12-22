@@ -95,12 +95,35 @@ main_routine:
         endif
 
 
-        REM Wait between collections
+        REM Wait between CPU and I/O collections (but do Lock collections within this loop)
+        
+        bailCompletely = FALSE
         
         for i = 1 to collectionIntervalMins
-            REM print "Waiting a minute (", i, " of ", collectionIntervalMins, ") ..." 
+
+            gosub get_options_for_this_collection
+    
+            call "DateUtilities.bbj::get_current_timestamp", currentTimestamp$
+            
+            if len(terminateAfterTimestamp$) = 14 and currentTimestamp$ >= terminateAfterTimestamp$ then
+                bailCompletely = TRUE
+                break
+            endif
+    
+            REM Process Locks:
+            
+            if collectLocks then
+                gosub prep_and_open_lslk_file
+                gosub process_lslk_records
+                gosub close_lslk_file
+            endif
+
             wait 60
         next i
+        
+        if bailCompletely then
+            break
+        endif
          
     wend
 
@@ -136,6 +159,9 @@ get_options_for_this_collection:
     
     call "ConfigVarsDAO.bbj::get_value", "process.stats.collect.io", configVarFound, configVarDataType$, collectIO$
     collectIO = num(collectIO$)
+    
+    call "ConfigVarsDAO.bbj::get_value", "process.stats.collect.locks", configVarFound, configVarDataType$, collectLocks$
+    collectLocks = num(collectLocks$)
     
     call "ConfigVarsDAO.bbj::get_value", "process.stats.include.zero.io.processes", configVarFound, configVarDataType$, includeZeroIOProcesses$
     includeZeroIOProcesses = num(includeZeroIOProcesses$)
@@ -564,3 +590,290 @@ close_io_file:
     close (ioCmdChannel)
 
     return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Prepare and open "lslk" file
+    rem ------------------------------------------------------------------------------------------
+    
+prep_and_open_lslk_file:
+
+    lslkCmdOutputFile$ = "/tmp/heavy-hitters-lock-lslk-" + currentTimestamp$ + ".txt"
+
+    lslkCmd$ = "/usr/sbin/lslk | grep ""pro5"" | grep "" w \| W \| rw \| RW "" > " + lslkCmdOutputFile$ 
+
+    returnCode = scall(lslkCmd$)
+
+    lslkCmdChannel = unt
+    open (lslkCmdChannel) lslkCmdOutputFile$
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Process records in the input file from the Linux "lslk" command.  Put them in the
+    rem  recordsMap! for sending to the database.
+    rem ------------------------------------------------------------------------------------------
+    
+process_lslk_records:
+
+    recordsMap! = new java.util.HashMap()
+
+    recordNo = 0
+    pidList$ = ""
+
+    while TRUE
+    
+        read (lslkCmdChannel,err=*break) inputRecord$
+        REM print "inputRecord$ = ", inputRecord$
+        
+        recordNo = recordNo + 1
+        
+        gosub read_one_lslk_record
+    
+    wend
+    
+    REM  Now we need to add User and Command to the recordsMap! structure
+    
+    gosub prep_and_open_lock_ps_file
+    gosub process_lock_ps_records
+    gosub close_lock_ps_file
+    
+    if recordsMap!.size() > 0 then
+        call "ProcessLockStatsDAO.bbj::add_lock_records", currentTimestamp$, recordsMap!
+    endif
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Read one "lslk" record
+    rem ------------------------------------------------------------------------------------------
+    
+read_one_lslk_record:
+
+    gosub init_lslk_input_fields
+    
+    rawFieldList! = java.util.Arrays.asList(new java.lang.String(inputRecord$).split(" "))
+    iter! = rawFieldList!.iterator()
+    fieldNo = 0
+    
+    while iter!.hasNext()
+    
+        field! = iter!.next()
+        
+        if len ( cvs(field!, 3) )
+        
+            fieldNo = fieldNo + 1
+            
+            switch fieldNo
+            
+                case 2
+                    pid$ = field!
+                    break
+            
+                case 6
+                    lockType$ = field!
+                    break
+            
+                case 12
+                    fileName$ = field!
+                    break
+            
+            swend
+            
+        endif
+    
+    wend
+
+    REM  Use -1 to turn off this output
+    
+    if recordNo > -1 then
+        gosub print_lslk_input_fields
+    endif
+
+    oneRecordMap! = new java.util.HashMap()
+    
+    oneRecordMap!.put("lock_type", lockType$)
+    oneRecordMap!.put("file_name", fileName$)
+    
+    recordsMap!.put(pid$, oneRecordMap!)
+    
+    if len(pidList$) then
+        pidList$ = pidList$ + "," + pid$
+    else
+        pidList$ = pid$
+    endif
+    
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Initialize "lock" input fields
+    rem ------------------------------------------------------------------------------------------
+    
+init_lslk_input_fields:
+
+    pid$ = ""
+    lockType$ = ""
+    fileName$ = ""
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Print "lock" input fields
+    rem ------------------------------------------------------------------------------------------
+    
+print_lslk_input_fields:
+
+    print "recordNo=", recordNo, ", pid$=", pid$, ", lockType$=", lockType$, ", fileName$=", fileName$
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Close the "lock" file
+    rem ------------------------------------------------------------------------------------------
+    
+close_lslk_file:
+
+    close (lslkCmdChannel)
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Prepare and open locks "ps" file
+    rem ------------------------------------------------------------------------------------------
+    
+prep_and_open_lock_ps_file:
+    
+    lockPsCmdOutputFile$ = "/tmp/heavy-hitters-lock-ps-" + currentTimestamp$ + ".txt"
+
+    lockPsCmd$ = "ps --no-headers -fp " + pidList$ + " > " + lockPsCmdOutputFile$ 
+
+    returnCode = scall(lockPsCmd$)
+
+    lockPsCmdChannel = unt
+    open (lockPsCmdChannel) lockPsCmdOutputFile$
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Process records in the input file from the Linux locks "ps" command.  Put them in the
+    rem  recordsMap! for sending to the database.
+    rem ------------------------------------------------------------------------------------------
+    
+process_lock_ps_records:
+
+    psRecordNo = 0
+    
+    while TRUE
+    
+        read (lockPsCmdChannel,err=*break) inputRecord$
+        REM print "inputRecord$ = ", inputRecord$
+        
+        psRecordNo = psRecordNo + 1
+        
+        gosub read_one_lock_ps_record
+    
+    wend
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Read one lock "ps" record
+    rem ------------------------------------------------------------------------------------------
+    
+read_one_lock_ps_record:
+
+    gosub init_lock_ps_input_fields
+    
+    rawFieldList! = java.util.Arrays.asList(new java.lang.String(inputRecord$).split(" "))
+    iter! = rawFieldList!.iterator()
+    fieldNo = 0
+    
+    while iter!.hasNext()
+    
+        field! = iter!.next()
+        
+        if len ( cvs(field!, 3) )
+        
+            fieldNo = fieldNo + 1
+            
+            switch fieldNo
+            
+                case 1
+                    user$ = field!
+                    break
+            
+                case 2
+                    psPid$ = field!
+                    break
+            
+            swend
+    
+            if fieldNo > 7 then
+                cmd$ = cmd$ + " " + field!
+            endif
+            
+        endif
+    
+    wend
+
+    REM  Use -1 to turn off this output
+    
+    if psRecordNo > -1 then
+        gosub print_lock_ps_input_fields
+    endif
+
+    oneRecordMap! = cast( java.util.HashMap, recordsMap!.get(psPid$) ) 
+    
+    oneRecordMap!.put("user", user$)
+    oneRecordMap!.put("cmd", cmd$)
+    
+    REM  recordsMap!.put(pid$, oneRecordMap!)
+
+    return
+
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Initialize lock "ps" input fields
+    rem ------------------------------------------------------------------------------------------
+    
+init_lock_ps_input_fields:
+
+    psPid$ = ""
+    user$ = ""
+    cmd$ = ""
+
+    return
+    
+    
+    rem ------------------------------------------------------------------------------------------
+    rem  Print "lock ps" input fields
+    rem ------------------------------------------------------------------------------------------
+    
+print_lock_ps_input_fields:
+
+    print "psRecordNo=", psRecordNo, ", psPid$=", psPid$, ", user$=", user$, ", cmd$=", cmd$
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Close the "lock ps" file
+    rem ------------------------------------------------------------------------------------------
+    
+close_lock_ps_file:
+
+    close (lockPsCmdChannel)
+
+    return
+
+    
+    

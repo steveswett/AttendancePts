@@ -1,0 +1,100 @@
+REM /**
+REM  * ProcessLockStatsDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: December 22, 2015
+REM  * 
+REM  * Description: Data Access Object for table ProcessLockStats
+REM  *
+REM  */
+
+use java.util.HashMap
+
+declare java.util.HashMap recordsMapIn!
+declare java.util.HashMap oneRecordMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+add_lock_records:
+
+    enter timestampIn$, recordsMapIn!
+
+    call "DateUtilities.bbj::get_timestamp_as_datetime_string", timestampIn$, sqlTimeStamp$
+    
+    gosub setup_constants
+    
+    gosub insert_lock_records
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Add stat rows for all records in recordsMapIn!
+REM  ------------------------------------------------------------------------------------------
+
+
+insert_lock_records:
+
+    statsChannel = sqlunt
+    sqlopen(statsChannel) dataWarehouseDataSource$
+
+    sqlprep(statsChannel) INSERT_STATS_STMT$
+    
+    iter! = recordsMapIn!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        pidKey! = iter!.next()
+        oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(pidKey!) )
+        
+        cmd$ = oneRecordMap!.get("cmd")
+        user$ = oneRecordMap!.get("user")
+        fileName$ = oneRecordMap!.get("file_name")
+        lockType$ = oneRecordMap!.get("lock_type")
+
+        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, user$, fileName$, lockType$     
+    
+    wend
+    
+    sqlclose(statsChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    dataWarehouseDataSource$ = ""
+    call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+    
+    INSERT_STATS_STMT$ = "insert into ProcessLockStats (ProcessId, CollectionTime, Command, UserId, FileName, LockType) " +
+:                        "values (?, ?, ?, ?, ?, ?)"
+    
+    return
