@@ -68,6 +68,12 @@ insert_lock_records:
         pidKey! = iter!.next()
         oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(pidKey!) )
         
+        REM  If a process ended between the lslk and ps commands, then don't write the lock record:
+        
+        if oneRecordMap!.get("cmd") = null() then
+            continue
+        endif
+        
         cmd$ = oneRecordMap!.get("cmd")
         user$ = oneRecordMap!.get("user")
         fileName$ = oneRecordMap!.get("file_name")
