@@ -688,7 +688,7 @@ read_one_lslk_record:
 
     REM  Use -1 to turn off this output
     
-    if recordNo > -1 then
+    if recordNo = -1 then
         gosub print_lslk_input_fields
     endif
 
@@ -827,7 +827,7 @@ read_one_lock_ps_record:
 
     REM  Use -1 to turn off this output
     
-    if psRecordNo > -1 then
+    if psRecordNo = -1 then
         gosub print_lock_ps_input_fields
     endif
 
