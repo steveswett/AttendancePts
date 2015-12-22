@@ -1,0 +1,15 @@
+REM /**
+REM  * TestConvertTab2Xls.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+REM Test conversion without dates:
+
+call "ConvertTab2Xls.bbj::simple_conversion", "/test-data/TestTAB.txt", "/test-data/out-TestTAB.xls"
+
+
+REM Test conversion with dates:
+
+call "ConvertTab2Xls.bbj::conversion_with_date_tweaks", "/test-data/TestTABdates.txt", "/test-data/out-TestTABdates.xls", "1,5"

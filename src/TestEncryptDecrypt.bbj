@@ -1,0 +1,29 @@
+REM /**
+REM  * TestEncryptDecrypt.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+REM documentation here: https://commons.apache.org/proper/commons-codec/apidocs/org/apache/commons/codec/binary/Base64.html
+
+use java.lang.String
+use org.apache.commons.codec.binary.Base64
+
+declare java.lang.String encrypted!
+declare java.lang.String encoded!
+declare java.lang.String decoded!
+declare java.lang.String decrypted!
+
+
+encrypted! = encrypt("admin123",mode="cryptpass=NotionsMarketing1500")
+print "encrypted! = ", encrypted!
+
+encoded! = org.apache.commons.codec.binary.Base64.encodeBase64String(encrypted!.getBytes())
+print "encoded! = ", encoded!
+
+decoded! = new java.lang.String(org.apache.commons.codec.binary.Base64.decodeBase64(encoded!))
+print "decoded! = ", decoded!
+
+decoded$ = decoded!
+decrypted! = decrypt(decoded$,mode="cryptpass=NotionsMarketing1500")
+print "decrypted! = ", decrypted!

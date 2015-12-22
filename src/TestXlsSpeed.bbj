@@ -1,0 +1,45 @@
+REM /**
+REM  * TestXlsSpeed.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+    begin
+
+    mydir$ = "/home/stevett/test-data/"
+
+    testTABin$  = mydir$ + "TestTAB.txt"
+
+
+    timesToPerform = 50
+
+    call "DateUtilities.bbj::get_current_timestamp", start$
+
+    for x = 1 to timesToPerform
+        print "bbj ", x
+        testTABout$ = mydir$ + "bbj-out-TestTAB-" + str(x) + ".xls"
+        call "ConvertTab2Xls.bbj::simple_conversion", testTABin$, testTABout$
+    next x
+    
+    call "DateUtilities.bbj::get_current_timestamp", stop$
+
+    gosub calc_run_time
+
+    print $0A$, "bbjRunTime = ", runTime, $0A$
+
+
+    end
+
+    
+calc_run_time:
+
+    startSecs = ( num(start$(9,2)) * 60 * 60 ) + ( num(start$(11,2)) * 60 ) + num(start$(13,2))
+    stopSecs = ( num(stop$(9,2)) * 60 * 60 ) + ( num(stop$(11,2)) * 60 ) + num(stop$(13,2))
+
+    runTime = stopSecs - startSecs
+
+    return
+
+
+    

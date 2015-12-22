@@ -1,0 +1,40 @@
+REM /**
+REM  * TestClassPath.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.net.URL
+use java.net.URLClassLoader
+use org.apache.commons.collections.iterators.ArrayIterator
+
+
+declare java.lang.ClassLoader cl!
+declare java.net.URLClassLoader urlcl!
+declare java.net.URL url!
+
+
+REM  One way to dump the class path entries (individually):
+
+    print "Individual class path entries:", $0A$
+
+        cl! = ClassLoader.getSystemClassLoader()
+        urlcl! = cast(java.net.URLClassLoader, cl!)
+        
+        arrayIterator! = new org.apache.commons.collections.iterators.ArrayIterator(urlcl!.getURLs())
+        
+        while arrayIterator!.hasNext()
+    
+            url! = cast( java.net.URL, arrayIterator!.next())
+            
+            print url!.getFile()
+            
+        wend
+        
+        
+REM  Another way: as a single string:
+  
+    print $0A$, "Class path as Java property java.class.path:", $0A$                  
+       
+    print System.getProperty("java.class.path") 

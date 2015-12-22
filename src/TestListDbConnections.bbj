@@ -1,0 +1,22 @@
+REM /**
+REM  * TestListDbConnections.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+rem Retrieve all active BBjJdbcOdbcConnection Objects
+input "Enter User ID: ",userid$
+input "Enter Password: ",password$
+admin!=BBjAPI().getAdmin(userid$,password$)
+vector! = admin!.getJdbcOdbcConnections()
+print "Database",@(20),"OpenID",@(26),"Userid",@(36),"Host",
+print @(56),"Connect Time"
+for i=0 to vector!.size()-1
+    info!=vector!.get(i)
+    print @(0),str(info!.getDatabase()),
+: @(20),str(info!.getID ()),
+: @(26),str(info!.getUser()),
+: @(36),str(info!.getHost()),
+: @(56),str(info!.getConnectTime())
+next i
+stop

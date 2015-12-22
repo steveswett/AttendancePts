@@ -8,21 +8,21 @@ rem  * Meaningless comment.
 rem  * 
 rem  */
 
-use ::StringUtils.bbj::StringUtils   ; rem added
+use ::StringUtils.bbj::StringUtils   
 
 class public TestStringUtils
 
-    field private StringUtils stringUtils!   ; rem added
+    field private StringUtils stringUtils!   
 
 
 	rem @BeforeClass
 	method public void setUp()
-	    #stringUtils! = new StringUtils()   ; rem added
+	    #stringUtils! = new StringUtils()   
 	methodend
 
 	rem @Test
 	method public void trimUpTest()
-	    Assert.Equals(#stringUtils!.trimUp(" joey "), "JOEY")   ; rem added
+	    Assert.Equals(#stringUtils!.trimUp(" joey "), "JOEY")   
 	methodend
 
 	rem @AfterClass
