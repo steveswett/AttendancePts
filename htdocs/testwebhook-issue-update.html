@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Test JIRA WebHook Issue Update</title>
+
+<script src="js/jquery-1.11.3.min.js"></script>
+
+
+<!-- <link href="css/sms-style.css"	rel="stylesheet"> -->
+
+
+	<script>
+
+        $(document).ready(function() {
+		
+			$("#in_progress").hide();
+			
+        	$("#testLink").click(function() 
+        	{
+
+				console.log("testLink was clicked");
+
+				issueUpdateData = { 
+
+						"timestamp":1452268740168,"webhookEvent":"jira:issue_updated",
+
+						"user":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/user?username=steve.swett","name":"steve.swett","key":"steve.swett",
+						"emailAddress":"steve.swett@notionsmarketing.com",
+
+						"avatarUrls":{
+						"48x48":"https://notionsmarketing.atlassian.net/secure/useravatar?ownerId=steve.swett&avatarId=10900",
+						"24x24":"https://notionsmarketing.atlassian.net/secure/useravatar?size=small&ownerId=steve.swett&avatarId=10900",
+						"16x16":"https://notionsmarketing.atlassian.net/secure/useravatar?size=xsmall&ownerId=steve.swett&avatarId=10900",
+						"32x32":"https://notionsmarketing.atlassian.net/secure/useravatar?size=medium&ownerId=steve.swett&avatarId=10900"},
+						"displayName":"Steve Swett","active":true,"timeZone":"America/New_York"
+						},
+
+						"issue":{
+						"id":"16513","self":"https://notionsmarketing.atlassian.net/rest/api/2/issue/16513","key":"ITI-486",
+
+						"fields":{
+
+						"issuetype":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/issuetype/3","id":"3","description":"A task that needs to be done.",
+						"iconUrl":"https://notionsmarketing.atlassian.net/secure/viewavatar?size=xsmall&avatarId=10318&avatarType=issuetype","name":"Task",
+						"subtask":false,"avatarId":10318},
+						"timespent":null,
+
+						"project":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/project/11200","id":"11200","key":"ITI","name":"IT Infrastructure",
+
+						"avatarUrls":{
+						"48x48":"https://notionsmarketing.atlassian.net/secure/projectavatar?pid=11200&avatarId=10201",
+						"24x24":"https://notionsmarketing.atlassian.net/secure/projectavatar?size=small&pid=11200&avatarId=10201",
+						"16x16":"https://notionsmarketing.atlassian.net/secure/projectavatar?size=xsmall&pid=11200&avatarId=10201",
+						"32x32":"https://notionsmarketing.atlassian.net/secure/projectavatar?size=medium&pid=11200&avatarId=10201"
+						}
+
+						},
+
+						"fixVersions":[],"customfield_10110":null,"customfield_10111":null,"aggregatetimespent":null,"resolution":null,
+						"customfield_10112":null,"customfield_10113":"Not started","customfield_10114":null,"customfield_10104":null,"customfield_10105":null,
+						"customfield_10106":null,"customfield_10107":null,"customfield_10108":null,"customfield_10109":null,
+						"resolutiondate":null,"workratio":-1,"lastViewed":"2016-01-08T10:58:20.300-0500",
+
+						"watches":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/issue/ITI-486/watchers","watchCount":1,"isWatching":false},
+						"created":"2016-01-08T09:34:53.813-0500","customfield_10100":null,
+
+						"priority":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/priority/10000",
+						"iconUrl":"https://notionsmarketing.atlassian.net/images/icons/priorities/trivial.svg","name":"TBD","id":"10000"
+						},
+
+						"customfield_10101":null,"customfield_10102":null,"customfield_10300":null,"customfield_10103":null,"labels":[],"timeestimate":null,
+						"aggregatetimeoriginalestimate":null,"versions":[],"issuelinks":[],
+
+						"assignee":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/user?username=stan.laffrey","name":"stan.laffrey","key":"stan.laffrey",
+						"emailAddress":"stan.laffrey@notionsmarketing.com",
+
+						"avatarUrls":{
+						"48x48":"https://notionsmarketing.atlassian.net/secure/useravatar?ownerId=stan.laffrey&avatarId=10902",
+						"24x24":"https://notionsmarketing.atlassian.net/secure/useravatar?size=small&ownerId=stan.laffrey&avatarId=10902",
+						"16x16":"https://notionsmarketing.atlassian.net/secure/useravatar?size=xsmall&ownerId=stan.laffrey&avatarId=10902",
+						"32x32":"https://notionsmarketing.atlassian.net/secure/useravatar?size=medium&ownerId=stan.laffrey&avatarId=10902"
+						},
+
+						"displayName":"Stan Laffrey","active":true,"timeZone":"America/New_York"
+						},
+
+						"updated":"2016-01-08T10:59:00.166-0500",
+
+						"status":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/status/3","description":"This issue is being actively worked on at the moment by the assignee.",
+						"iconUrl":"https://notionsmarketing.atlassian.net/images/icons/statuses/inprogress.png","name":"In Progress","id":"3",
+
+						"statusCategory":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/statuscategory/4","id":4,"key":"indeterminate","colorName":"yellow","name":"In Progress"
+						}
+
+						},
+
+						"components":[],"timeoriginalestimate":null,
+						"description":"Subject: Test by Steve Swett - Ignore\r\nContact: stevett\r\n Needed: someday\r\n\r\nThis is a test of JIRA integration\r\n\n[Created via e-mail received from: Steve Swett <stevett@notionsmarketing.com>]",
+						"customfield_10010":"0|i00qzz:","customfield_10011":null,
+
+						"timetracking":{
+						},
+
+						"customfield_10005":null,"customfield_10006":null,"customfield_10600":null,"customfield_10601":null,"attachment":[],
+						"aggregatetimeestimate":null,
+						"summary":"Test by Steve Swett - Ignore - **NEW 1** SRQ:031406",
+
+						"creator":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/user?username=SRQ hardware email","name":"SRQ hardware email","key":"srq hardware email",
+						"emailAddress":"jira-srq-hardware@notionsmarketing.com",
+
+						"avatarUrls":{
+						"48x48":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=48",
+						"24x24":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=24",
+						"16x16":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=16",
+						"32x32":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=32"
+						},
+
+						"displayName":"SRQ hardware email","active":true,"timeZone":"America/New_York"
+						},
+
+						"subtasks":[],
+
+						"reporter":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/user?username=SRQ hardware email","name":"SRQ hardware email",
+						"key":"srq hardware email","emailAddress":"jira-srq-hardware@notionsmarketing.com",
+
+						"avatarUrls":{
+						"48x48":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=48",
+						"24x24":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=24",
+						"16x16":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=16",
+						"32x32":"https://secure.gravatar.com/avatar/b2ec8c7ab2e80c1cc1d100237e190d35?d=mm&s=32"
+						},
+
+						"displayName":"SRQ hardware email","active":true,"timeZone":"America/New_York"
+						},
+
+						"customfield_10000":null,
+
+						"aggregateprogress":{
+						"progress":0,"total":0
+						},
+
+						"customfield_10001":null,
+
+						"customfield_10200":{
+						"errorMessage":"The Service Desk you are trying to view does not exist."
+
+						,"i18nErrorMessage":{
+						"i18nKey":"sd.agent.servicedesk.error.servicedesk.missing","parameters":[]
+						}
+
+						},
+
+						"customfield_10003":null,"customfield_10400":null,
+
+						"customfield_10115":{
+						"errorMessage":"The Service Desk you are trying to view does not exist."
+
+						,"i18nErrorMessage":{
+						"i18nKey":"sd.agent.servicedesk.error.servicedesk.missing","parameters":[]
+						}
+
+						},
+
+						"customfield_10116":[],"environment":null,"duedate":null,
+
+						"progress":{
+						"progress":0,"total":0
+						},
+
+						"comment":{
+						"startAt":0,"maxResults":0,"total":0,"comments":[]
+						},
+
+						"votes":{
+						"self":"https://notionsmarketing.atlassian.net/rest/api/2/issue/ITI-486/votes","votes":0,"hasVoted":false
+						},
+
+						"worklog":{
+						"startAt":0,"maxResults":20,"total":0,"worklogs":[]
+						}
+
+						}
+
+						},
+
+						"changelog":{
+						"id":"28857",
+
+						"items":[{
+						"field":"assignee","fieldtype":"jira","from":"steve.swett","fromString":"Steve Swett","to":"stan.laffrey","toString":"Stan Laffrey"
+						}
+
+						]
+
+						}
+						
+						
+				};
+
+				$("#in_progress").show();
+						
+				$.post( "http://localhost:8888/servlet/JIRAWebHook/srq-issue-update/ITI-486", JSON.stringify(issueUpdateData), function( data ) {
+					console.log("Data returned: " + data);
+					$("#returnedDataSection").append(data);
+					$("#in_progress").hide();
+				});
+				
+			});
+        });
+
+    </script>
+
+
+</head>
+
+<body>
+
+	<div id="tpsPageContainer">
+
+		<p>This test page is used to do a webhook test for an issue update. jQuery is
+			used to make a POST request to a REST service, which returns a JSON
+			response.</p>
+
+			
+	<div id="inputDiv">
+
+			Click <a href="#" id="testLink">here</a> to run the test.
+		
+	</div>		
+
+	
+	<div id="outputDiv">
+	
+		<p id="in_progress">Data is being posted ... please wait</p>
+
+		<p>Data returned from servlet:</p>
+
+		<div id="returnedDataSection"></div>
+		
+	</div>
+
+
+	</div>
+	
+</body>
+	
+</html>

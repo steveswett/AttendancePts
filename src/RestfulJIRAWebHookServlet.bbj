@@ -7,6 +7,12 @@ REM  * NOTE: There are some hard-wired things here that I don't like, but we don
 REM  *       on nmcm, which is where this will run.  Could perhaps make more flexible later with
 REM  *       CONFIG_VARS access, etc.
 REM  * 
+REM  * Revised 1/8/16 to add logic to update the following fields when the assignee is changed
+REM  * in JIRA.  These fields are only set if the current ASSIGN$ field in SYSR is blank.
+REM  *  
+REM  *      ASSIGN$ (assignee to "HARDWARE")
+REM  *      STAT$ (status to "P")
+REM  *      ASTAMP$ (assigned timestamp)
 REM  */
 
 
@@ -18,6 +24,8 @@ use org.json.JSONArray
 
 
 class public RestfulJIRAWebHookServlet
+        
+    sysr_all_fields_iol:iolist K0$,K1$,HS$,HS1$,HS2$,REQ$,LOC$,STAT$,NOTES$,WHEN$,CONTACT$,ATTACHMENT$,ASSIGN$,ASTAMP$,CLSTAMP$,WORKED,PRI$
 
     field private static BBjNumber TRUE = 1
     field private static BBjNumber FALSE = 0
@@ -124,22 +132,109 @@ class public RestfulJIRAWebHookServlet
     
     
     method private void processRequest(java.lang.String httpMethod!, java.lang.String urlPath!)
-        
+
         if urlPath!.startsWith("/srq-status-change/")  then
+            #processSrqStatusChange(httpMethod!,urlPath!)
+        endif
+        
+        if urlPath!.startsWith("/srq-issue-update/")  then
+            #processSrqIssueUpdate(httpMethod!,urlPath!)
+        endif
+
+    methodend
+    
+    
+    rem /**
+    rem  * Process SRQ status change 
+    rem  */
+    
+    
+    method private void processSrqStatusChange(java.lang.String httpMethod!, java.lang.String urlPath!)
+
+        if #WRITE_TO_LOG then #writeToLog("in processSrqStatusChange")
+        
+        if httpMethod!.equals("POST") then
+        
+            #decodedBody! = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
+            #loadJsonDataMapForStatusChange()
             
-            if httpMethod!.equals("POST") then
+            srqNumber$ = #getSrqNumber()
             
-                #decodedBody! = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
-                #loadJsonDataMap()
+            if #WRITE_TO_LOG then #writeToLog("srqNumber$ = " + srqNumber$)
+            
+            if len(srqNumber$) > 0 then
+
+                if #UPDATE_SRQ then
+                    #updateSRQStatus(srqNumber$)
+                endif
                 
+                if #SEND_EMAIL_DATA or #SEND_RESPONSE_TEXT then
+                
+                    requestData$ = #getRequestData()
+                    
+                    generalInfo$ = "<p>httpMethod! = " + httpMethod! + "</p>"
+                    generalInfo$ = generalInfo$ + "<p>urlPath! = " + urlPath! + "</p>"
+                    generalInfo$ = generalInfo$ + "<p>srqNumber$ = " + srqNumber$ + "</p>"
+                    
+                    requestData$ = generalInfo$ + requestData$
+    
+                    if #SEND_EMAIL_DATA then
+    
+                        recipients$ = "steve.swett@notionsmarketing.com"
+                        subject$ = "E-mail data for RestfulJIRAWebHookServlet"
+                        body$ = requestData$
+                        mailReturnCode = #sendEmail(recipients$, subject$, body$)
+                        
+                    endif
+                    
+                    if #SEND_RESPONSE_TEXT then
+                    
+                        if #SEND_EMAIL_DATA and mailReturnCode > 0 then
+                            print(#responseChannel) "<p>E-mail failed with return code: " + str(mailReturnCode) + "</p>"
+                        endif
+                        
+                        print(#responseChannel) requestData$
+                        
+                    endif
+                    
+                endif
+                
+            
+            endif
+            
+        endif
+        
+        if httpMethod!.equals("GET") then
+            #getSampleResponseForGetMethod(urlPath!)
+        endif
+
+    methodend
+    
+    
+    rem /**
+    rem  * Process SRQ issue update 
+    rem  */
+    
+    
+    method private void processSrqIssueUpdate(java.lang.String httpMethod!, java.lang.String urlPath!)
+
+        if #WRITE_TO_LOG then #writeToLog("in processSrqIssueUpdate")
+
+        if httpMethod!.equals("POST") then
+        
+            #decodedBody! = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
+            #loadJsonDataMapForIssueUpdate()
+            
+            if #jsonDataMap!.get("assignee_changed") = "Y" then
+            
                 srqNumber$ = #getSrqNumber()
                 
                 if #WRITE_TO_LOG then #writeToLog("srqNumber$ = " + srqNumber$)
-                
+            
                 if len(srqNumber$) > 0 then
-
+    
                     if #UPDATE_SRQ then
-                        #updateSRQ(srqNumber$)
+                        #updateSRQAssignee(srqNumber$)
                     endif
                     
                     if #SEND_EMAIL_DATA or #SEND_RESPONSE_TEXT then
@@ -178,10 +273,10 @@ class public RestfulJIRAWebHookServlet
                 
             endif
             
-            if httpMethod!.equals("GET") then
-                #getSampleResponseForGetMethod(urlPath!)
-            endif
-            
+        endif
+        
+        if httpMethod!.equals("GET") then
+            #getSampleResponseForGetMethod(urlPath!)
         endif
 
     methodend
@@ -218,6 +313,7 @@ class public RestfulJIRAWebHookServlet
              
         endif
         
+        
         methodret resultNum$
     
     methodend
@@ -230,7 +326,7 @@ class public RestfulJIRAWebHookServlet
     rem  */
     
     
-    method private void loadJsonDataMap()
+    method private void loadJsonDataMapForStatusChange()
     
         declare org.json.JSONObject rootObject!
         declare org.json.JSONObject transitionObject!
@@ -266,6 +362,87 @@ class public RestfulJIRAWebHookServlet
         
         
         skip_json_error:
+        
+        seterr 0
+        
+    
+    methodend
+    
+    
+    rem /**
+    rem  * Load data from the stringified JSON data in the request body into #jsonDataMap!.
+    rem  * This also validates the structure of the JSON data so that we aren't trying to 
+    rem  * handle bogus requests. 
+    rem  */
+    
+    
+    method private void loadJsonDataMapForIssueUpdate()
+    
+        declare org.json.JSONObject rootObject!
+        declare org.json.JSONObject userObject!
+        declare org.json.JSONObject issueObject!
+        declare org.json.JSONObject issueFieldsObject!
+        declare org.json.JSONObject changelogObject!
+        declare org.json.JSONArray changedItemsArray!
+        declare org.json.JSONObject changedItemObject!
+        
+        #jsonDataMap! = new java.util.HashMap()
+        
+        seterr json_error_handler_two
+        
+        rootObject! = new org.json.JSONObject(#decodedBody!)
+        
+        REM  The following isn't need for data reading; it's about testing the structure of the JSON data
+        userObject! = rootObject!.getJSONObject("user")
+        
+        REM  These are needed for data reads:
+        issueObject! = rootObject!.getJSONObject("issue")
+        issueKey$ = issueObject!.getString("key")
+        issueFieldsObject! = issueObject!.getJSONObject("fields")
+        issueSummary$ = issueFieldsObject!.getString("summary")
+        
+        changelogObject! = rootObject!.getJSONObject("changelog")
+        changedItemsArray! = changelogObject!.getJSONArray("items") 
+        
+        wasAssigneeChanged$ = "N"
+        
+        if changedItemsArray!.length() > 0 then
+
+            for i = 0 to changedItemsArray!.length() - 1
+                
+                changedItemObject! = changedItemsArray!.getJSONObject(i)
+                
+                if changedItemObject!.has("field") then
+                    changedItemField$ = changedItemObject!.getString("field")
+                    
+                    if changedItemField$ = "assignee" then
+                        wasAssigneeChanged$ = "Y"
+                        break
+                    endif
+                endif
+                
+            next i
+            
+        endif
+         
+        #jsonDataMap!.put("issue_key", issueKey$)
+        #jsonDataMap!.put("issue_summary", issueSummary$)
+
+        if #WRITE_TO_LOG then #writeToLog("in loadJsonDataMapForIssueUpdate - before assignee_changed")
+
+        #jsonDataMap!.put("assignee_changed", wasAssigneeChanged$)
+
+        if #WRITE_TO_LOG then #writeToLog("in loadJsonDataMapForIssueUpdate - after assignee_changed")
+        
+        goto skip_json_error_two
+        
+        
+        json_error_handler_two:
+        
+        #jsonDataMap!.put("error", errmes(-1))
+        
+        
+        skip_json_error_two:
         
         seterr 0
         
@@ -333,18 +510,14 @@ class public RestfulJIRAWebHookServlet
     
     
     rem /**
-    rem  *  Update the SRQ record in the NotionsDB on NMCA.  Mark it closed.  Also send an e-mail to the requester 
+    rem  *  Update the SRQ record for status in the NotionsDB on NMCA.  Mark it closed.  
+    rem  * Also send an e-mail to the requester. 
     rem  */
     
     
-    method private void updateSRQ(BBjString srqNumber!)
+    method private void updateSRQStatus(BBjString srqNumber!)
     
         declare java.lang.String issueKey!
-        
-        REM  Initially just do in the local file system
-        REM  TODO: Need to adapt to NMCM environment (data server)
-        
-        sysr_all_fields_iol:iolist K0$,K1$,HS$,HS1$,HS2$,REQ$,LOC$,STAT$,NOTES$,WHEN$,CONTACT$,ATTACHMENT$,ASSIGN$,ASTAMP$,CLSTAMP$,WORKED,PRI$
         
         srqNumber$ = srqNumber!
         srqKey$ = srqNumber$ + "00"
@@ -389,6 +562,70 @@ class public RestfulJIRAWebHookServlet
         endif
         
         no_rec_found:
+        
+        close(sysrChannel)      
+        if #WRITE_TO_LOG then #writeToLog("after close SYSR file")
+    
+    methodend
+    
+    
+    rem /**
+    rem  *  Update the SRQ record for assignee in the NotionsDB on NMCA.  Set assignee to
+    rem  *  "HARDWARE".  Also send an e-mail to the requester. 
+    rem  */
+    
+    
+    method private void updateSRQAssignee(BBjString srqNumber!)
+    
+        declare java.lang.String issueKey!
+        
+        srqNumber$ = srqNumber!
+        srqKey$ = srqNumber$ + "00"
+        
+        sysrChannel = unt
+        if #WRITE_TO_LOG then #writeToLog("before open SYSR file")
+        
+        if #RUNNING_ON_WINDOWS_DEV then
+            open(sysrChannel) "SYSR"
+        else
+            open(sysrChannel) "/<NMCA>/usr/notfil/SYSR"
+        endif
+        
+        if #WRITE_TO_LOG then #writeToLog("after open SYSR file")
+        
+        read(sysrChannel, knum=0, key=srqKey$, dom=no_rec_found_two) IOL=sysr_all_fields_iol
+        if #WRITE_TO_LOG then #writeToLog("after read SYSR file, requester = " + REQ$)
+        
+        if len( cvs(ASSIGN$,3) ) = 0 then
+        
+            ASSIGN$ = "HARDWARE"
+            STAT$ = "P"
+            yymmddhhmm$ = date(0:"%Yz%Mz%Dz%Hz%mz") 
+            ASTAMP$ = yymmddhhmm$
+        
+            write(sysrChannel) IOL=sysr_all_fields_iol
+            if #WRITE_TO_LOG then #writeToLog("wrote SYSR file")
+            
+            trimmedRequester$ = cvs(REQ$,11)
+            
+            if len(trimmedRequester$) >= 0 then
+                
+                issueKey! = cast(java.lang.String, #jsonDataMap!.get("issue_key"))
+                if #WRITE_TO_LOG then #writeToLog("got issueKey! = " + issueKey!)
+    
+                recipients$ = trimmedRequester$ + "@notionsmarketing.com"
+                subject$ = "SRQ " + srqNumber$ + " has been assigned to " + ASSIGN$ + ".  (aka JIRA " + issueKey! + ")"
+                body$ = "Original SRQ Description: " + cvs(NOTES$,2)
+                
+                if #WRITE_TO_LOG then #writeToLog("before sendEmail")
+                mailReturnCd = #sendEmail(recipients$, subject$, body$)
+                if #WRITE_TO_LOG then #writeToLog("after sendEmail, mailReturnCd = " + str(mailReturnCd))
+                
+            endif
+        endif
+        
+        
+        no_rec_found_two:
         
         close(sysrChannel)      
         if #WRITE_TO_LOG then #writeToLog("after close SYSR file")
