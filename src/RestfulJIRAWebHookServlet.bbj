@@ -346,7 +346,6 @@ class public RestfulJIRAWebHookServlet
         
         REM  The following isn't need for data reading; it's about testing the structure of the JSON data
         transitionObject! = rootObject!.getJSONObject("transition")
-        userObject! = rootObject!.getJSONObject("user")
         
         REM  These are needed for data reads:
         issueObject! = rootObject!.getJSONObject("issue")
@@ -354,10 +353,13 @@ class public RestfulJIRAWebHookServlet
         issueFieldsObject! = issueObject!.getJSONObject("fields")
         issueSummary$ = issueFieldsObject!.getString("summary")
         comment$ = rootObject!.getString("comment")
+        userObject! = rootObject!.getJSONObject("user")
+        userName$ = userObject!.getString("name")
          
         #jsonDataMap!.put("issue_key", issueKey$)
         #jsonDataMap!.put("issue_summary", issueSummary$)
         #jsonDataMap!.put("comment", comment$)
+        #jsonDataMap!.put("user_name", userName$)
         
         goto skip_json_error
         
@@ -525,6 +527,7 @@ class public RestfulJIRAWebHookServlet
     
         declare java.lang.String issueKey!
         declare java.lang.String comment!
+        declare java.lang.String userName!
         
         srqNumber$ = srqNumber!
         srqKey$ = srqNumber$ + "00"
@@ -552,12 +555,14 @@ class public RestfulJIRAWebHookServlet
         if #WRITE_TO_LOG then #writeToLog("wrote SYSR file")
         
         trimmedRequester$ = cvs(REQ$,11)
-        savedRequester$ = REQ$
 
         REM  Prepare JIRA comment for e-mailing / writing to SRQ:
         
         comment! = cast(java.lang.String, #jsonDataMap!.get("comment"))
         comment$ = cvs(comment!,3)
+        
+        userName! = cast(java.lang.String, #jsonDataMap!.get("user_name"))
+        userName$ = cvs(userName!,3)
 
         if len(comment$) then
 
@@ -585,7 +590,7 @@ class public RestfulJIRAWebHookServlet
             body$ = "Original SRQ Description: " + cvs(NOTES$,2)
 
             if len(comment$) then
-                body$ = body$ + " / JIRA Comment: " + comment$
+                body$ = body$ + " / JIRA Comment from " + userName$ + ": " + comment$
             endif
             
             if #WRITE_TO_LOG then #writeToLog("before sendEmail")
@@ -628,7 +633,7 @@ class public RestfulJIRAWebHookServlet
                 HS$ = ""
                 HS1$ = day
                 HS2$ = ""
-                REQ$ = savedRequester$
+                REQ$ = userName$
                 LOC$ = ""
                 STAT$ = ""
                 NOTES$ = comment$
