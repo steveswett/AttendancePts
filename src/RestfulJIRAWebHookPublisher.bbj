@@ -7,7 +7,7 @@ REM  * NOTE: There are some hard-wired things here that I don't like, but we don
 REM  *       on nmcm, which is where this will run.  Could perhaps make more flexible later with
 REM  *       CONFIG_VARS access, etc.
 REM  *
-REM  * To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/issue/ERP-1524
+REM  * To test this servlet, visit: http://localhost:8888/servlet/JIRAWebHook/srq-status-change/ERP-1524
 REM  * 
 REM  */
 
