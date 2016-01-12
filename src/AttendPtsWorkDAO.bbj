@@ -927,11 +927,7 @@ ml_update_row:
     
     REM  IMPORTANT: Was getting error 77 SQL before I added "cvs" to trim trailing blanks -- due to field being too long.
 
-REM     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
-REM :        "update attend_pts_work " + 
-REM :        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, job_id = ?, " + 
-REM :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
-REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
+    call "DateUtilities.bbj::get_current_timestamp", updateTimestamp$
     
     if fnIsMassLoadingExceptions(TRUE) then
     
@@ -941,6 +937,7 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
         tempLastModDate$ = wfmrResultRow.exception_last_mod$(1,4) + wfmrResultRow.exception_last_mod$(6,2) + wfmrResultRow.exception_last_mod$(9,2) + wfmrResultRow.exception_last_mod$(12,2) + wfmrResultRow.exception_last_mod$(15,2) + wfmrResultRow.exception_last_mod$(18,2) 
     
         sqlexec(attendPtsUpdateRowChannel) 
+:           updateTimestamp$, loginUser$,
 :           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), wfmrResultRow.employee_id, 
 :           cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id, wfmrResultRow.job_id,
 :           wfmrResultRow.exception_date$, wfmrResultRow.exception_definition_id, str(erpPts), tempLastModDate$,
@@ -953,7 +950,8 @@ REM :        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
         tempLastModDate$ = wfmrResultRow.missed_shift_last_mod$(1,4) + wfmrResultRow.missed_shift_last_mod$(6,2) + wfmrResultRow.missed_shift_last_mod$(9,2) + wfmrResultRow.missed_shift_last_mod$(12,2) + wfmrResultRow.missed_shift_last_mod$(15,2) + wfmrResultRow.missed_shift_last_mod$(18,2) 
         tempInTimeStamp$ = wfmrResultRow.in_timestamp$(1,4) + wfmrResultRow.in_timestamp$(6,2) + wfmrResultRow.in_timestamp$(9,2) + wfmrResultRow.in_timestamp$(12,2) + wfmrResultRow.in_timestamp$(15,2) + wfmrResultRow.in_timestamp$(18,2) 
     
-        sqlexec(attendPtsUpdateRowChannel) 
+        sqlexec(attendPtsUpdateRowChannel)
+:           updateTimestamp$, loginUser$,
 :           wfmrResultRow.department_id, cvs(wfmrResultRow.shift$, 2), cvs(wfmrResultRow.badge_number$, 2), wfmrResultRow.scheduled_shift_id,
 :           wfmrResultRow.missed_shift_date$, derived_exception_id, str(erpPts), tempLastModDate$, wfmrResultRow.reason_id,
 :           wfmrResultRow.employee_id, wfmrResultRow.business_unit_id, wfmrResultRow.job_id, tempInTimeStamp$,
@@ -1371,9 +1369,9 @@ setup_constants:
     
     ATTEND_PTS_EXCEPTIONS_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, sched_shift_id = ?, job_id = ?, " + 
+:        "set exc_gone_stamp = '', last_mod = ?, last_mod_user = ?, dept_id = ?, shift = ?, emp_id = ?, emp_badge_no = ?, sched_shift_id = ?, job_id = ?, " + 
 :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ? " +
-:        "where wfmr_src = 'E' and wfmr_exc_id = ? and wfmr_exc_lastmod < ?"
+:        "where wfmr_src = 'E' and wfmr_exc_id = ? and (wfmr_exc_lastmod < ? or exc_gone_stamp > '')"
 
 
     REM  Probably could have parameterized the following query with ?
@@ -1448,10 +1446,10 @@ setup_constants:
 
     ATTEND_PTS_MISSED_SHIFT_UPDATE_STMT$ = 
 :        "update attend_pts_work " + 
-:        "set dept_id = ?, shift = ?, emp_badge_no = ?, sched_shift_id = ?, " + 
+:        "set exc_gone_stamp = '', last_mod = ?, last_mod_user = ?, dept_id = ?, shift = ?, emp_badge_no = ?, sched_shift_id = ?, " + 
 :        "wfmr_exc_date = ?, wfmr_exc_def_id = ?, wfmr_pts_assess = ?, wfmr_exc_lastmod = ?, wfmr_reason_id = ? " +
 :        "where wfmr_src = 'M' and emp_id = ? and bus_unit_id = ? and job_id = ? and wfmr_in_tm_miss = ? " +
-:        "and wfmr_exc_lastmod < ?"
+:        "and (wfmr_exc_lastmod < ? or exc_gone_stamp > '')"
 
     ATTEND_PTS_WORK_GET_TOTALS_STMT$ = 
 :       "select wfmr_exc_date, count(*) as total " +
