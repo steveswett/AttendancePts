@@ -275,6 +275,9 @@ setup_constants:
 :       "from employee " +
 :       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
 :       "inner join Lab_Employee_Custom_Column on employee.employee_id = Lab_Employee_Custom_Column.employee_id " +  
+:       "join lab_employee_primary_job on lab_employee_primary_job.employee_id = employee.employee_id " +
+:       "inner join Lab_Employee_Job_List on lab_employee_primary_job.employee_primary_job_id = Lab_Employee_Job_List.employee_job_list_id " +
+:       "inner join Lab_Job on Lab_Employee_Job_List.job_id = Lab_Job.job_id " +
 :       "where employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
 :       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
@@ -282,6 +285,8 @@ setup_constants:
 :       "and hire_date <= @fromYyyymmddWithHyphens " +
 :       "and Lab_Employee_Custom_Column.custom_column_def_id = @customColumnIdForStatus " +
 :       "and Lab_Employee_Custom_Column.column_value not in('D','F') " +
+:       "and lab_employee_primary_job.department_id is not null " +
+:       "and Lab_Job.name not like '%Supervisor%' " +
 :       "and employee.employee_id not " +
 :       "in(" +
 :           "select " + 
@@ -315,6 +320,9 @@ setup_constants:
 :       "from employee " +
 :       "left join rad_sys_user on rad_sys_user.user_id = employee.employee_id " +
 :       "inner join Lab_Employee_Custom_Column on employee.employee_id = Lab_Employee_Custom_Column.employee_id " +  
+:       "join lab_employee_primary_job on lab_employee_primary_job.employee_id = employee.employee_id " +
+:       "inner join Lab_Employee_Job_List on lab_employee_primary_job.employee_primary_job_id = Lab_Employee_Job_List.employee_job_list_id " +
+:       "inner join Lab_Job on Lab_Employee_Job_List.job_id = Lab_Job.job_id " +
 :       "where employee.home_business_unit_id in(@opsBusinessUnit,@adminBusinessUnit) " +
 :       "and employee.generate_exceptions_flag = 'y' " +
 :       "and employee.manager_level_flag <> 'y' " +
@@ -322,6 +330,8 @@ setup_constants:
 :       "and hire_date <= @fromYyyymmddWithHyphens " +
 :       "and Lab_Employee_Custom_Column.custom_column_def_id = @customColumnIdForStatus " +
 :       "and Lab_Employee_Custom_Column.column_value not in('D','F') " +
+:       "and lab_employee_primary_job.department_id is not null " +
+:       "and Lab_Job.name not like '%Supervisor%' " +
 :       "and employee.employee_id " +
 :       "in(" +
 :           "select " + 

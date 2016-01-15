@@ -12,11 +12,16 @@ declare java.util.HashMap employeeDataMap!
 
 employeeRecordsMap! = new java.util.LinkedHashMap()
 
-call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", employeeRecordsMap!, "20150901", "20151130"
+rem call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", employeeRecordsMap!, "20150906", "20151205"
+call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", employeeRecordsMap!, "20150906", "20151205"
+
+count = 0
 
 iter! = employeeRecordsMap!.keySet().iterator()
 
 while iter!.hasNext()
+
+count = count + 1
 
     badgeKey! = iter!.next()
     employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
@@ -25,3 +30,5 @@ while iter!.hasNext()
 :       employeeDataMap!.get("first_name"), ", ", employeeDataMap!.get("employee_id")
 
 wend
+
+print "count = ", count
