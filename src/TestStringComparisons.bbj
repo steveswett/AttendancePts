@@ -1,0 +1,20 @@
+REM /**
+REM  * TestStringComparisons.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+x$ = "2"
+
+if x$ <> " " and (x$ < "A" or x$ > "Z") then
+    print "x$, ", x$, ", not blank and outside A-Z range"
+else
+    print "x$, ", x$, ", blank or within A-Z"
+endif
+
+date$ = date(0:"%Y%Mz%Dz%H%mz%sz")
+user$ = info(3,2)
+
+
+print "date$ = ", date$
+print "user$ = ", user$

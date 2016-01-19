@@ -1,0 +1,92 @@
+REM /**
+REM  * ConvertTab2Xls.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use com.notions.Tab2Xls
+
+declare com.notions.Tab2Xls converter!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+simple_conversion:
+
+    enter tabInputFilePath$, excelOutputFilePath$
+    
+    gosub setup_constants
+    
+    gosub convert_simple
+    
+    exit
+
+
+conversion_with_date_tweaks:
+
+    enter tabInputFilePath$, excelOutputFilePath$, zeroBasedDateColumnNumbersAsCSV$
+    
+    gosub setup_constants
+    
+    gosub convert_and_tweak_dates
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ----------------------------------------------------------------------
+REM  setup_constants
+REM  ----------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    return
+
+
+REM  ----------------------------------------------------------------------
+REM  Do simple conversion with no data manipulation
+REM  ----------------------------------------------------------------------
+
+convert_simple:
+
+    converter! = new com.notions.Tab2Xls()
+    
+    converter!.convert(tabInputFilePath$, excelOutputFilePath$)
+
+    return
+
+
+REM  ----------------------------------------------------------------------
+REM  Example of 3rd argument: "1,5".  This means the 2nd and 6th relative
+REM  columns contain dates that need to be tweaked - YYYYMMDD to MM/DD/YY
+REM  ----------------------------------------------------------------------
+
+convert_and_tweak_dates:
+
+    converter! = new com.notions.Tab2Xls()
+    
+    converter!.convert(tabInputFilePath$, excelOutputFilePath$, zeroBasedDateColumnNumbersAsCSV$)
+
+    return

@@ -1,0 +1,50 @@
+REM /**
+REM  * TestStblCalled.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+assign_stbl:
+
+    enter someVar$
+    
+    rem "nameList" is used as a group marker
+    val$ = stbl("namelist", "x")
+
+    val$ = stbl("name1", "Steve")
+    val$ = stbl("name2", "Peggy")
+    val$ = stbl("name3", "Andy")
+    
+    exit
+    
+    
+clear_stbl:
+
+    enter someVar$
+    
+    rem Following should clear the group marker and name1-3 variables
+    val$ = stbl("!CLEARTO", "namelist")
+    
+    exit
+    
+    
+display_stbl:
+
+    enter someVar$
+
+    name1$ = ""
+    name2$ = ""
+    name3$ = ""
+    
+    name1$ = stbl("name1", err=*next)
+    name2$ = stbl("name2", err=*next)
+    name3$ = stbl("name3", err=*next)
+    
+    print "name1 = ", name1$
+    print "name2 = ", name2$
+    print "name3 = ", name3$
+    
+    print "stbl displayed by called"
+
+    exit

@@ -1,0 +1,62 @@
+REM /**
+REM  * TestStblCaller.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+begin
+
+    rem will get error 49 if string not found
+    rem notFound$ = stbl("notfound", err=*next)
+
+    call "TestStblCalled.bbj::assign_stbl", "x"
+    print "stbl assigned by called"
+    gosub display_stbl
+
+    call "TestStblCalled.bbj::clear_stbl", "x"
+    print "stbl cleared by called"
+    gosub display_stbl
+
+    gosub assign_stbl
+    print "stbl assigned by caller"
+    call "TestStblCalled.bbj::display_stbl", "x"
+
+    rem Following should clear the group marker and name1-3 variables
+    val$ = stbl("!CLEARTO", "namelist")
+
+    print "stbl cleared by caller"
+    gosub display_stbl
+
+end
+
+
+assign_stbl:
+
+    rem "nameList" is used as a group marker
+    val$ = stbl("namelist", "x")
+
+    val$ = stbl("name1", "Fred")
+    val$ = stbl("name2", "Wilma")
+    val$ = stbl("name3", "Pebbles")
+
+    return
+
+
+display_stbl:
+
+    name1$ = ""
+    name2$ = ""
+    name3$ = ""
+    
+    name1$ = stbl("name1", err=*next)
+    name2$ = stbl("name2", err=*next)
+    name3$ = stbl("name3", err=*next)
+    
+    print "name1 = ", name1$
+    print "name2 = ", name2$
+    print "name3 = ", name3$
+    
+    print "stbl displayed by caller"
+
+    return  

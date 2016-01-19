@@ -1,0 +1,12 @@
+REM /**
+REM  * TestReadLoop.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+LET CH1=1000; OPEN (CH1,ERR=*next)"FILEINFO"
+
+while 1
+    read (ch1,end=*break,err=*break) filename$, chan, tmpl$
+    print filename$
+wend

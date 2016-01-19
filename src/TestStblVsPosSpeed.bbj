@@ -1,0 +1,72 @@
+REM /**
+REM  * TestStblVsPosSpeed.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+begin
+
+gosub load_structures
+
+gosub test_stbl
+
+gosub test_pos
+
+end
+
+
+load_structures:
+
+    print "loading structures start.  please wait..."
+    
+    keyString$ = ""
+    valString$ = ""
+    
+    for x = 1 to 2500
+        fmtX$ = str(x:"0000")
+        
+        REM load stbl
+        val$ = stbl(fmtX$, "z")
+        
+        REM load key/value strings
+        keyString$ = keyString$ + fmtX$
+        valString$ = valString$ + "z"
+    next x
+
+    print "loading structures stop.", $0A$
+
+    return
+    
+    
+test_stbl:
+
+    input "stbl test start. Ready stopwatch before hitting Enter", ignoreInput$
+    
+    for x = 1 to 200000
+        randomNo = rnd(2500)
+        key$ = str( randomNo + 1:"0000" )
+        val$ = stbl(key$)
+        REM print "x, randomNo, val$ = ", x, ", ", randomNo, ", ", val$
+    next x
+    
+    print "stbl test finish.",$0A$
+
+    return
+    
+    
+    
+test_pos:
+
+    input "pos test start. Ready stopwatch before hitting Enter", ignoreInput$
+    
+    for x = 1 to 200000
+        randomNo = rnd(2500)
+        key$ = str( randomNo + 1:"0000" )
+        foundAt = pos(key$ = keyString$, 4)
+        val$ = valString$( (foundAt + 3) / 4, 1)
+        REm print "x, randomNo, val$ = ", x, ", ", randomNo, ", ", val$
+    next x
+    
+    print "pos test finish.",$0A$
+
+    return    
