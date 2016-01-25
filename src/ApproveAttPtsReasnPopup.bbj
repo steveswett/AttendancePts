@@ -12,6 +12,7 @@ REM  */
 use java.util.LinkedHashMap
 
 declare java.util.LinkedHashMap reasonsMap!
+declare java.util.HashMap reasonDataMap!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -29,7 +30,7 @@ entry_points:
     
 show_popup:
 
-    enter upperLeftColumn, upperLeftRow, reasonIdInOut, reasonDescrOut$
+    enter upperLeftColumn, upperLeftRow, reasonIdInOut, reasonDescrOut$, pointsOut
     
     gosub setup_constants
 
@@ -114,11 +115,12 @@ init:
     
 display_popup:
 
-    print 'window' (upperLeftColumn, upperLeftRow, 61, 14, "Choose Edit Reason",'br'),
+    print 'window' (upperLeftColumn, upperLeftRow, 71, 14, "Choose Edit Reason",'br'),
     
     rem The row and column values used here are relative to inside the window
     
     print 'er',
+    print @(58, START_ROW_FOR_LIST - 1), "ASSIGNS"
     
     cursorRow = START_ROW_FOR_LIST
     x = 0
@@ -129,8 +131,11 @@ display_popup:
     
       tmpId! = iter!.next()
       x = x + 1
+
+      reasonDataMap! = cast( java.util.HashMap, reasonsMap!.get(tmpId!) )
       
-      print @(5, x),  reasonsMap!.get(tmpId!)
+      print @(5, x),  reasonDataMap!.get("descr")
+      print @(57, x), "(", reasonDataMap!.get("points"), " pts )"
       
       if reasonIdInOut = tmpId! then cursorRow = x
       
@@ -185,7 +190,9 @@ handle_input:
       
       if x = cursorRow then
           reasonIdInOut = tmpId!
-          reasonDescrOut$ = reasonsMap!.get(tmpId!)
+          reasonDataMap! = cast( java.util.HashMap, reasonsMap!.get(tmpId!) )
+          reasonDescrOut$ = reasonDataMap!.get("descr")
+          pointsOut = reasonDataMap!.get("points")
           break
       endif
       

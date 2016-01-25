@@ -12,6 +12,7 @@ REM  */
 use java.util.LinkedHashMap
 
 declare java.util.LinkedHashMap reasonsMap!
+declare java.util.HashMap reasonDataMap!
 
 
 rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
@@ -58,7 +59,7 @@ setup_constants:
     attendPtsDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
     
-    REASONS_SELECT_STMT$ = "select id, descr from attend_pts_reasn order by id"
+    REASONS_SELECT_STMT$ = "select id, descr, assign_pts from attend_pts_reasn order by id"
     
     return
 
@@ -82,7 +83,10 @@ load_reasons_map:
     while TRUE
     
         resultRow$ = sqlfetch(reasonsChannel,err=*break)
-        reasonsMap!.put(resultRow.id, cvs(resultRow.descr$, 2) )
+        reasonDataMap! = new java.util.HashMap()
+        reasonDataMap!.put("descr", cvs(resultRow.descr$, 2) ) 
+        reasonDataMap!.put("points", resultRow.assign_pts ) 
+        reasonsMap!.put(resultRow.id, reasonDataMap!)
         
     wend
     

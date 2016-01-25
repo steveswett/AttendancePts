@@ -502,13 +502,14 @@ handle_input:
                     if isRecordEditable and dispCode$ = "E" then
                         beforeValue = attPtsWorkDataMap!.get("disp_edt_reas_id")
                         afterValue = beforeValue 
-                        call "ApproveAttPtsReasnPopup.bbj::show_popup", 14, 9, afterValue, tmpReasonDescr$
+                        call "ApproveAttPtsReasnPopup.bbj::show_popup", 5, 9, afterValue, tmpReasonDescr$, tmpAfterPts
     
                         if !(afterValue = beforeValue) then 
                             attPtsWorkDataMap!.put("changed", TRUE)
                             attPtsWorkDataMap!.put("disp_edt_reas_id", afterValue)
                             attPtsWorkDataMap!.put("edt_reas_descr", tmpReasonDescr$)
                             attPtsWorkDataMap!.put("erp_note", tmpReasonDescr$)
+                            attPtsWorkDataMap!.put("erp_pts_assessed", tmpAfterPts)
                         endif
                     endif
         
