@@ -229,7 +229,7 @@ class public RestfulJIRAWebHookServlet
             #decodedBody! = java.net.URLDecoder.decode(#request!.getBody(), "UTF-8")
             #loadJsonDataMapForIssueUpdate()
             
-            if #jsonDataMap!.get("assignee_changed") = "Y" then
+            if #jsonDataMap!.containsKey("assignee_changed") and #jsonDataMap!.get("assignee_changed") = "Y" then
             
                 srqNumber$ = #getSrqNumber()
                 
