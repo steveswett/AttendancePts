@@ -13,6 +13,8 @@ REM  *            program instead.
 REM  * 
 REM  *      /usr/local/basis/pro5/pro5lst -d/home/stevett/bbxListedPrograms -w500 -cont ./*
 REM  * 
+REM  *      Recommend running on nmcdev.
+REM  * 
 REM  * BBj: 
 REM  * 
 REM  *  Once BBj programs were identified, listed them on nmcDev using the following commands:
@@ -36,6 +38,7 @@ declare java.io.File file!
 declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
 declare java.util.HashSet filesAccessedHashSet!
 declare java.util.HashSet programsCalledHashSet!
+declare java.util.HashSet programsRunHashSet!
 
 
 begin
@@ -106,7 +109,17 @@ rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
     
 init:
 
+    call "ConfigVarsDAO.bbj::get_value", "is.windows.environment", configVarFound, configVarDataType$, isWindowsEnv$
+    isWindowsEnv = num(isWindowsEnv$)
+    
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, programInfoDataSource$
+
+    if isWindowsEnv then
+        SOURCE_PROGRAM_PATH$ = "/bbjbbxListedPrograms"
+    else
+        SOURCE_PROGRAM_PATH$ = "/home/stevett/bbjbbxListedPrograms"
+    endif
+
 
     REM  Delete all program info (will reload)
     
@@ -121,7 +134,10 @@ init:
     sqlprep(deleteChannel) DELETE_PROGRAM_FILES_QUERY$
     sqlexec(deleteChannel)
     
-    sqlprep(deleteChannel) DELETE_PROGRAM_PROGRAMS_QUERY$
+    sqlprep(deleteChannel) DELETE_PROGRAM_CALLED_PROGRAMS_QUERY$
+    sqlexec(deleteChannel)
+    
+    sqlprep(deleteChannel) DELETE_PROGRAM_RUN_PROGRAMS_QUERY$
     sqlexec(deleteChannel)
     
     sqlprep(deleteChannel) DELETE_PROGRAM_REJECTS_QUERY$
@@ -143,17 +159,25 @@ read_source_programs:
     
     arrayIterator! = new org.apache.commons.collections.iterators.ArrayIterator(directory!.listFiles())
     
-    programsChannel = sqlunt
-    sqlopen(programsChannel) programInfoDataSource$
-    sqlprep(programsChannel) INSERT_PROGRAMS_QUERY$
+    programExistsChannel = sqlunt
+    sqlopen(programExistsChannel) programInfoDataSource$
+    sqlprep(programExistsChannel) DOES_PROGRAM_EXIST_QUERY$
+    
+    programsInsertChannel = sqlunt
+    sqlopen(programsInsertChannel) programInfoDataSource$
+    sqlprep(programsInsertChannel) INSERT_PROGRAMS_QUERY$
     
     programFilesChannel = sqlunt
     sqlopen(programFilesChannel) programInfoDataSource$
     sqlprep(programFilesChannel) INSERT_PROGRAM_FILES_QUERY$
     
-    programProgramsChannel = sqlunt
-    sqlopen(programProgramsChannel) programInfoDataSource$
-    sqlprep(programProgramsChannel) INSERT_PROGRAM_PROGRAMS_QUERY$
+    programsCalledChannel = sqlunt
+    sqlopen(programsCalledChannel) programInfoDataSource$
+    sqlprep(programsCalledChannel) INSERT_PROGRAM_CALLED_PROGRAMS_QUERY$
+    
+    programsRunChannel = sqlunt
+    sqlopen(programsRunChannel) programInfoDataSource$
+    sqlprep(programsRunChannel) INSERT_PROGRAM_RUN_PROGRAMS_QUERY$
     
     programRejectsChannel = sqlunt
     sqlopen(programRejectsChannel) programInfoDataSource$
@@ -196,16 +220,36 @@ REM         endif
             
         endif
         
-        REM if !(sourceProgramName$ = "FONE92") then continue
+        REM if !(sourceProgramName$ = "V5800LIST") then continue
+
+
+        REM  This is a little bit misleading / technically inaccurate.  Because the NotionsDB on nmcsql
+        REM  is case insensitive, I'm unable to store records with keys "DONE" and "done" -- and we
+        REM  actually have program names like that (unfortunately).
         
+        lcSourceProgramName$ = cvs(sourceProgramName$,8)
+        ucSourceProgramName$ = cvs(sourceProgramName$,4)
         
+        sqlexec(programExistsChannel) lcSourceProgramName$, ucSourceProgramName$ 
+        
+        dim resultRow$:sqltmpl(programExistsChannel)
+        hits = 0
+
+        resultRow$ = sqlfetch(programExistsChannel,err=hit_check_bombed)
+        hits = resultRow.hit_count
+        hit_check_bombed:
+        
+        if hits > 0 then continue
+
         gosub process_one_source_program
 
     wend
     
-    sqlclose(programsChannel)
+    sqlclose(programExistsChannel)
+    sqlclose(programsInsertChannel)
     sqlclose(programFilesChannel)
-    sqlclose(programProgramsChannel)
+    sqlclose(programsCalledChannel)
+    sqlclose(programsRunChannel)
     sqlclose(programRejectsChannel)
  
     return
@@ -232,6 +276,7 @@ process_one_source_program:
     
     filesAccessedHashSet! = new java.util.HashSet()
     programsCalledHashSet! = new java.util.HashSet()
+    programsRunHashSet! = new java.util.HashSet()
     
     while TRUE
     
@@ -264,7 +309,7 @@ process_one_source_program:
     programDescription$ = cvs(programDescription$,3)
     if len(programDescription$) > 250 then programDescription$ = programDescription$(1,250)
     
-    sqlexec(programsChannel) sourceProgramName$, programDescription$, dateWritten$, dateRevised$  
+    sqlexec(programsInsertChannel) sourceProgramName$, programDescription$, dateWritten$, dateRevised$  
     
 REM     print "files accessed list ""channel - file"""
 
@@ -278,15 +323,26 @@ REM         print channelAndFile$(1, colonsPos - 1), " - ", channelAndFile$(colo
     wend
 
     
-REM     print "programs called list"
+REM  Store called programs
 
     iter! = programsCalledHashSet!.iterator()
     
     while iter!.hasNext()
         programCalled$ = iter!.next()
-REM         print programCalled$
-        sqlexec(programProgramsChannel) sourceProgramName$, programCalled$ 
+        sqlexec(programsCalledChannel) sourceProgramName$, programCalled$ 
     wend
+
+    
+REM  Store run programs
+
+    iter! = programsRunHashSet!.iterator()
+    
+    while iter!.hasNext()
+        programRun$ = iter!.next()
+        rem print "sourceProgramName$, programRun$ = ", sourceProgramName$, ", ", programRun$
+        sqlexec(programsRunChannel) sourceProgramName$, programRun$ 
+    wend
+
     
     close(sourceProgramChannel)
 
@@ -339,6 +395,9 @@ process_one_statement:
         endif
         
     endif
+    
+    
+    REM  TODO: What about files opened with OPNF90, OPNFIL or OPNO90?  Or OPEN91, OPEN92 or OPEN.PUB?
     
     
     REM  Spot an open90ed file:
@@ -414,7 +473,43 @@ process_one_statement:
                 callPhrase$ = callPhrase$(1, entryPtPos - 1)
             endif
 
-            programsCalledHashSet!.add(callPhrase$)
+            lcCallPhrase$ = cvs(callPhrase$,8)
+            ucCallPhrase$ = cvs(callPhrase$,4)
+
+            REM  This is a little bit misleading / technically inaccurate.  Because the NotionsDB on nmcsql
+            REM  is case insensitive, I'm unable to store records with keys "DONE" and "done" -- and we
+            REM  actually have program names like that (unfortunately).
+
+            if !(programsCalledHashSet!.contains(lcCallPhrase$)) and !(programsCalledHashSet!.contains(ucCallPhrase$)) then
+                programsCalledHashSet!.add(callPhrase$)
+            endif
+
+        endif
+        
+    endif
+    
+    
+    REM  Spot a run program:
+    runPosition = pos("RUN " = stmt$)
+    
+    if runPosition > 0 and (remarkPosition = 0 or remarkPosition > runPosition) then
+        runAndAfter$ = stmt$(runPosition)
+        firstQuotePos = pos("""" = runAndAfter$,1,1)
+        secondQuotePos = pos("""" = runAndAfter$,1,2)
+        
+        if firstQuotePos > 0 and secondQuotePos > 0 then
+            runPhrase$ = cvs(runAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1), 3)
+            lcRunPhrase$ = cvs(runPhrase$,8)
+            ucRunPhrase$ = cvs(runPhrase$,4)
+
+            REM  This is a little bit misleading / technically inaccurate.  Because the NotionsDB on nmcsql
+            REM  is case insensitive, I'm unable to store records with keys "DONE" and "done" -- and we
+            REM  actually have program names like that (unfortunately).
+
+            if !(programsRunHashSet!.contains(lcRunPhrase$)) and !(programsRunHashSet!.contains(ucRunPhrase$)) then
+                programsRunHashSet!.add(runPhrase$)
+            endif
+
         endif
         
     endif
@@ -434,18 +529,17 @@ setup_constants:
     
     LINE_HDRS_END = 15
     
-    LOADING_BBJ_PROGRAM_TYPE = TRUE
-    
-    SOURCE_PROGRAM_PATH$ = "/bbxListedPrograms"
-    rem SOURCE_PROGRAM_PATH$ = "/bbjListedPrograms"
-    
     DELETE_PROGRAMS_QUERY$ = "delete from ProgramInfoGeneral"
     
     DELETE_PROGRAM_FILES_QUERY$ = "delete from ProgramInfoFiles"
     
-    DELETE_PROGRAM_PROGRAMS_QUERY$ = "delete from ProgramInfoCalledPrograms"
+    DELETE_PROGRAM_CALLED_PROGRAMS_QUERY$ = "delete from ProgramInfoCalledPrograms"
+    
+    DELETE_PROGRAM_RUN_PROGRAMS_QUERY$ = "delete from ProgramInfoRunPrograms"
     
     DELETE_PROGRAM_REJECTS_QUERY$ = "delete from ProgramInfoRejects"
+    
+    DOES_PROGRAM_EXIST_QUERY$ = "select count(*) as hit_count from ProgramInfoGeneral where ProgramName = ? or ProgramName = ?"
     
     INSERT_PROGRAMS_QUERY$ = "insert into ProgramInfoGeneral (ProgramName, Description, DateWrittenText, DateLastRevisedText) " +
 :       "values(?,?,?,?)"
@@ -477,7 +571,10 @@ REM  Note: This version checks for duplicates and is efficient
 :       "(select * from ProgramInfoFiles where ProgramName = @pgm and FilePath = @path and FileChannel = @channel) " +
 :       "insert ProgramInfoFiles (ProgramName, FilePath, FileChannel)  values ( @pgm, @path, @channel);"
 
-    INSERT_PROGRAM_PROGRAMS_QUERY$ = "insert into ProgramInfoCalledPrograms (ProgramName, CalledProgramName) " +
+    INSERT_PROGRAM_CALLED_PROGRAMS_QUERY$ = "insert into ProgramInfoCalledPrograms (ProgramName, CalledProgramName) " +
+:       "values(?,?)"
+
+    INSERT_PROGRAM_RUN_PROGRAMS_QUERY$ = "insert into ProgramInfoRunPrograms (ProgramName, RunProgramName) " +
 :       "values(?,?)"
 
     INSERT_PROGRAM_REJECTS_QUERY$ = "insert into ProgramInfoRejects (ProgramName, FileNameFirstPart, FileExtension) " +

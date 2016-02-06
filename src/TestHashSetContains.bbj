@@ -1,0 +1,38 @@
+REM /**
+REM  * TestHashSetContains.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+use java.util.HashSet
+
+declare java.util.HashSet testHashSet!
+
+begin
+
+    testHashSet! = new java.util.HashSet()
+    
+    testHashSet!.add("value1")
+    value2$ = "value2"
+    testHashSet!.add(value2$)
+    ucValue2$ = "VALUE2"
+    testHashSet!.add(ucValue2$)
+
+    print "testHashSet!.contains(""value1"") = ", testHashSet!.contains("value1") 
+    print "testHashSet!.contains(value2$) = ", testHashSet!.contains(value2$) 
+    print "testHashSet!.contains(ucValue2$) = ", testHashSet!.contains(ucValue2$) 
+    
+    if !(testHashSet!.contains("value1")) then
+        print "value 1 missing"
+    endif
+    
+    if !(testHashSet!.contains(value2$)) then
+        print "value 2 missing"
+    endif
+    
+    if !(testHashSet!.contains(ucValue2$)) then
+        print "upper case value 2 missing"
+    endif
+
+end

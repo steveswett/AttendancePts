@@ -3,7 +3,9 @@ REM  * ListPrograms.bbj
 REM  * @author stevett
 REM  *
 REM  * Written October, 2015
-REM  * 
+REM  *
+REM  * NOTE: I would typically run this on nmcdev.
+REM  *  
 REM  */
 
 use java.io.File
