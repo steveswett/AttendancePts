@@ -1,0 +1,106 @@
+REM /**
+REM  * RunStepsBeforeWriteTrigger.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.lang.System
+
+
+begin
+
+
+    rem  Note: System.out.println and System.err.println write to the Debug.log.* file
+
+    seterr handleError
+    
+    declare BBjTriggerData td!
+    td!=BBjAPI().getFileSystem().getTriggerData()
+  
+    recordTemplate$ = "ID:I(4):DESCRIPTION=Unique_Record_ID:,TOP_LEVEL_PGM:C(30):DESCRIPTION=Top_Level_Program:,STEP_NO:I(4):DESCRIPTION=Step_Number:,RUN_PGM:C(30):DESCRIPTION=Run_Program:,LAST_RUN_TIME:C(14):DESCRIPTION=Last_run_at_YYYYMMDDHHMMSS:" 
+  
+    dim existingData$:recordTemplate$
+    dim record$:recordTemplate$
+  
+    rem  Get the record pre-write
+    record$ = td!.getWriteBuffer()
+    
+
+    rem  Determine whether the record already exists
+    
+    rem *----- BEGIN: check using READ technique -----*
+    rem goto after_read_technique
+    
+    fileChannel = unt
+    open(fileChannel) td!.getFilename()
+    
+    rem Jim Douglas from Basis gave me second line below, because first line didn't work.
+    
+    rem find record(fileChannel, key=str(record.ID), dom=adding_record) existingData$
+    find record(fileChannel, key=record.ID$, dom=adding_record) existingData$
+    
+    close(fileChannel)
+    goto done
+
+    rem *----- END: check using READ technique -----*
+    
+    after_read_technique:
+    
+    
+    rem *----- BEGIN: check using SQL technique -----*
+    rem Doesn't look like this technique is needed, since Jim's solution above in READ technique.
+    goto after_sql_technique
+    
+    checkChannel = sqlunt
+    sqlopen(checkChannel) "Steve-Local"
+    sqlprep(checkChannel) "select count(*) as hits where ID = " + str(record.ID)
+    sqlexec(checkChannel)
+    dim resultRow$:sqltmpl(checkChannel)
+    resultRow$ = sqlfetch(checkChannel)
+    hits = resultRow.hits
+    sqlclose(checkChannel)
+    
+    if hits > 0 then goto done
+    rem *----- END: check using SQL technique -----*
+    
+    after_sql_technique:
+    
+
+    adding_record:
+
+    close(fileChannel)
+    
+    rem  Fetch the next available ID from the database sequence object
+  
+    nextID = -1
+    seqChannel = sqlunt
+    sqlopen(seqChannel) "Steve-Local"
+    sqlprep(seqChannel) "select RUN_STEPS_SEQ.nextval as nextId"
+    sqlexec(seqChannel)
+    dim resultRow$:sqltmpl(seqChannel)
+    resultRow$ = sqlfetch(seqChannel)
+    nextID = resultRow.nextId
+    sqlclose(seqChannel)
+  
+    rem  Set the ID in the new record and then write it
+  
+    record.ID = nextID
+    td!.setWriteBuffer(record$)
+  
+    goto done
+  
+  
+    rem  Error handling section
+  
+    handleError:
+
+        msg$ = "Error #" + str(err) + " occurred at line " + str(tcb(5))
+        System.err.println(pgm(-1) + ": " + msg$)
+
+        rem  Throw a custom error message with a particular error number.  (learn how to choose an err#)
+        customErrNum = 0
+        throw pgm(-1) + ": Error occurred attempting to set next ID in RUN_STEPS record", customErrNum
+      
+    done:   
+
+end 

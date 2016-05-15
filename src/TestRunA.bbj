@@ -1,0 +1,7 @@
+REM /**
+REM  * TestRunA.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+print "TestRunA"

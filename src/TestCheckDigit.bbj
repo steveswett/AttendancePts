@@ -1,0 +1,14 @@
+REM /**
+REM  * TestCheckDigit.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+T1 = 99
+
+LET Q=INT(T1/10); LET R=T1-(Q*10)
+IF R>0 THEN LET R=10-R
+
+print "T1 = ", T1
+print "Q = ", Q
+print "R = ", R

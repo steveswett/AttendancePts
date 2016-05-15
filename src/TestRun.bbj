@@ -1,0 +1,8 @@
+REM /**
+REM  * TestRun.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+run "TestRunA.bbj"
+run "TestRunB.bbj";  rem won't be reached

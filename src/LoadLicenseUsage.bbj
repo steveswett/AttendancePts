@@ -134,6 +134,9 @@ load_database_connections:
     
 prep_and_open_lmstat_file:
 
+    removeCmd$ = "rm -f /tmp/lmstat-*" 
+    returnCode = scall(removeCmd$)
+    
     lmstatCmdOutputFile$ = "/tmp/lmstat-" + currentTimestamp$ + ".txt"
 
     lmstatCmd$ = "ssh nmcaold ""/usr/local/bbj/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 

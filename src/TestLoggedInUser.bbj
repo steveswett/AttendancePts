@@ -4,6 +4,7 @@ REM  * @author stevett
 REM  *
 REM  */
 
+
 myNumber = 3
 
 print "myNumber = ", str(myNumber:"0000000000")
@@ -15,6 +16,10 @@ print "Logged in user = ", info(3,2)
 timestamp$ = date(0:"%Y%Mz%Dz%hz%mz%sz")
 
 print "Current timestamp = ", timestamp$
+
+otherTimestamp$ = date(0:"%Mz/%Dz/%Y %hz:%mz:%sz")
+
+print "Other timestamp = ", otherTimestamp$
 
 
 weekday$ = date(0: "%Ds")
