@@ -175,6 +175,9 @@ log_error:
     REM  TODO: In future, perhaps do more robust error logging that would include more details
     REM        including the failing command (emailCmd$)
     
-    call "LOGERR", pgm(-2), returnCode, TCB(5)
+    pgmName$ = pgm(-2)
+    if len(pgmName$) > 8 then pgmName$ = pgmName$(1,8)
+    
+    call "LOGERR", pgmName$, returnCode, TCB(5)
     
     return

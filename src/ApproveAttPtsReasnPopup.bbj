@@ -65,7 +65,7 @@ setup_constants:
     SHOW_FIELD_TERMINATOR_PRESSED = FALSE
     
     START_ROW_FOR_LIST = 1
-    END_ROW_FOR_LIST = 9
+    END_ROW_FOR_LIST = 11
     
     UP_ARROW_CUSTOM_INPUT_VALUE$ = $86$
     UP_ARROW_CTL_OUTPUT_VALUE$ = $1D$
@@ -115,7 +115,7 @@ init:
     
 display_popup:
 
-    print 'window' (upperLeftColumn, upperLeftRow, 71, 14, "Choose Edit Reason",'br'),
+    print 'window' (upperLeftColumn, upperLeftRow, 71, 15, "Choose Edit Reason",'br'),
     
     rem The row and column values used here are relative to inside the window
     

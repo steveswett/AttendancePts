@@ -11,7 +11,8 @@ REM  *  This program originated from the ATND20 BBx program.
 REM  * 
 REM  *  Old policy: Inactivates a certain number of points (1?) after 30 days of perfect attendance.
 REM  * 
-REM  *  New policy: Inactivates points older than 12 months.
+REM  *  New policy: Initial phase: Inactivates points older than 12 months.
+REM  *              Second phase: In addition, after 6 months:
 REM  *   
 REM  */
 

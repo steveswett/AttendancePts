@@ -36,6 +36,7 @@ declare java.util.LinkedHashMap pointRecordsMap!
 declare java.util.HashMap pointDataMap!
 
 declare java.util.HashSet employeesWithZeroPtsSet!
+declare java.util.HashSet employeesWithETOBustersSet!
 
 declare java.util.LinkedHashMap employeeRecordsMap!
 declare java.util.HashMap employeeDataMap!
@@ -132,6 +133,17 @@ get_employees_with_zero_pts_for_date_range:
     gosub setup_constants
     
     gosub get_employees_with_zero_pts
+    
+    exit
+    
+    
+get_employees_with_eto_busters_for_date_range:
+
+    enter yyyymmddFromIn$, yyyymmddToIn$, employeesWithETOBustersSet!
+    
+    gosub setup_constants
+    
+    gosub get_employees_with_eto_busters
     
     exit
     
@@ -668,6 +680,32 @@ get_employees_with_zero_pts:
     wend
     
     sqlclose(zeroPtsChannel)
+
+    return
+    
+    
+REM  ------------------------------------------------------------------------------------------
+REM  For a given date range, get employees with ETO Busters and put in employeesWithETOBustersSet! 
+REM  ------------------------------------------------------------------------------------------
+
+
+get_employees_with_eto_busters:
+
+    employeesWithETOBustersSet!.clear()
+    
+    etoBustersChannel = sqlunt
+    sqlopen(etoBustersChannel) attendPtsDataSource$
+
+    sqlprep(etoBustersChannel) GET_ETO_BUSTERS_FOR_DATE_RANGE_STMT$
+    sqlexec(etoBustersChannel) yyyymmddFromIn$, yyyymmddToIn$
+    dim resultRow$:sqltmpl(etoBustersChannel)
+    
+    while TRUE
+        resultRow$ = sqlfetch(etoBustersChannel,err=*break)
+        employeesWithETOBustersSet!.add(cvs(resultRow.badg$, 2))
+    wend
+    
+    sqlclose(etoBustersChannel)
 
     return
     
@@ -1214,10 +1252,38 @@ setup_constants:
 :       "group by employ.badg " +
 :       "having sum(atnd.pts) = 0"
 
+    GET_ETO_BUSTERS_FOR_DATE_RANGE_STMT$ =
+:       "select employ.badg " +
+:       "from atnd " +
+:       "inner join employ on '0' + employ.badg = atnd.badg " + 
+:       "inner join attend_pts_work on atnd.WORK_FILE_ID = attend_pts_work.ID " +
+:       "inner join attend_pts_reasn on attend_pts_work.DISP_EDT_REAS_ID = attend_pts_reasn.ID " +
+:       "where " + 
+:       "atnd.stat = 'A' and " + 
+:       "atnd.ptdt >= ? and atnd.ptdt <= ? and " +
+:       "employ.termdt = '' and " + 
+:       "employ.salhr = 'H' and " + 
+:       "attend_pts_reasn.ETO_BUSTER = 'Y' and " +
+:       cvs(jobareasWhereClause$, 2) + " " +
+:       "group by employ.badg "
+
     GET_PTS_TOTAL_RANGE_STMT$ =
 :       "select sum(pts) as pts_total " +
 :       "from atnd " +
 :       "where badg = ? and ptdt >= ? and ptdt <= ? and stat = 'A'"
+
+    CHECK_FOR_ETO_BUSTER_STMT$ =
+:       "select atnd.badg " +
+:       "from atnd " +
+:       "inner join attend_pts_work on atnd.WORK_FILE_ID = attend_pts_work.ID " +
+:       "inner join attend_pts_reasn on attend_pts_work.DISP_EDT_REAS_ID = attend_pts_reasn.ID " +
+:       "where " + 
+:       "badg = ? and " +
+:       "atnd.ptdt >= ? and atnd.ptdt <= ? and " +
+:       "atnd.stat = 'A' and " + 
+:       "attend_pts_reasn.ETO_BUSTER = 'Y' " +
+:       "group by atnd.badg"
+
 
     GET_NEXT_DROP_DATE_INFO_STMT$ =
 :       "select top 1 ptdt, pts " + 
@@ -1239,6 +1305,10 @@ compute_and_store_90_day_pts:
     ptsChannel = sqlunt
     sqlopen(ptsChannel) attendPtsDataSource$
     sqlprep(ptsChannel) GET_PTS_TOTAL_RANGE_STMT$
+
+    etoBusterChannel = sqlunt
+    sqlopen(etoBusterChannel) attendPtsDataSource$
+    sqlprep(etoBusterChannel) CHECK_FOR_ETO_BUSTER_STMT$
     
     iter! = employeeRecordsMap!.keySet().iterator()
     
@@ -1247,15 +1317,29 @@ compute_and_store_90_day_pts:
         badgeKey! = iter!.next()
         employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
         
+        rem  Calculate and tack on "attend_pts" to map:
+        
         sqlexec(ptsChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
         dim resultRow$:sqltmpl(ptsChannel)
         
-        resultRow$ = sqlfetch(ptsChannel,err=*next)
+        resultRow$ = sqlfetch(ptsChannel,err=pts_no_fetch)
         employeeDataMap!.put("attend_pts", resultRow.pts_total)
-        employeeRecordsMap!.put(badgeKey!, employeeDataMap!) 
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
+        
+        pts_no_fetch: 
+        
+        rem  Calculate and tack on "has_eto_buster" to map:
+        
+        sqlexec(etoBusterChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
+        dim resultRow$:sqltmpl(etoBusterChannel)
+        
+        resultRow$ = sqlfetch(etoBusterChannel,err=*next)
+        employeeDataMap!.put("has_eto_buster", TRUE)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
     
     wend
 
     sqlclose(ptsChannel)
+    sqlclose(etoBusterChannel)
 
     return

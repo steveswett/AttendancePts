@@ -50,7 +50,7 @@ main_routine:
     
     gosub award_eto
     
-    release
+    if envType$ <> "localpc" then release
 
 end
 
@@ -77,6 +77,8 @@ init:
     
     call "ConfigVarsDAO.bbj::get_value", "eto.award.lag.days", configVarFound, configVarDataType$, etoAwardLagDays$
     etoAwardLagDays = num(etoAwardLagDays$)
+    
+    call "ConfigVarsDAO.bbj::get_value", "environment.type", configVarFound, configVarDataType$, envType$
 
     return
 
@@ -132,6 +134,8 @@ do_standard_90_day_window_group:
     
     noTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "std-90: WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off - ", yyyymmddFrom$, " - ", yyyymmddTo$  
+    
     call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", noTimeOffEmployeeRecordsMap!, yyyymmddFrom$, yyyymmddTo$
 
     
@@ -139,19 +143,34 @@ do_standard_90_day_window_group:
     
     employeesWithZeroPtsSet! = new java.util.HashSet()
     
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "std-90: AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range"
+    
     call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", yyyymmddFrom$, yyyymmddTo$, employeesWithZeroPtsSet!
 
     
-    REM  Step 3. Get a list of employees having any ETO awards in the past 90 days
+    REM  Step 3 Get a list of employees having "ETO Buster" attendance pts in the past 90 days
+    
+    employeesWithETOBustersSet! = new java.util.HashSet()
+    
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "std-90: AttendPtsDAO.bbj::get_employees_with_eto_busters_for_date_range"
+    
+    call "AttendPtsDAO.bbj::get_employees_with_eto_busters_for_date_range", yyyymmddFrom$, yyyymmddTo$, employeesWithETOBustersSet!
+
+    
+    REM  Step 4. Get a list of employees having any ETO awards in the past 90 days
     
     employeesWithETOAwardsSet! = new java.util.HashSet()
+    
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "std-90: ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range"
     
     call "ETOHistoryDAO.bbj::get_employees_with_awards_during_date_range", yyyymmddFrom$, yyyymmddTo$, employeesWithETOAwardsSet!
     
     
-    REM Step 4. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
+    REM Step 5. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
 
     iter! = noTimeOffEmployeeRecordsMap!.keySet().iterator()
+    
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "std-90: determine who qualifies"
     
     while iter!.hasNext()
     
@@ -160,6 +179,8 @@ do_standard_90_day_window_group:
         if !(employeesWithZeroPtsSet!.contains(badgeKey!)) then continue
         
         if employeesWithETOAwardsSet!.contains(badgeKey!) then continue
+        
+        if employeesWithETOBustersSet!.contains(badgeKey!) then continue
         
         employeeDataMap! = cast( java.util.HashMap, noTimeOffEmployeeRecordsMap!.get(badgeKey!) )
         employeeDataMap!.put("qualifies", TRUE)
@@ -183,6 +204,8 @@ do_non_standard_90_plus_day_window_group:
     
     someTimeOffEmployeeRecordsMap! = new java.util.LinkedHashMap()
 
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "non-std-90: WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off"
+    
     call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", someTimeOffEmployeeRecordsMap!, yyyymmddFrom$, yyyymmddTo$
     
     
@@ -190,12 +213,17 @@ do_non_standard_90_plus_day_window_group:
     REM          depending on how much time off they had.  Each start date is stored as an entry with key "start_date"
     REM          in the HashMap within someTimeOffEmployeeRecordsMap! 
     
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "non-std-90: WFMREmployeeTimeOffDAO.bbj::compute_start_date_for_90_day_window_for_employees"
+    
     call "WFMREmployeeTimeOffDAO.bbj::compute_start_date_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddFrom$, yyyymmddTo$, fromRelativeDays
 
 
-    REM  Step 3. Compute and tack on attendance pts during the 90-day+ custom window for each employee.  The number of
-    REM          attendance points is stored as an entry with key "attend_pts"
-    REM          in the HashMap within someTimeOffEmployeeRecordsMap!   
+    REM  Step 3. Compute and tack on attendance pts and "eto buster" flag during the 90-day+ custom window for 
+    REM          each employee.  The number of attendance points is stored as an entry with key "attend_pts"
+    REM          in the HashMap within someTimeOffEmployeeRecordsMap!.  Similarly, a TRUE/FALSE value is
+    REM          stored as an entry with key "has_eto_buster"    
+    
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "non-std-90: AttendPtsDAO.bbj::compute_pts_for_90_day_window_for_employees"
     
     call "AttendPtsDAO.bbj::compute_pts_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddTo$
 
@@ -204,12 +232,16 @@ do_non_standard_90_plus_day_window_group:
     REM          as an entry with key "award_history_date"
     REM          in the HashMap within someTimeOffEmployeeRecordsMap!   
 
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "non-std-90: ETOHistoryDAO.bbj::compute_award_history_for_90_day_window_for_employees"
+    
     call "ETOHistoryDAO.bbj::compute_award_history_for_90_day_window_for_employees", someTimeOffEmployeeRecordsMap!, yyyymmddTo$
 
 
     REM Step 5. Build list of eligible employees and flag the "...EmployeeRecordsMap!" as "qualifies" when it does
 
     iter! = someTimeOffEmployeeRecordsMap!.keySet().iterator()
+    
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "non-std-90: determine who qualifies"
     
     while iter!.hasNext()
     
@@ -219,6 +251,8 @@ do_non_standard_90_plus_day_window_group:
         attendPts! = employeeDataMap!.get("attend_pts")
         if attendPts! > 0 then continue
 
+        if employeeDataMap!.containsKey("has_eto_buster") then continue
+        
         if employeeDataMap!.containsKey("award_date") then
             awardDate$ = employeeDataMap!.get("award_date")
             startDate90DayWindow$ = employeeDataMap!.get("start_date")
@@ -258,6 +292,8 @@ combine_and_process_qualified_eto_awardees:
     
     iter! = combinedEmployeeRecordsMap!.keySet().iterator()
     
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "merged: determine who qualifies"
+    
     while iter!.hasNext()
     
         badgeKey! = iter!.next()
@@ -295,10 +331,14 @@ combine_and_process_qualified_eto_awardees:
     
         REM  Step 1. Fetch ADP employee numbers:
         
+        if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "adp: EmployeeMasterDAO.bbj::append_empno_to_map_of_maps"
+    
         call "EmployeeMasterDAO.bbj::append_empno_to_map_of_maps", combinedEmployeeRecordsMap!
     
         REM  Step 2. Write output file for ADP 
 
+        if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "adp: write ADP output file"
+    
         outputFileName$="/usr/tmpfiles/eto_awards_" + yyyymmddTo$ + ".csv"
         erase outputFileName$,ERR=*next
         string outputFileName$
@@ -327,6 +367,8 @@ combine_and_process_qualified_eto_awardees:
         
         REM  Step 3. Write award history records
         
+        if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "adp: ETOHistoryDAO.bbj::add_award_records"
+    
         call "ETOHistoryDAO.bbj::add_award_records", employeesEarningNewETOSet!, yyyymmddTo$, 8
 
     endif
@@ -334,6 +376,8 @@ combine_and_process_qualified_eto_awardees:
     
     REM  Send an e-mail -- even if nobody qualifies.
         
+    if envType$ = "localpc" then print date(0:"%Hz:%mz:%sz"), " - ", "email: send email"
+   
     subject$ = "ETO awards for " + formattedADPDate$ + iff(numberOfEmployeesEarningNewETO = 0, " (none)", "")
     
     if numberOfEmployeesEarningNewETO > 0 then

@@ -12,8 +12,8 @@ declare java.util.HashMap employeeDataMap!
 
 employeeRecordsMap! = new java.util.LinkedHashMap()
 
-rem call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", employeeRecordsMap!, "20150906", "20151205"
-call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", employeeRecordsMap!, "20150906", "20151205"
+call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_no_time_off", employeeRecordsMap!, "20160430", "20160729"
+rem call "WFMREmployeeTimeOffDAO.bbj::get_employees_with_some_time_off", employeeRecordsMap!, "20150906", "20151205"
 
 count = 0
 
@@ -25,6 +25,8 @@ count = count + 1
 
     badgeKey! = iter!.next()
     employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+    
+    if count > 10 then continue
     
     print "badge, last_name, first_name, employee_id = ", badgeKey!, ", ", employeeDataMap!.get("last_name"), ", ",  
 :       employeeDataMap!.get("first_name"), ", ", employeeDataMap!.get("employee_id")
