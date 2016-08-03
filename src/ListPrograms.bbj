@@ -40,7 +40,7 @@ rem *- - - - - - - - - - EOJ - - - - - - - - - -*
 
 eoj:
 
-    REM  release
+    release
     end
 
 
@@ -140,6 +140,6 @@ setup_constants:
     TRUE = 1
     FALSE = 0
     
-    BATCH_SIZE = 20
+    BATCH_SIZE = 1
 
     return

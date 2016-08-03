@@ -1,0 +1,50 @@
+ALIASES=15
+FCBS=128
+CIBS=128
+STBLEN=4096
+SETOPTS 08004020000000
+ALIAS X0 SYSGUI
+ALIAS T0 SYSWINDOW
+ALIAS T1 SYSWINDOW "" TITLE="Extra Window"
+ALIAS T2 SYSWINDOW "" INVISIBLE
+ALIAS T3 /dev/tty term
+ALIAS T4 NIO
+ALIAS LP SYSPRINT "" FONT="Courier",COLS=80,ROWS=62
+ALIAS J0 com.basis.bbj.bridge.BBjBridgeOpenPlugin
+ALIAS PD SYSPRINT "" PREVIEW,FONT="Courier",COLS=80,ROWS=62
+ALIAS D0 SYSPLOT
+ALIAS N0 TCP "" NODELAY
+ALIAS N1 SSL "" NODELAY
+ALIAS JBASISREG com.basis.plugin.RegOpenPlugin "SOFTWARE\BASIS"
+ALIAS JSERVLET com.basis.server.jetty.servlet.BBjServletPlugin "SERVLET"
+# For BUI debugging, change the INVISIBLE mode to VISIBLE
+ALIAS TMINI MINI "BUI Mini Console" INVISIBLE,FLOAT,ROWS=24,COLS=80
+SET !COMPAT=LISTBUTTON_DESELECT=TRUE
+DSKSYN A:
+DSKSYN B:
+DSKSYN D:
+DSKSYN E:
+DSKSYN F:
+DSKSYN G:
+DSKSYN H:
+DSKSYN I:
+DSKSYN J:
+DSKSYN K:
+DSKSYN L:
+DSKSYN M:
+DSKSYN N:
+DSKSYN O:
+DSKSYN P:
+DSKSYN Q:
+DSKSYN R:
+DSKSYN S:
+DSKSYN T:
+DSKSYN U:
+DSKSYN V:
+DSKSYN W: 
+DSKSYN X:
+DSKSYN Y:
+DSKSYN Z:
+PREFIX "C:/bbj/lib/" "C:/bbj/guibuilder/" "C:/bbj/configurator/" "C:/bbj/utils/" "C:/bbj/utils/ext/" "C:/bbj/utils/std/" "C:/bbj/utils/invoker/" "C:/bbj/utils/launchdock/" "C:/bbj/utils/reporting/bbjasper/" "C:/bbj/utils/translations/" "C:/bbj/utils/email/" "C:/bbj/utils/bus/" "C:/bbj/utils/gapps/" "C:/bbj/utils/admin/" "C:/bbj/utils/xcall/" "C:/bbj/utils/bwu/" "C:/bbj/utils/DialogWizard/" "C:/bbj/utils/BBjToJavadoc/" "C:/bbj/demos/Common/" "C:/bbj/demos/chiledd/" "C:/bbj/demos/AdminAPI/" "C:/bbj/demos/ecommerce/" "C:/bbj/demos/ecommerce/data/" "C:/bbj/demos/cuiweb/" "C:/bbj/demos/webservices/"  "C:\Users\stevett.NOTIONS\workspace\AttendancePts\bin\" "C:\Users\stevett.NOTIONS\workspace\AttendancePts\src\" "C:\Users\stevett.NOTIONS\workspace\AttendancePts\images\" "C:\bbxTokenizedPrograms\" "C:\basis-db\Steve-Local\DataFiles\"
+SQL=C:\Users\stevett.NOTIONS\workspace\AttendancePts\cfg\sql.ini
+SET COMPANY="Basis International, Ltd"
