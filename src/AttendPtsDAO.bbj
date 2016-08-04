@@ -666,11 +666,26 @@ REM  ---------------------------------------------------------------------------
 get_employees_with_zero_pts:
 
     employeesWithZeroPtsSet!.clear()
+
+    REM  Two queries done for performance reasons.  First fetch employees with no records in
+    REM  the ATND file.  Then fetch employees who are in ATND but have 0 total pts.
+    
+    empsNoAtndChannel = sqlunt
+    sqlopen(empsNoAtndChannel) attendPtsDataSource$
+    sqlprep(empsNoAtndChannel) GET_EMPS_WITH_NO_ATND_RECS_STMT$
+    sqlexec(empsNoAtndChannel)
+    dim resultRow$:sqltmpl(empsNoAtndChannel)
+    
+    while TRUE
+        resultRow$ = sqlfetch(empsNoAtndChannel,err=*break)
+        employeesWithZeroPtsSet!.add(cvs(resultRow.badg$, 2))
+    wend
+
+    sqlclose(empsNoAtndChannel)
     
     zeroPtsChannel = sqlunt
     sqlopen(zeroPtsChannel) attendPtsDataSource$
-
-    sqlprep(zeroPtsChannel) GET_ZERO_PTS_FOR_DATE_RANGE_STMT$
+    sqlprep(zeroPtsChannel) GET_EMPS_WITH_ATND_RECS_BUT_ZERO_PTS_STMT$
     sqlexec(zeroPtsChannel) yyyymmddFromIn$, yyyymmddToIn$
     dim resultRow$:sqltmpl(zeroPtsChannel)
     
@@ -1241,15 +1256,26 @@ setup_constants:
 :       "where " +
 :       "badg = ? and ptdt = ? and work_file_id = ?"
 
-    GET_ZERO_PTS_FOR_DATE_RANGE_STMT$ =
+    GET_EMPS_WITH_NO_ATND_RECS_STMT$ =
+:       "select employ.badg " +
+:       "from employ " + 
+:       "left join atnd on '0' + employ.badg = atnd.badg " + 
+:       "where " +
+:       "atnd.badg is null and " +
+:       "employ.termdt = '' and " +
+:       "employ.salhr = 'H' and " + 
+:       cvs(jobareasWhereClause$, 2) + " "
+    
+    GET_EMPS_WITH_ATND_RECS_BUT_ZERO_PTS_STMT$ =
 :       "select employ.badg, sum(atnd.pts) as total_pts " +
-:       "from employ " +
-:       "left join atnd on '0' + employ.badg = atnd.badg and atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ? " +
-:       "where " + 
+:       "from atnd " + 
+:       "inner join employ on '0' + employ.badg = atnd.badg " + 
+:       "where " +
+:       "atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ? and " +
 :       "employ.termdt = '' and " + 
-:       "employ.salhr = 'H' and " +
+:       "employ.salhr = 'H' and " + 
 :       cvs(jobareasWhereClause$, 2) + " " +
-:       "group by employ.badg " +
+:       "group by employ.badg " + 
 :       "having sum(atnd.pts) = 0"
 
     GET_ETO_BUSTERS_FOR_DATE_RANGE_STMT$ =
