@@ -1145,8 +1145,11 @@ compute_and_store_90_day_pts:
         dim resultRow$:sqltmpl(etoBusterChannel)
         
         resultRow$ = sqlfetch(etoBusterChannel,err=*next)
-        employeeDataMap!.put("has_eto_buster", TRUE)
-        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
+        
+        if cvs(resultRow.badg$,3) <> "" then
+            employeeDataMap!.put("has_eto_buster", TRUE)
+            employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
+        endif
     
     wend
 
