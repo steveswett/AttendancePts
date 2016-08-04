@@ -348,8 +348,18 @@ display_data:
       print @(25,row), str(pointDataMap!.get("sched_shift_id"))
       print @(33,row), str(pointDataMap!.get("wfmr_exc_def_id"):"####")
       print @(40,row), pointDataMap!.get("disp_cd")
-      print @(45,row), pointDataMap!.get("pts_removed")
-      print @(55,row), pointDataMap!.get("pts_removal_date")
+      
+      reductPts = pointDataMap!.get("reduct_pts")
+      reductTime$ = cvs( pointDataMap!.get("reduct_time"), 3 )
+      
+      if reductPts > 0 and len(reductTime$) = 14 then
+          print @(45,row), str( reductPts:"#.0" )
+          call "DateUtilities.bbj::get_yymd_as_mdy_with_slashes", reductTime$(1,8), TRUE, fmtReductTime$
+          print @(55,row), fmtReductTime$
+      else
+          print @(45,row), pointDataMap!.get("pts_removed")
+          print @(55,row), pointDataMap!.get("pts_removal_date")
+      endif
 
       print @(67,row), system$
       print @(74,row), str(runningTotal:"##.0")

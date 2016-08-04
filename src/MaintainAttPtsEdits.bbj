@@ -349,6 +349,18 @@ display_data:
         print @(36,18), "by ", pointDataMap!.get("addby")
     endif
     
+    reductPts = pointDataMap!.get("reduct_pts")
+    reductTime$ = cvs( pointDataMap!.get("reduct_time"), 3 )
+    
+    if reductPts > 0 then
+        print @(55,18), "Reduction of: ", str( reductPts:"#.0" ) 
+    endif
+    
+    if len(reductTime$) = 14 then
+        call "DateUtilities.bbj::get_yymdhms_as_mdy_with_time", reductTime$, fmtReductTime$
+        print @(55,19), "on: ", fmtReductTime$ 
+    endif
+    
     dateChanged$ = pointDataMap!.get("chgdt")
     print @(0,19), "Last changed date:"
     print @(26,19), dateChanged$

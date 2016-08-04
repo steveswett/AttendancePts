@@ -12,7 +12,14 @@ REM  *
 REM  *  Old policy: Inactivates a certain number of points (1?) after 30 days of perfect attendance.
 REM  * 
 REM  *  New policy: Initial phase: Inactivates points older than 12 months.
-REM  *              Second phase: In addition, after 6 months:
+REM  * 
+REM  *              Second phase: In addition, for points between 6 and 12 months old:
+REM  * 
+REM  *                              (a) Zero out tardies (code 1)
+REM  *                              (b) Subtract 0.5 from absences (code 2)
+REM  * 
+REM  *                            Only do this if not flagged as done previously -- fields
+REM  *                            REDUCT_PTS and REDUCT_TIME in ATND file.
 REM  *   
 REM  */
 
@@ -593,7 +600,7 @@ new_policy_process_employees:
     inactivatedPtsRecordsList! = new java.util.Vector()
     
     doActualUpdate = TRUE
-    call "AttendPtsDAO.bbj::inactivate_pts_older_than_12_months", doActualUpdate, inactivatedPtsRecordsList!
+    call "AttendPtsDAO.bbj::inactivate_or_reduce_pts", doActualUpdate, inactivatedPtsRecordsList!
     
     workFileLines = inactivatedPtsRecordsList!.size()
     
