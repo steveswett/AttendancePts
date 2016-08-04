@@ -1150,6 +1150,56 @@ REM         lastModByUserUC$ = cvs(attPtsWorkDataMap!.get("last_mod_user"), 4)
 
 
 REM  ------------------------------------------------------------------------------------------
+REM  Compute the number of attendance pts for each employee in employeeRecordsMap!.  The 
+REM  "from date" is inside the map as "start_date".  The "to date" is argument "yyyymmddToIn$"
+REM  ------------------------------------------------------------------------------------------
+
+
+compute_and_store_90_day_pts:
+
+    ptsChannel = sqlunt
+    sqlopen(ptsChannel) attendPtsDataSource$
+    sqlprep(ptsChannel) GET_PTS_TOTAL_RANGE_STMT$
+
+    etoBusterChannel = sqlunt
+    sqlopen(etoBusterChannel) attendPtsDataSource$
+    sqlprep(etoBusterChannel) CHECK_FOR_ETO_BUSTER_STMT$
+    
+    iter! = employeeRecordsMap!.keySet().iterator()
+    
+    while iter!.hasNext()
+    
+        badgeKey! = iter!.next()
+        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
+        
+        rem  Calculate and tack on "attend_pts" to map:
+        
+        sqlexec(ptsChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
+        dim resultRow$:sqltmpl(ptsChannel)
+        
+        resultRow$ = sqlfetch(ptsChannel,err=pts_no_fetch)
+        employeeDataMap!.put("attend_pts", resultRow.pts_total)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
+        
+        pts_no_fetch: 
+        
+        rem  Calculate and tack on "has_eto_buster" to map:
+        
+        sqlexec(etoBusterChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
+        dim resultRow$:sqltmpl(etoBusterChannel)
+        
+        resultRow$ = sqlfetch(etoBusterChannel,err=*next)
+        employeeDataMap!.put("has_eto_buster", TRUE)
+        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
+    
+    wend
+
+    sqlclose(ptsChannel)
+    sqlclose(etoBusterChannel)
+
+    return
+
+REM  ------------------------------------------------------------------------------------------
 REM  setup_constants
 REM  ------------------------------------------------------------------------------------------
 
@@ -1317,55 +1367,4 @@ setup_constants:
 :       "where badg = ? and ptdt >= ? and stat = 'A' and pts > 0 " +
 :       "order by ptdt"
     
-    return
-
-
-REM  ------------------------------------------------------------------------------------------
-REM  Compute the number of attendance pts for each employee in employeeRecordsMap!.  The 
-REM  "from date" is inside the map as "start_date".  The "to date" is argument "yyyymmddToIn$"
-REM  ------------------------------------------------------------------------------------------
-
-
-compute_and_store_90_day_pts:
-
-    ptsChannel = sqlunt
-    sqlopen(ptsChannel) attendPtsDataSource$
-    sqlprep(ptsChannel) GET_PTS_TOTAL_RANGE_STMT$
-
-    etoBusterChannel = sqlunt
-    sqlopen(etoBusterChannel) attendPtsDataSource$
-    sqlprep(etoBusterChannel) CHECK_FOR_ETO_BUSTER_STMT$
-    
-    iter! = employeeRecordsMap!.keySet().iterator()
-    
-    while iter!.hasNext()
-    
-        badgeKey! = iter!.next()
-        employeeDataMap! = cast( java.util.HashMap, employeeRecordsMap!.get(badgeKey!) )
-        
-        rem  Calculate and tack on "attend_pts" to map:
-        
-        sqlexec(ptsChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
-        dim resultRow$:sqltmpl(ptsChannel)
-        
-        resultRow$ = sqlfetch(ptsChannel,err=pts_no_fetch)
-        employeeDataMap!.put("attend_pts", resultRow.pts_total)
-        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
-        
-        pts_no_fetch: 
-        
-        rem  Calculate and tack on "has_eto_buster" to map:
-        
-        sqlexec(etoBusterChannel) "0" + badgeKey!, employeeDataMap!.get("start_date"), yyyymmddToIn$
-        dim resultRow$:sqltmpl(etoBusterChannel)
-        
-        resultRow$ = sqlfetch(etoBusterChannel,err=*next)
-        employeeDataMap!.put("has_eto_buster", TRUE)
-        employeeRecordsMap!.put(badgeKey!, employeeDataMap!)
-    
-    wend
-
-    sqlclose(ptsChannel)
-    sqlclose(etoBusterChannel)
-
     return
