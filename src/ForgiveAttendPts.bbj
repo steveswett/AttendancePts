@@ -609,7 +609,7 @@ new_policy_process_employees:
         newPolicyOutputFileChannel = unt
         open (newPolicyOutputFileChannel) newPolicyOutputFileName$
         
-        print(newPolicyOutputFileChannel) "Employee,Name,Pts Date,Pts Inactivated"
+        print(newPolicyOutputFileChannel) "Employee,Name,Pts Date,Pts Inactivated,Method"
         
         for x = 0 to workFileLines - 1
             print(newPolicyOutputFileChannel) inactivatedPtsRecordsList!.get(x)

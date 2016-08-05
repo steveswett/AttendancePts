@@ -18,7 +18,13 @@ workFileLines = inactivatedPtsRecordsList!.size()
 if workFileLines > 0 then
 
     for x = 0 to workFileLines -1
-        print inactivatedPtsRecordsList!.get(x) + $0A$
+        oneLine$ = inactivatedPtsRecordsList!.get(x)
+        
+        rem display only David Axel's stuff:
+        
+        if pos("31282"=oneLine$) > 0 then
+            print oneLine$ + $0A$
+        endif
     next x
 
 endif

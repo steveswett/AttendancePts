@@ -397,7 +397,7 @@ inactivate_old_points:
     attendPtsChannel = sqlunt
     sqlopen(attendPtsChannel) attendPtsDataSource$
     
-    sqlprep(attendPtsChannel) PTS_TO_BE_INACTIVATED_12_MO_STMT$
+    sqlprep(attendPtsChannel) PTS_TO_INACTIVATE_12_MO_STMT$
     sqlexec(attendPtsChannel) yearAgoCutoffDate$
 
     dim resultRow$:sqltmpl(attendPtsChannel)
@@ -405,7 +405,7 @@ inactivate_old_points:
     while TRUE
         resultRow$ = sqlfetch(attendPtsChannel,err=*break)
         call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", resultRow.ptdt$, TRUE, fmtPtsDate$ 
-        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts)
+        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts) + ",12-mo inactivation"
         inactivatedPtsRecordsList!.add(outputRecord$) 
     wend
     
@@ -420,18 +420,15 @@ inactivate_old_points:
 
     REM  Step 4. Query to get list of employees who qualify to have 6 month_ old pts inactivated (tardies)
      
-    attendPtsChannel = sqlunt
-    sqlopen(attendPtsChannel) attendPtsDataSource$
-    
-    sqlprep(attendPtsChannel) TARDIES_TO_BE_INACTIVATED_6_MO_STMT$
-    sqlexec(attendPtsChannel) sixMoAgoCutoffDate$
+    sqlprep(attendPtsChannel) TARDIES_TO_INACTIVATE_6_MO_STMT$
+    sqlexec(attendPtsChannel) sixMoAgoCutoffDate$, yearAgoCutoffDate$
 
     dim resultRow$:sqltmpl(attendPtsChannel)
 
     while TRUE
         resultRow$ = sqlfetch(attendPtsChannel,err=*break)
         call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", resultRow.ptdt$, TRUE, fmtPtsDate$ 
-        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts)
+        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts) + ",6-mo tardy inactivation"
         inactivatedPtsRecordsList!.add(outputRecord$) 
     wend
     
@@ -439,10 +436,33 @@ inactivate_old_points:
     REM  Step 5. Run the update query to inactivate the tardies older than 6 months
     
     if doActualUpdateIn then
-        sqlprep(attendPtsChannel) SET_TO_INACTIVATED_6_MO_STMT$
-        sqlexec(attendPtsChannel) day, sixMoAgoCutoffDate$
+        sqlprep(attendPtsChannel) SET_TARDIES_TO_INACTIVATED_6_MO_STMT$
+        sqlexec(attendPtsChannel) day, sixMoAgoCutoffDate$, yearAgoCutoffDate$
     endif
 
+
+    REM  Step 6. Query to get list of employees who qualify to have 6 month_ old pts reduced (absences)
+     
+    sqlprep(attendPtsChannel) ABSENCES_TO_REDUCE_6_MO_STMT$
+    sqlexec(attendPtsChannel) sixMoAgoCutoffDate$, yearAgoCutoffDate$
+
+    dim resultRow$:sqltmpl(attendPtsChannel)
+
+    while TRUE
+        resultRow$ = sqlfetch(attendPtsChannel,err=*break)
+        call "DateUtilities.bbj::get_yymd_as_mdyy_with_slashes", resultRow.ptdt$, TRUE, fmtPtsDate$ 
+        outputRecord$ = resultRow.badg$ + ",""" + resultRow.name$ + """," + fmtPtsDate$ + "," + str(resultRow.pts_to_reduce) + ",6-mo absence reduction"
+        inactivatedPtsRecordsList!.add(outputRecord$) 
+    wend
+    
+    
+    REM  Step 7. Run the update query to reduce the absences older than 6 months
+    
+    if doActualUpdateIn then
+        sqlprep(attendPtsChannel) SET_ABSENCES_TO_REDUCED_6_MO_STMT$
+        sqlexec(attendPtsChannel) day, sixMoAgoCutoffDate$, yearAgoCutoffDate$
+    endif
+    
     
     sqlclose(attendPtsChannel)
     
@@ -485,6 +505,9 @@ load_default_point_data_map:
     pointDataMap!.put("text1", "")
     pointDataMap!.put("text2", "")
     pointDataMap!.put("text3", "")
+    
+    pointDataMap!.put("reduct_pts", 0)
+    pointDataMap!.put("reduct_time", "")
     
     pointDataMap!.put("pts_removal_date", "")
     pointDataMap!.put("pts_removed", "")
@@ -1247,18 +1270,11 @@ setup_constants:
 :       "select convert(varchar(10), dateadd(month, -6, getdate()), 120) as six_mo_ago_date, " +
 :       "convert(varchar(10), dateadd(month, -12, getdate()), 120) as year_ago_date"
     
-    PTS_TO_BE_INACTIVATED_12_MO_STMT$ = 
+    PTS_TO_INACTIVATE_12_MO_STMT$ = 
 :       "select employ.badg, employ.name, ptdt, pts " +
 :       "from atnd " +
 :       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
 :       "where atnd.PTDT <= ? and atnd.STAT = 'A' and employ.termdt = '' " +
-:       "order by employ.name, ptdt"
-    
-    TARDIES_TO_BE_INACTIVATED_6_MO_STMT$ = 
-:       "select employ.badg, employ.name, ptdt, pts " +
-:       "from atnd " +
-:       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
-:       "where atnd.PTDT <= ? and atnd.STAT = 'A' and atnd.CD = '1' and employ.termdt = '' " +
 :       "order by employ.name, ptdt"
 
     SET_TO_INACTIVATED_12_MO_STMT$ =
@@ -1269,15 +1285,46 @@ setup_constants:
 :       "chgdt = ?, " +
 :       "chgby = 'cpu       ' " +
 :       "where atnd.PTDT <= ? and atnd.STAT = 'A' "
+    
+    TARDIES_TO_INACTIVATE_6_MO_STMT$ = 
+:       "select employ.badg, employ.name, ptdt, pts " +
+:       "from atnd " +
+:       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
+:       "where atnd.PTDT <= ? and atnd.PTDT > ? and atnd.STAT = 'A' and atnd.CD = '1' and employ.termdt = '' " +
+:       "order by employ.name, ptdt"
 
-    SET_TO_INACTIVATED_6_MO_STMT$ =
+    SET_TARDIES_TO_INACTIVATED_6_MO_STMT$ =
 :       "update atnd " +
 :       "set " +
 :       "stat = 'I', " +
 :       "text = trim(text) + ' - auto inactivated', " +
 :       "chgdt = ?, " +
 :       "chgby = 'cpu       ' " +
-:       "where atnd.PTDT <= ? and atnd.STAT = 'A' and atnd.CD = '1' "
+:       "where atnd.PTDT <= ? and atnd.PTDT > ? and atnd.STAT = 'A' and atnd.CD = '1' "
+    
+    ABSENCES_TO_REDUCE_6_MO_STMT$ = 
+:       "select employ.badg, employ.name, ptdt, iff(pts < 0.5, pts, 0.5) as pts_to_reduce " +
+:       "from atnd " +
+:       "inner join employ on employ.badg = substring(atnd.badg,2,5) " +
+:       "where atnd.PTDT <= ? and atnd.PTDT > ? and atnd.STAT = 'A' and atnd.CD = '2' and atnd.pts > 0 " +
+:       "and atnd.reduct_time = '' and employ.termdt = '' " +
+:       "order by employ.name, ptdt"
+
+    SET_ABSENCES_TO_REDUCED_6_MO_STMT$ =
+:       "update atnd " +
+:       "set " +
+:       "reduct_pts = iff(pts < 0.5, pts, 0.5), " +
+:       "stat = iff(pts < 0.5, 'I', stat), " +
+:       "pts = iff(pts < 0.5, 0, pts - 0.5) , " +
+:       "reduct_time = now(), " +
+:       "reduct_time = replace(reduct_time, '-', ''), " +
+:       "reduct_time = replace(reduct_time, ' ', ''), " +
+:       "reduct_time = replace(reduct_time, ':', ''), " +
+:       "reduct_time = substring(reduct_time, 1, 14), " +
+:       "text = trim(text) + ' - auto reduced', " +
+:       "chgdt = ?, " +
+:       "chgby = 'cpu       ' " +
+:       "where PTDT <= ? and atnd.PTDT > ? and STAT = 'A' and CD = '2' and pts > 0 and reduct_time = '' "
 
     GET_NON_ZERO_PT_RECORDS_STMT$ =
 :       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, " +
