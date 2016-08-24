@@ -26,17 +26,19 @@ use java.util.HashSet
 declare java.io.File directory!
 declare java.io.File file!
 declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
+
 declare java.util.HashSet partnerAbbrevSet!
 declare java.util.HashSet partnerOlmSet!
 declare java.util.HashSet geno48OlmSet!
+
 declare java.util.HashSet filesAccessedHashSet!
 declare java.util.HashSet programsCalledHashSet!
 declare java.util.HashSet programsRunHashSet!
+
 declare java.util.HashMap variableCallRunAssignmentMap!
 declare java.util.HashSet variableCallRunAssignmentSet!
 declare java.util.HashMap variableCallFoundMap!
 declare java.util.HashMap variableRunFoundMap!
-declare java.util.HashSet callRunVarONODPGMSet!
 
 begin
 
@@ -316,10 +318,6 @@ process_one_source_program:
     variableCallRunFoundMap! = new java.util.HashMap()
     variableCallFoundMap! = new java.util.HashMap()
     variableRunFoundMap! = new java.util.HashMap()
-    callRunVarONODPGMSet! = new java.util.HashSet()
-    
-    callVarONODPGMFound = FALSE
-    runVarONODPGMFound = FALSE
     
     
     while TRUE
@@ -352,53 +350,6 @@ process_one_source_program:
     gosub print_called_program_assignments
 
     gosub store_variable_calls_and_runs
-
-
-    if callVarONODPGMFound or runVarONODPGMFound then
-
-        iter! = callRunVarONODPGMSet!.iterator()
-        
-        while iter!.hasNext()
-            assignValue$ = iter!.next()
-            REM  Example of assignValue$: "ONOD90-"+OLM$
-
-            keywordPos = pos("""+OLM$" = assignValue$)
-            
-            if keywordPos > 0 then
-                firstQuotePos = pos("""" = assignValue$,1,1)
-                secondQuotePos = pos("""" = assignValue$,1,2)
-                iter2! = partnerOlmSet!.iterator()
-                
-                while iter2!.hasNext()
-                    olm$ = iter2!.next()
-                    actualProgramName$ = assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + olm$ 
-                    REM  print "actualProgramName$ = ", actualProgramName$
-                    
-                    actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
-                    
-                    REM  Only add the program to the called/run list if it actually exists:
-                    
-                    testChannel = unt
-                    open(testChannel,err=failed_var_onodpgm) actualProgramPath$
-                    close(testChannel)
-                    
-                    if callVarONODPGMFound then
-                        sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
-                    endif
-                    
-                    if runVarONODPGMFound then
-                        sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
-                    endif
-                    
-                    failed_var_onodpgm:
-                    
-                wend
-            endif
-         
-        wend
-
-    endif
-    
     
     
     programDescription$ = cvs(programDescription$,3)
@@ -475,18 +426,6 @@ print_called_program_assignments:
         wend
     wend
 
-
-    print "ONODPGM$= assignments found for program ", sourceProgramName$, ":"
-
-    iter! = callRunVarONODPGMSet!.iterator()
-    
-    while iter!.hasNext()
-        assignValue$ = iter!.next()
-        print assignValue$
-    wend
-    
-    print "callVarONODPGMFound = ", callVarONODPGMFound, "  runVarONODPGMFound = ", runVarONODPGMFound
-
     return
 
 
@@ -554,6 +493,45 @@ store_variable_calls_and_runs:
                 endif
                 
             endif
+            
+            if assignVar$ = "ONODPGM$" then
+
+                REM  Example of assignValue$: "ONOD90-"+OLM$
+    
+                keywordPos = pos("""+OLM$" = assignValue$)
+                
+                if keywordPos > 0 then
+                    firstQuotePos = pos("""" = assignValue$,1,1)
+                    secondQuotePos = pos("""" = assignValue$,1,2)
+                    iter2! = partnerOlmSet!.iterator()
+                    
+                    while iter2!.hasNext()
+                        olm$ = iter2!.next()
+                        actualProgramName$ = assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + olm$ 
+                        REM  print "actualProgramName$ = ", actualProgramName$
+                        
+                        actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
+                        
+                        REM  Only add the program to the called/run list if it actually exists:
+                        
+                        testChannel = unt
+                        open(testChannel,err=failed_var_onodpgm) actualProgramPath$
+                        close(testChannel)
+                        
+                        if callFound then
+                            sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
+                        endif
+                        
+                        if runFound then
+                            sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
+                        endif
+                        
+                        failed_var_onodpgm:
+                        
+                    wend
+                endif
+            endif
+
             
         wend
     wend
@@ -722,7 +700,6 @@ process_one_statement:
     
     
     REM  Spot use of CP$="something" assignment:
-    
     assignVar$ = "CP$"
     gosub capture_assignment_phrase
     
@@ -740,27 +717,19 @@ process_one_statement:
     
     
     REM  Spot use of ONODPGM$="something" assignment:
-    assignPosition = pos("ONODPGM$=" = stmtWithoutRemark$)
-    
-    if assignPosition > 0 then
-        assignPhrase$ = stmtWithoutRemark$(assignPosition + 4)
-
-        if !(callRunVarONODPGMSet!.contains(assignPhrase$)) then
-            callRunVarONODPGMSet!.add(assignPhrase$)
-        endif
-        
-    endif
+    assignVar$ = "ONODPGM$"
+    gosub capture_assignment_phrase
     
     
     REM  Spot use of CALL ONODPGM$:
     if pos("CALL ONODPGM$" = stmtWithoutRemark$) > 0 then
-        callVarONODPGMFound = TRUE
+        variableCallFoundMap!.put("ONODPGM$", TRUE)
     endif
     
     
     REM  Spot use of RUN ONODPGM$:
     if pos("RUN ONODPGM$" = stmtWithoutRemark$) > 0 then
-        runVarONODPGMFound = TRUE
+        variableRunFoundMap!.put("ONODPGM$", TRUE)
     endif
 
     return
@@ -778,9 +747,13 @@ capture_assignment_phrase:
     assignPosition = pos(assignVar$ + "=" = stmtWithoutRemark$)
     ifPosition = pos("IF " + assignVar$ + "=" = stmtWithoutRemark$)
     
-    if assignPosition > 0 and ifPosition = 0 then assignPhrase$ = stmtWithoutRemark$(assignPosition + 4)
+    if assignPosition > 0 and ifPosition = 0 then 
+        assignPhrase$ = stmtWithoutRemark$(assignPosition + len(assignVar$ + "="))
+    else
+        assignPhrase$ = ""
+    endif
         
-    if len(assignPhrase$) > 0
+    if len(assignPhrase$) > 0 then
     
         variableCallRunAssignmentSet! = cast( java.util.HashSet, variableCallRunAssignmentMap!.get(assignVar$) )
         
