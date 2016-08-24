@@ -29,6 +29,7 @@ declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
 
 declare java.util.HashSet partnerAbbrevSet!
 declare java.util.HashSet partnerOlmSet!
+declare java.util.HashSet geno48AbbrevSet!
 declare java.util.HashSet geno48OlmSet!
 
 declare java.util.HashSet filesAccessedHashSet!
@@ -37,6 +38,8 @@ declare java.util.HashSet programsRunHashSet!
 
 declare java.util.HashMap variableCallRunAssignmentMap!
 declare java.util.HashSet variableCallRunAssignmentSet!
+declare java.util.HashSet variableCallRunVariableNameSet!
+declare java.util.HashSet variableCallRunProgramsWithAbbrevSet!
 declare java.util.HashMap variableCallFoundMap!
 declare java.util.HashMap variableRunFoundMap!
 
@@ -146,9 +149,22 @@ init:
 
     sqlclose(deleteChannel)
     
+    variableCallRunVariableNameSet! = new java.util.HashSet()
+    variableCallRunVariableNameSet!.add("CP$")
+    variableCallRunVariableNameSet!.add("ONODPGM$")
+    variableCallRunVariableNameSet!.add("PROG45$")
+    variableCallRunVariableNameSet!.add("PROG51$")
+    
+    variableCallRunProgramsWithAbbrevSet! = new java.util.HashSet()
+    
     partnerAbbrevSet! = new java.util.HashSet()
     partnerOlmSet! = new java.util.HashSet()
-    geno48OlmSet! = new java.util.HashSet() 
+    
+    REM  It turns out the GENO48 stuff was a waste of time.  The variability of GENO48 is actually
+    REM  commented out in the program.  (At least it helped me refactor this program to be more generic.)
+    
+    geno48AbbrevSet! = new java.util.HashSet()
+    geno48OlmSet! = new java.util.HashSet()
     
     REM  The following list can be periodically fetched using dbVisualizer and the query named
     REM  "List active B2C partners and paths.sql":
@@ -159,7 +175,8 @@ init:
     activePartners$ = "ARCH, AFES, AMCR, AMAZ, BLUE, BEAL, BUYO, CREC, CCTV, CHER, DOBA, DOLL, DIOF, FABD, FFCR, FFAB, FLAX, FABS, FYNM, GREE, HOME, HPPE, HSNW, IDEA, IDLW, JCPE, KCRF, KOHL, KMRT, KNWH, MANU, MEDE, MICH, MIDW, OFSS, BUYC, OVST, PETC, PRIM, QVCC, RANG, SAMS, STAC, SGIF, SHOP, SPEC, STAQ, STAP, STUF, SDOL, STAD, SPIN, STAZ, TARG, TOYS, UNBE, QUWH, USAR, VALC, WAYF, WALG, WMRT, ZERB"
     activeOlms$ = "AA, AF, AM, AZ, BB, BL, BU, CE, CN, CZ, DB, DD, DI, FA, FC, FF, FL, FS, FY, GR, HD, HP, HS, ID, IW, JC, KC, KH, KM, KN, MA, MD, MH, MI, OF, ON, OV, PE, PR, QV, RA, SA, SD, SG, SH, SP, SQ, SS, ST, SV, SW, SY, SZ, TA, TO, UN, UQ, US, VA, WA, WG, WM, ZE"
     
-    REM  OLMs for program GENO48: 
+    REM  OLMs for program GENO48:
+    geno48Partners$ = "MIDW, PRIM, SGIF, UNBE, SPIN, HPPE, DIOF, CHER, SDOL, FLAX, USAR" 
     geno48Olms$ = "MI, PR, SG, UN, SY, HP, DI, CZ, SV, FL, US"
 
     p = -5
@@ -171,20 +188,53 @@ init:
         
         if p > len(activePartners$) then break
         
-        partnerAbbrevSet!.add(activePartners$(p, 4))
+        partnerAbbrev$ = activePartners$(p, 4)
+        partnerAbbrevSet!.add(partnerAbbrev$)
         partnerOlmSet!.add(activeOlms$(o, 2))
+        
+        REM  Example: AFES75
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "39")
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "45")
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "46")
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "51C")
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "75")
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "88")
+        variableCallRunProgramsWithAbbrevSet!.add(partnerAbbrev$ + "88B")
         
     wend
 
 
+    REM  The following are present in the SHIP44 run chain even though they are not active partners:
+    
+    inactivePartner75Programs$ = "CGAL75, FIEL75, GOLD75, LABA75, MPAT75, ARTF75, ATGS75, BERN75, BIGC75, BWRK75, CALI75, CARO75, CATT75, CDIR75, CMAN75, CODA75, CRID75, CRWC75, FAMI75, GOCR75, GOLD75, GRST75, HART75, KANB75, KELL75, KIWI75, KOLL75, LETS75, MYSS75, NWTM75, OOZA75, PAIG75, PATO75, SCRI75, SIMP75, SKYM75, SLAN75, TDIR75, WHIM75, WOWM75, WWIS75"
+    
+    variableCallRunProgramsWithAbbrevSet!.add("BRDR75.old")
+    variableCallRunProgramsWithAbbrevSet!.add("BRDR75.SAV")
+    
+
+    p = -7
+    
+    while TRUE
+        p = p + 8
+        
+        if p > len(inactivePartner75Programs$) then break
+        
+        variableCallRunProgramsWithAbbrevSet!.add(inactivePartner75Programs$(p, 6))
+        
+    wend
+    
+
+    p = -5
     o = -3
     
     while TRUE
+        p = p + 6
         o = o + 4
         
-        if o > len(geno48Olms$) then break
+        if p > len(geno48Partners$) then break
         
-        geno48OlmSet!.add(activeOlms$(o, 2))
+        geno48AbbrevSet!.add(geno48Partners$(p, 4))
+        geno48OlmSet!.add(geno48Olms$(o, 2))
         
     wend
     
@@ -263,7 +313,7 @@ REM         endif
             
         endif
         
-        if !(sourceProgramName$ = "GENO51C") then continue
+        REM  if !(sourceProgramName$ = "AFES75") then continue
 
 
         sqlexec(programExistsChannel) sourceProgramName$ 
@@ -347,7 +397,7 @@ process_one_source_program:
     wend
 
 
-    gosub print_called_program_assignments
+    REM  gosub print_called_program_assignments
 
     gosub store_variable_calls_and_runs
     
@@ -454,87 +504,100 @@ store_variable_calls_and_runs:
         
         while iter!.hasNext()
             assignValue$ = iter!.next()
+            firstQuotePos = pos("""" = assignValue$,1,1)
+            secondQuotePos = pos("""" = assignValue$,1,2)
+
             
             if assignVar$ = "CP$" then
             
                 REM  Example of assignValue$: ABRV$+"87"
 
-                keywordPos = pos("ABRV$+""" = assignValue$)
+                if pos("ABRV$+""" = assignValue$) > 0 then
                 
-                if keywordPos > 0 then
-                    firstQuotePos = pos("""" = assignValue$,1,1)
-                    secondQuotePos = pos("""" = assignValue$,1,2)
                     iter2! = partnerAbbrevSet!.iterator()
                     
                     while iter2!.hasNext()
                         abbrev$ = iter2!.next()
                         actualProgramName$ = abbrev$ + assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1)
-                        REM  print "actualProgramName$ = ", actualProgramName$
-                        
-                        actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
-                        
-                        REM  Only add the program to the called/run list if it actually exists:
-                        
-                        testChannel = unt
-                        open(testChannel,err=skip_store) actualProgramPath$
-                        close(testChannel)
-                        
-                        if callFound then
-                            sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
-                        endif
-                        
-                        if runFound then
-                            sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
-                        endif
-                        
-                        skip_store:
-                        
+                        gosub put_resolved_called_run_program_in_database
                     wend
                 endif
                 
             endif
+
             
             if assignVar$ = "ONODPGM$" then
 
                 REM  Example of assignValue$: "ONOD90-"+OLM$
     
-                keywordPos = pos("""+OLM$" = assignValue$)
+                if pos("""+OLM$" = assignValue$) > 0 then
                 
-                if keywordPos > 0 then
-                    firstQuotePos = pos("""" = assignValue$,1,1)
-                    secondQuotePos = pos("""" = assignValue$,1,2)
                     iter2! = partnerOlmSet!.iterator()
                     
                     while iter2!.hasNext()
                         olm$ = iter2!.next()
                         actualProgramName$ = assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + olm$ 
-                        REM  print "actualProgramName$ = ", actualProgramName$
-                        
-                        actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
-                        
-                        REM  Only add the program to the called/run list if it actually exists:
-                        
-                        testChannel = unt
-                        open(testChannel,err=failed_var_onodpgm) actualProgramPath$
-                        close(testChannel)
-                        
-                        if callFound then
-                            sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
-                        endif
-                        
-                        if runFound then
-                            sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
-                        endif
-                        
-                        failed_var_onodpgm:
-                        
+                        gosub put_resolved_called_run_program_in_database
                     wend
                 endif
             endif
 
             
+            if assignVar$ = "PROG45$" or assignVar$ = "PROG51$" then
+            
+                REM  Examples of assignValue$: MMFA.ABRV$+"51C" and "GENO51C"
+
+                if pos("MMFA.ABRV$+""" = assignValue$) > 0 then
+                
+                    if sourceProgramName$ = "GENO48" then
+                        iter2! = geno48AbbrevSet!.iterator()
+                    else
+                        iter2! = partnerAbbrevSet!.iterator()
+                    endif
+                    
+                    while iter2!.hasNext()
+                        abbrev$ = iter2!.next()
+                        actualProgramName$ = abbrev$ + assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1)
+                        gosub put_resolved_called_run_program_in_database
+                    wend
+                endif
+                
+                REM  Handles "GENO51C" and other constant cases
+                
+                if pos("+" = assignValue$) = 0  then
+                    actualProgramName$ = assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1)
+                    gosub put_resolved_called_run_program_in_database
+                endif
+
+                
+            endif
+
+            
         wend
     wend
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Put resolved called or run program into the database
+    rem ------------------------------------------------------------------------------------------
+
+
+put_resolved_called_run_program_in_database:
+                        
+    actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
+    
+    REM  Only add the program to the called/run list if it actually exists:
+    
+    testChannel = unt
+    open(testChannel,err=skip_store) actualProgramPath$
+    close(testChannel)
+    
+    if callFound then sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
+    if runFound then sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
+    
+    skip_store:
 
     return
     
@@ -657,6 +720,13 @@ process_one_statement:
     
     if callPosition > 0 and (remarkPosition = 0 or remarkPosition > callPosition) then
         callAndAfter$ = stmt$(callPosition)
+        
+        if pos("CALL ABRV$+""" = callAndAfter$) = 1 and variableCallRunProgramsWithAbbrevSet!.contains(sourceProgramName$) then
+            firstQuotePos = pos("""" = callAndAfter$,1,1)
+            secondQuotePos = pos("""" = callAndAfter$,1,2)
+            callAndAfter$ = "CALL """ + sourceProgramName$(1,4) + callAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + """"
+        endif
+        
         firstQuotePos = pos("""" = callAndAfter$,1,1)
         secondQuotePos = pos("""" = callAndAfter$,1,2)
         
@@ -684,6 +754,13 @@ process_one_statement:
     
     if runPosition > 0 and (remarkPosition = 0 or remarkPosition > runPosition) then
         runAndAfter$ = stmt$(runPosition)
+        
+        if pos("RUN ABRV$+""" = runAndAfter$) = 1 and variableCallRunProgramsWithAbbrevSet!.contains(sourceProgramName$) then
+            firstQuotePos = pos("""" = runAndAfter$,1,1)
+            secondQuotePos = pos("""" = runAndAfter$,1,2)
+            runAndAfter$ = "RUN """ + sourceProgramName$(1,4) + runAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + """"
+        endif
+        
         firstQuotePos = pos("""" = runAndAfter$,1,1)
         secondQuotePos = pos("""" = runAndAfter$,1,2)
         
@@ -699,38 +776,24 @@ process_one_statement:
     endif
     
     
-    REM  Spot use of CP$="something" assignment:
-    assignVar$ = "CP$"
-    gosub capture_assignment_phrase
+    iter! = variableCallRunVariableNameSet!.iterator()
     
+    while iter!.hasNext()
+        assignVar$ = iter!.next()
+        
+        REM  Spot use of [assignVar$]="something" assignment:
+        gosub capture_assignment_phrase
     
-    REM  Spot use of CALL CP$:
-    if pos("CALL CP$" = stmtWithoutRemark$) > 0 then
-        variableCallFoundMap!.put("CP$", TRUE)
-    endif
+        REM  Spot use of CALL:
+        if pos("CALL " + assignVar$ = stmtWithoutRemark$) > 0 then
+            variableCallFoundMap!.put(assignVar$, TRUE)
+        endif
     
-    
-    REM  Spot use of RUN CP$:
-    if pos("RUN CP$" = stmtWithoutRemark$) > 0 then
-        variableRunFoundMap!.put("CP$", TRUE)
-    endif
-    
-    
-    REM  Spot use of ONODPGM$="something" assignment:
-    assignVar$ = "ONODPGM$"
-    gosub capture_assignment_phrase
-    
-    
-    REM  Spot use of CALL ONODPGM$:
-    if pos("CALL ONODPGM$" = stmtWithoutRemark$) > 0 then
-        variableCallFoundMap!.put("ONODPGM$", TRUE)
-    endif
-    
-    
-    REM  Spot use of RUN ONODPGM$:
-    if pos("RUN ONODPGM$" = stmtWithoutRemark$) > 0 then
-        variableRunFoundMap!.put("ONODPGM$", TRUE)
-    endif
+        REM  Spot use of RUN:
+        if pos("RUN " + assignVar$ = stmtWithoutRemark$) > 0 then
+            variableRunFoundMap!.put(assignVar$, TRUE)
+        endif
+    wend
 
     return
 
@@ -749,6 +812,12 @@ capture_assignment_phrase:
     
     if assignPosition > 0 and ifPosition = 0 then 
         assignPhrase$ = stmtWithoutRemark$(assignPosition + len(assignVar$ + "="))
+        
+        REM  Handle multiple variable assignments on same statement:
+        
+        commaPosition = pos("," = assignPhrase$)
+        if commaPosition > 0 then assignPhrase$ = assignPhrase$(1, commaPosition - 1)
+        
     else
         assignPhrase$ = ""
     endif
