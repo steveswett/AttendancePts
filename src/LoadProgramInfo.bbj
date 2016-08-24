@@ -9,29 +9,13 @@ REM  *
 REM  * Revised 5/17/16: Changed database tables to be case sensitive to accommodate program names
 REM  *                  like "DONE" and "done".  Unfortunately, we re-use same name in lower case
 REM  *                  for some BBj programs.
-REM  *  
-REM  * Pro/5:
 REM  *
-REM  *      NOTE: The following command can NOT be run, so you must use the "ListPrograms.bbj"
-REM  *            program instead.
+REM  * Note 8/22/16: I now have a better way to get the following source directory ready for parsing:
 REM  * 
-REM  *      /usr/local/basis/pro5/pro5lst -d/home/stevett/bbxListedPrograms -w500 -cont ./*
+REM  *               "/home/stevett/bbjbbxListedPrograms"
 REM  * 
-REM  *      Recommend running on nmcdev.
-REM  * 
-REM  * BBj: 
-REM  * 
-REM  *  Once BBj programs were identified, listed them on nmcDev using the following commands:
-REM  *
-REM  *      NOTE: MUST BE IN THE /usr/notpgm DIRECTORY WHEN RUNNING COMMANDS
-REM  * 
-REM  *      To catch the non *.bbj programs (need to manually prepare "bbjlist.txt" first)
-REM  *  
-REM  *          /usr/local/bbj/bin/bbjlst -@/home/stevett/bbjlist.txt -d/home/stevett/bbjListedPrograms
-REM  * 
-REM  *      To catch the *.bbj programs:
-REM  * 
-REM  *          /usr/local/bbj/bin/bbjlst -d/home/stevett/bbjListedPrograms ./*.bbj
+REM  *               See the document "How to periodically update BitBucket repo with latest ERP Changes.docx"
+REM  *               in itdept\Source Control.  
 REM  *  
 REM  */
 
@@ -42,10 +26,17 @@ use java.util.HashSet
 declare java.io.File directory!
 declare java.io.File file!
 declare org.apache.commons.collections.iterators.ArrayIterator arrayIterator!
+declare java.util.HashSet partnerAbbrevSet!
+declare java.util.HashSet partnerOlmSet!
+declare java.util.HashSet geno48OlmSet!
 declare java.util.HashSet filesAccessedHashSet!
 declare java.util.HashSet programsCalledHashSet!
 declare java.util.HashSet programsRunHashSet!
-
+declare java.util.HashMap variableCallRunAssignmentMap!
+declare java.util.HashSet variableCallRunAssignmentSet!
+declare java.util.HashMap variableCallFoundMap!
+declare java.util.HashMap variableRunFoundMap!
+declare java.util.HashSet callRunVarONODPGMSet!
 
 begin
 
@@ -101,7 +92,9 @@ rem *- - - - - - - - - - EOJ - - - - - - - - - -*
 
 eoj:
 
-    release
+    REM  ************** TEMPORARILY DON'T RELEASE! ****************
+    
+    REM release
     end
 
 
@@ -150,6 +143,48 @@ init:
     sqlexec(deleteChannel)
 
     sqlclose(deleteChannel)
+    
+    partnerAbbrevSet! = new java.util.HashSet()
+    partnerOlmSet! = new java.util.HashSet()
+    geno48OlmSet! = new java.util.HashSet() 
+    
+    REM  The following list can be periodically fetched using dbVisualizer and the query named
+    REM  "List active B2C partners and paths.sql":
+    
+    REM  TODO: In future, the query could be tied in directly instead of using hard-wired values.
+    
+    REM  Active partners and OLMs:
+    activePartners$ = "ARCH, AFES, AMCR, AMAZ, BLUE, BEAL, BUYO, CREC, CCTV, CHER, DOBA, DOLL, DIOF, FABD, FFCR, FFAB, FLAX, FABS, FYNM, GREE, HOME, HPPE, HSNW, IDEA, IDLW, JCPE, KCRF, KOHL, KMRT, KNWH, MANU, MEDE, MICH, MIDW, OFSS, BUYC, OVST, PETC, PRIM, QVCC, RANG, SAMS, STAC, SGIF, SHOP, SPEC, STAQ, STAP, STUF, SDOL, STAD, SPIN, STAZ, TARG, TOYS, UNBE, QUWH, USAR, VALC, WAYF, WALG, WMRT, ZERB"
+    activeOlms$ = "AA, AF, AM, AZ, BB, BL, BU, CE, CN, CZ, DB, DD, DI, FA, FC, FF, FL, FS, FY, GR, HD, HP, HS, ID, IW, JC, KC, KH, KM, KN, MA, MD, MH, MI, OF, ON, OV, PE, PR, QV, RA, SA, SD, SG, SH, SP, SQ, SS, ST, SV, SW, SY, SZ, TA, TO, UN, UQ, US, VA, WA, WG, WM, ZE"
+    
+    REM  OLMs for program GENO48: 
+    geno48Olms$ = "MI, PR, SG, UN, SY, HP, DI, CZ, SV, FL, US"
+
+    p = -5
+    o = -3
+    
+    while TRUE
+        p = p + 6
+        o = o + 4
+        
+        if p > len(activePartners$) then break
+        
+        partnerAbbrevSet!.add(activePartners$(p, 4))
+        partnerOlmSet!.add(activeOlms$(o, 2))
+        
+    wend
+
+
+    o = -3
+    
+    while TRUE
+        o = o + 4
+        
+        if o > len(geno48Olms$) then break
+        
+        geno48OlmSet!.add(activeOlms$(o, 2))
+        
+    wend
     
     return
 
@@ -226,7 +261,7 @@ REM         endif
             
         endif
         
-        REM if !(sourceProgramName$ = "V5800LIST") then continue
+        if !(sourceProgramName$ = "GENO51C") then continue
 
 
         sqlexec(programExistsChannel) sourceProgramName$ 
@@ -277,6 +312,16 @@ process_one_source_program:
     programsCalledHashSet! = new java.util.HashSet()
     programsRunHashSet! = new java.util.HashSet()
     
+    variableCallRunAssignmentMap! = new java.util.HashMap()
+    variableCallRunFoundMap! = new java.util.HashMap()
+    variableCallFoundMap! = new java.util.HashMap()
+    variableRunFoundMap! = new java.util.HashMap()
+    callRunVarONODPGMSet! = new java.util.HashSet()
+    
+    callVarONODPGMFound = FALSE
+    runVarONODPGMFound = FALSE
+    
+    
     while TRUE
     
         read(sourceProgramChannel, err=*break) rawStmt$
@@ -300,10 +345,61 @@ process_one_source_program:
             stmt$ = rawStmt$
             gosub process_one_statement
         endif
-        
-        
     
     wend
+
+
+    gosub print_called_program_assignments
+
+    gosub store_variable_calls_and_runs
+
+
+    if callVarONODPGMFound or runVarONODPGMFound then
+
+        iter! = callRunVarONODPGMSet!.iterator()
+        
+        while iter!.hasNext()
+            assignValue$ = iter!.next()
+            REM  Example of assignValue$: "ONOD90-"+OLM$
+
+            keywordPos = pos("""+OLM$" = assignValue$)
+            
+            if keywordPos > 0 then
+                firstQuotePos = pos("""" = assignValue$,1,1)
+                secondQuotePos = pos("""" = assignValue$,1,2)
+                iter2! = partnerOlmSet!.iterator()
+                
+                while iter2!.hasNext()
+                    olm$ = iter2!.next()
+                    actualProgramName$ = assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + olm$ 
+                    REM  print "actualProgramName$ = ", actualProgramName$
+                    
+                    actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
+                    
+                    REM  Only add the program to the called/run list if it actually exists:
+                    
+                    testChannel = unt
+                    open(testChannel,err=failed_var_onodpgm) actualProgramPath$
+                    close(testChannel)
+                    
+                    if callVarONODPGMFound then
+                        sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
+                    endif
+                    
+                    if runVarONODPGMFound then
+                        sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
+                    endif
+                    
+                    failed_var_onodpgm:
+                    
+                wend
+            endif
+         
+        wend
+
+    endif
+    
+    
     
     programDescription$ = cvs(programDescription$,3)
     if len(programDescription$) > 250 then programDescription$ = programDescription$(1,250)
@@ -349,6 +445,123 @@ REM  Store run programs
     
 
     rem ------------------------------------------------------------------------------------------
+    rem  Print called program variable assignments
+    rem ------------------------------------------------------------------------------------------
+    
+    
+print_called_program_assignments:
+
+    print "Variable called/run program assignments for program ", sourceProgramName$, ":"
+
+    outerIter! = variableCallRunAssignmentMap!.keySet().iterator()
+    
+    while outerIter!.hasNext()
+        assignVar$ = outerIter!.next()
+        variableCallRunAssignmentSet! = cast( java.util.HashSet, variableCallRunAssignmentMap!.get(assignVar$) )
+    
+        callFound = TRUE
+        if variableCallFoundMap!.get(assignVar$) = null() then callFound = FALSE
+    
+        runFound = TRUE
+        if variableRunFoundMap!.get(assignVar$) = null() then runFound = FALSE
+        
+        print "assignVar$ = ", assignVar$, " callFound = ", callFound, "  runFound = ", runFound
+
+        iter! = variableCallRunAssignmentSet!.iterator()
+        
+        while iter!.hasNext()
+            assignValue$ = iter!.next()
+            print "assignVar$ = ", assignVar$, " assignValue$ = ", assignValue$
+        wend
+    wend
+
+
+    print "ONODPGM$= assignments found for program ", sourceProgramName$, ":"
+
+    iter! = callRunVarONODPGMSet!.iterator()
+    
+    while iter!.hasNext()
+        assignValue$ = iter!.next()
+        print assignValue$
+    wend
+    
+    print "callVarONODPGMFound = ", callVarONODPGMFound, "  runVarONODPGMFound = ", runVarONODPGMFound
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Store variably named called and run programs in database 
+    rem ------------------------------------------------------------------------------------------
+
+
+store_variable_calls_and_runs:
+
+    outerIter! = variableCallRunAssignmentMap!.keySet().iterator()
+    
+    while outerIter!.hasNext()
+        assignVar$ = outerIter!.next()
+    
+        callFound = TRUE
+        if variableCallFoundMap!.get(assignVar$) = null() then callFound = FALSE
+    
+        runFound = TRUE
+        if variableRunFoundMap!.get(assignVar$) = null() then runFound = FALSE
+
+        if !(callFound) and !(runFound) then continue
+        
+        variableCallRunAssignmentSet! = cast( java.util.HashSet, variableCallRunAssignmentMap!.get(assignVar$) )
+        iter! = variableCallRunAssignmentSet!.iterator()
+        
+        while iter!.hasNext()
+            assignValue$ = iter!.next()
+            
+            if assignVar$ = "CP$" then
+            
+                REM  Example of assignValue$: ABRV$+"87"
+
+                keywordPos = pos("ABRV$+""" = assignValue$)
+                
+                if keywordPos > 0 then
+                    firstQuotePos = pos("""" = assignValue$,1,1)
+                    secondQuotePos = pos("""" = assignValue$,1,2)
+                    iter2! = partnerAbbrevSet!.iterator()
+                    
+                    while iter2!.hasNext()
+                        abbrev$ = iter2!.next()
+                        actualProgramName$ = abbrev$ + assignValue$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1)
+                        REM  print "actualProgramName$ = ", actualProgramName$
+                        
+                        actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
+                        
+                        REM  Only add the program to the called/run list if it actually exists:
+                        
+                        testChannel = unt
+                        open(testChannel,err=skip_store) actualProgramPath$
+                        close(testChannel)
+                        
+                        if callFound then
+                            sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
+                        endif
+                        
+                        if runFound then
+                            sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
+                        endif
+                        
+                        skip_store:
+                        
+                    wend
+                endif
+                
+            endif
+            
+        wend
+    wend
+
+    return
+    
+
+    rem ------------------------------------------------------------------------------------------
     rem  Process a single statement
     rem ------------------------------------------------------------------------------------------
     
@@ -357,9 +570,16 @@ process_one_statement:
 
     relativeLineNo = relativeLineNo + 1
     
+    stmt$ = cvs(stmt$, 3)
     upperCaseStmt$ = cvs(stmt$, 4)
     
     remarkPosition = pos("REM" = upperCaseStmt$)
+
+    if remarkPosition = 0 then
+        stmtWithoutRemark$ = stmt$
+    else
+        stmtWithoutRemark$ = stmt$(1, remarkPosition - 1)
+    endif
 
     REM  Determine date written:
     
@@ -499,7 +719,80 @@ process_one_statement:
         endif
         
     endif
+    
+    
+    REM  Spot use of CP$="something" assignment:
+    
+    assignVar$ = "CP$"
+    gosub capture_assignment_phrase
+    
+    
+    REM  Spot use of CALL CP$:
+    if pos("CALL CP$" = stmtWithoutRemark$) > 0 then
+        variableCallFoundMap!.put("CP$", TRUE)
+    endif
+    
+    
+    REM  Spot use of RUN CP$:
+    if pos("RUN CP$" = stmtWithoutRemark$) > 0 then
+        variableRunFoundMap!.put("CP$", TRUE)
+    endif
+    
+    
+    REM  Spot use of ONODPGM$="something" assignment:
+    assignPosition = pos("ONODPGM$=" = stmtWithoutRemark$)
+    
+    if assignPosition > 0 then
+        assignPhrase$ = stmtWithoutRemark$(assignPosition + 4)
 
+        if !(callRunVarONODPGMSet!.contains(assignPhrase$)) then
+            callRunVarONODPGMSet!.add(assignPhrase$)
+        endif
+        
+    endif
+    
+    
+    REM  Spot use of CALL ONODPGM$:
+    if pos("CALL ONODPGM$" = stmtWithoutRemark$) > 0 then
+        callVarONODPGMFound = TRUE
+    endif
+    
+    
+    REM  Spot use of RUN ONODPGM$:
+    if pos("RUN ONODPGM$" = stmtWithoutRemark$) > 0 then
+        runVarONODPGMFound = TRUE
+    endif
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Capture assignment phrase for an assignment.  For example: LET CP$=ABRV$+"87"
+    rem  If "assignVar$" is CP$, then sets "assignPhrase$" to: ABRV$+"87" .  The assignment
+    rem  phrase is then added to a HashMap of HashSet where the key is the value of "assignVar$"
+    rem ------------------------------------------------------------------------------------------
+
+
+capture_assignment_phrase:
+
+    assignPosition = pos(assignVar$ + "=" = stmtWithoutRemark$)
+    ifPosition = pos("IF " + assignVar$ + "=" = stmtWithoutRemark$)
+    
+    if assignPosition > 0 and ifPosition = 0 then assignPhrase$ = stmtWithoutRemark$(assignPosition + 4)
+        
+    if len(assignPhrase$) > 0
+    
+        variableCallRunAssignmentSet! = cast( java.util.HashSet, variableCallRunAssignmentMap!.get(assignVar$) )
+        
+        if variableCallRunAssignmentSet! = null() then variableCallRunAssignmentSet! = new java.util.HashSet()
+        
+        if !(variableCallRunAssignmentSet!.contains(assignPhrase$)) then
+            variableCallRunAssignmentSet!.add(assignPhrase$)
+            variableCallRunAssignmentMap!.put(assignVar$, variableCallRunAssignmentSet!)
+        endif
+        
+    endif
+    
     return
     
 
