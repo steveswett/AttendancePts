@@ -43,6 +43,8 @@ declare java.util.HashSet variableCallRunProgramsWithAbbrevSet!
 declare java.util.HashMap variableCallFoundMap!
 declare java.util.HashMap variableRunFoundMap!
 
+declare java.util.HashSet variableCallRunProgramsWithDynamicAbbrevSet!
+
 begin
 
 
@@ -155,7 +157,12 @@ init:
     variableCallRunVariableNameSet!.add("PROG45$")
     variableCallRunVariableNameSet!.add("PROG51$")
     
+    REM  This set is a list of programs where ABRV$+"45" (for example) resolves to sourceProgramName$(1,4)+"45"
     variableCallRunProgramsWithAbbrevSet! = new java.util.HashSet()
+    
+    REM  This set is a list of programs where ABRV$+"45" (for example) resolves to [each partner abbreviation]+"45"
+    variableCallRunProgramsWithDynamicAbbrevSet! = new java.util.HashSet()
+    variableCallRunProgramsWithDynamicAbbrevSet!.add("FULF75")
     
     partnerAbbrevSet! = new java.util.HashSet()
     partnerOlmSet! = new java.util.HashSet()
@@ -313,7 +320,7 @@ REM         endif
             
         endif
         
-        REM  if !(sourceProgramName$ = "AFES75") then continue
+        REM if !(sourceProgramName$ = "IFEI40") then continue
 
 
         sqlexec(programExistsChannel) sourceProgramName$ 
@@ -586,18 +593,36 @@ store_variable_calls_and_runs:
 
 put_resolved_called_run_program_in_database:
                         
+    REM  Only add the program to the called/run list if it actually exists:
+
+    gosub check_program_existence
+    
+    if programExists then
+    
+        if callFound then sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
+        if runFound then sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
+
+    endif
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Check whether program exists
+    rem ------------------------------------------------------------------------------------------
+
+
+check_program_existence:
+
     actualProgramPath$ = SOURCE_PROGRAM_PATH$ + "/" + actualProgramName$
     
-    REM  Only add the program to the called/run list if it actually exists:
-    
+    programExists = FALSE
     testChannel = unt
-    open(testChannel,err=skip_store) actualProgramPath$
+    open(testChannel,err=skip_close_test) actualProgramPath$
+    programExists = TRUE
     close(testChannel)
     
-    if callFound then sqlexec(programsCalledChannel) sourceProgramName$, actualProgramName$ 
-    if runFound then sqlexec(programsRunChannel) sourceProgramName$, actualProgramName$ 
-    
-    skip_store:
+    skip_close_test:
 
     return
     
@@ -719,32 +744,38 @@ process_one_statement:
     if callPosition = 0 then callPosition = pos("CALL " = stmt$)
     
     if callPosition > 0 and (remarkPosition = 0 or remarkPosition > callPosition) then
+    
+        checkProgramExistence = FALSE
         callAndAfter$ = stmt$(callPosition)
         
-        if pos("CALL ABRV$+""" = callAndAfter$) = 1 and variableCallRunProgramsWithAbbrevSet!.contains(sourceProgramName$) then
+        if pos("CALL ABRV$+""" = callAndAfter$) = 1 and variableCallRunProgramsWithDynamicAbbrevSet!.contains(sourceProgramName$) then
             firstQuotePos = pos("""" = callAndAfter$,1,1)
             secondQuotePos = pos("""" = callAndAfter$,1,2)
-            callAndAfter$ = "CALL """ + sourceProgramName$(1,4) + callAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + """"
+            
+            originalFirstQuotePos = firstQuotePos
+            originalSecondQuotePos = secondQuotePos
+            originalCallAndAfter$ = callAndAfter$
+            
+            checkProgramExistence = TRUE
+            
+            iter2! = partnerAbbrevSet!.iterator()
+            
+            while iter2!.hasNext()
+                abbrev$ = iter2!.next()
+                callAndAfter$ = "CALL """ + abbrev$ + originalCallAndAfter$(originalFirstQuotePos + 1, originalSecondQuotePos - originalFirstQuotePos - 1) + """"
+                gosub add_called_program_to_hash_set
+            wend
+
+        else
+            if pos("CALL ABRV$+""" = callAndAfter$) = 1 and variableCallRunProgramsWithAbbrevSet!.contains(sourceProgramName$) then
+                firstQuotePos = pos("""" = callAndAfter$,1,1)
+                secondQuotePos = pos("""" = callAndAfter$,1,2)
+                callAndAfter$ = "CALL """ + sourceProgramName$(1,4) + callAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + """"
+            endif
+            
+            gosub add_called_program_to_hash_set
         endif
         
-        firstQuotePos = pos("""" = callAndAfter$,1,1)
-        secondQuotePos = pos("""" = callAndAfter$,1,2)
-        
-        if firstQuotePos > 0 and secondQuotePos > 0 then
-            callPhrase$ = cvs(callAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1), 3) 
-            
-            REM  Trim off entry point, if present
-            entryPtPos = pos("::" = callPhrase$)
-            
-            if entryPtPos > 0 then
-                callPhrase$ = callPhrase$(1, entryPtPos - 1)
-            endif
-
-            if !(programsCalledHashSet!.contains(callPhrase$)) then
-                programsCalledHashSet!.add(callPhrase$)
-            endif
-
-        endif
         
     endif
     
@@ -753,25 +784,38 @@ process_one_statement:
     runPosition = pos("RUN " = stmt$)
     
     if runPosition > 0 and (remarkPosition = 0 or remarkPosition > runPosition) then
+    
+        checkProgramExistence = FALSE
         runAndAfter$ = stmt$(runPosition)
         
-        if pos("RUN ABRV$+""" = runAndAfter$) = 1 and variableCallRunProgramsWithAbbrevSet!.contains(sourceProgramName$) then
+        if pos("RUN ABRV$+""" = runAndAfter$) = 1 and variableCallRunProgramsWithDynamicAbbrevSet!.contains(sourceProgramName$) then
             firstQuotePos = pos("""" = runAndAfter$,1,1)
             secondQuotePos = pos("""" = runAndAfter$,1,2)
-            runAndAfter$ = "RUN """ + sourceProgramName$(1,4) + runAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + """"
-        endif
-        
-        firstQuotePos = pos("""" = runAndAfter$,1,1)
-        secondQuotePos = pos("""" = runAndAfter$,1,2)
-        
-        if firstQuotePos > 0 and secondQuotePos > 0 then
-            runPhrase$ = cvs(runAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1), 3)
+            
+            originalFirstQuotePos = firstQuotePos
+            originalSecondQuotePos = secondQuotePos
+            originalRunAndAfter$ = runAndAfter$
+            
+            checkProgramExistence = TRUE
+            
+            iter2! = partnerAbbrevSet!.iterator()
+            
+            while iter2!.hasNext()
+                abbrev$ = iter2!.next()
+                runAndAfter$ = "RUN """ + abbrev$ + originalRunAndAfter$(originalFirstQuotePos + 1, originalSecondQuotePos - originalFirstQuotePos - 1) + """"
+                gosub add_run_program_to_hash_set
+            wend
 
-            if !(programsRunHashSet!.contains(runPhrase$)) then
-                programsRunHashSet!.add(runPhrase$)
+        else
+            if pos("RUN ABRV$+""" = runAndAfter$) = 1 and variableCallRunProgramsWithAbbrevSet!.contains(sourceProgramName$) then
+                firstQuotePos = pos("""" = runAndAfter$,1,1)
+                secondQuotePos = pos("""" = runAndAfter$,1,2)
+                runAndAfter$ = "RUN """ + sourceProgramName$(1,4) + runAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1) + """"
             endif
-
+            
+            gosub add_run_program_to_hash_set
         endif
+        
         
     endif
     
@@ -794,6 +838,90 @@ process_one_statement:
             variableRunFoundMap!.put(assignVar$, TRUE)
         endif
     wend
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Add called program to hash set.  Before calling this subroutine, set 
+    rem  "checkProgramExistence" to TRUE/FALSE depending on whether you want to verify the 
+    rem  program exists before adding it to the hash set.
+    rem ------------------------------------------------------------------------------------------
+
+
+add_called_program_to_hash_set:
+
+    firstQuotePos = pos("""" = callAndAfter$,1,1)
+    secondQuotePos = pos("""" = callAndAfter$,1,2)
+    
+    if firstQuotePos > 0 and secondQuotePos > 0 then
+        callPhrase$ = cvs(callAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1), 3) 
+        
+        REM  Trim off entry point, if present
+        entryPtPos = pos("::" = callPhrase$)
+        
+        if entryPtPos > 0 then
+            callPhrase$ = callPhrase$(1, entryPtPos - 1)
+        endif
+
+        actualProgramName$ = callPhrase$
+        
+        addToHashSet = TRUE
+        
+        if checkProgramExistence then
+            gosub check_program_existence
+            if !programExists then addToHashSet = FALSE
+        endif
+        
+        if addToHashSet then
+            if !(programsCalledHashSet!.contains(actualProgramName$)) then
+                programsCalledHashSet!.add(actualProgramName$)
+            endif
+        endif
+
+    endif
+
+    return
+
+
+    rem ------------------------------------------------------------------------------------------
+    rem  Add run program to hash set.  Before calling this subroutine, set 
+    rem  "checkProgramExistence" to TRUE/FALSE depending on whether you want to verify the 
+    rem  program exists before adding it to the hash set.
+    rem ------------------------------------------------------------------------------------------
+
+
+add_run_program_to_hash_set:
+
+    firstQuotePos = pos("""" = runAndAfter$,1,1)
+    secondQuotePos = pos("""" = runAndAfter$,1,2)
+    
+    if firstQuotePos > 0 and secondQuotePos > 0 then
+        runPhrase$ = cvs(runAndAfter$(firstQuotePos + 1, secondQuotePos - firstQuotePos - 1), 3) 
+        
+        REM  Trim off entry point, if present
+        entryPtPos = pos("::" = runPhrase$)
+        
+        if entryPtPos > 0 then
+            runPhrase$ = runPhrase$(1, entryPtPos - 1)
+        endif
+
+        actualProgramName$ = runPhrase$
+        
+        addToHashSet = TRUE
+        
+        if checkProgramExistence then
+            gosub check_program_existence
+            if !programExists then addToHashSet = FALSE
+        endif
+        
+        if addToHashSet then
+            if !(programsRunHashSet!.contains(actualProgramName$)) then
+                programsRunHashSet!.add(actualProgramName$)
+            endif
+        endif
+
+    endif
 
     return
 
