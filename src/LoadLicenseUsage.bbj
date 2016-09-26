@@ -139,10 +139,12 @@ prep_and_open_lmstat_file:
     
     lmstatCmdOutputFile$ = "/tmp/lmstat-" + currentTimestamp$ + ".txt"
 
-    lmstatCmd$ = "ssh nmcaold ""/usr/local/bbj/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
+    rem  lmstatCmd$ = "ssh nmcaold ""/usr/local/bbj/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
+    lmstatCmd$ = "ssh BasisLicenseMgr ""/usr/local/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
     returnCode = scall(lmstatCmd$)
     
-    scpCmd$ = "scp nmcaold:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
+    rem  scpCmd$ = "scp nmcaold:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
+    scpCmd$ = "scp BasisLicenseMgr:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
     returnCode = scall(scpCmd$)
     
     lmstatCmdChannel = unt
