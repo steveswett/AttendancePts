@@ -1,0 +1,34 @@
+REM /**
+REM  * TestGetAttendPtsWithDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.HashSet
+
+declare java.util.HashSet employeesWithZeroPtsSet!
+
+employeesWithZeroPtsSet! = new java.util.HashSet()
+
+call "AttendPtsDAO.bbj::get_employees_with_zero_pts_for_date_range", "20160624", "20160922", employeesWithZeroPtsSet!
+
+count = 0
+
+iter! = employeesWithZeroPtsSet!.iterator()
+
+while iter!.hasNext()
+
+count = count + 1
+
+    badgeKey! = iter!.next()
+    
+    REM if count > 15 then continue
+    
+    if badgeKey! <> "33077" then continue
+    
+    print "badge = ", badgeKey!
+    
+
+wend
+
+print "count = ", count

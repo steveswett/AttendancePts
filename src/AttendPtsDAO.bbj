@@ -1373,11 +1373,10 @@ setup_constants:
 :       cvs(jobareasWhereClause$, 2) + " "
     
     GET_EMPS_WITH_ATND_RECS_BUT_ZERO_PTS_STMT$ =
-:       "select employ.badg, sum(atnd.pts) as total_pts " +
+:       "select employ.badg, sum( iff(atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ?, atnd.pts, 0) ) as total_pts " +
 :       "from atnd " + 
 :       "inner join employ on '0' + employ.badg = atnd.badg " + 
 :       "where " +
-:       "atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ? and " +
 :       "employ.termdt = '' and " + 
 :       "employ.salhr = 'H' and " + 
 :       cvs(jobareasWhereClause$, 2) + " " +
