@@ -742,7 +742,7 @@ get_employees_with_zero_pts:
     zeroPtsChannel = sqlunt
     sqlopen(zeroPtsChannel) attendPtsDataSource$
     sqlprep(zeroPtsChannel) GET_EMPS_WITH_ATND_RECS_BUT_ZERO_PTS_STMT$
-    sqlexec(zeroPtsChannel) yyyymmddFromIn$, yyyymmddToIn$
+    sqlexec(zeroPtsChannel) yyyymmddFromIn$, yyyymmddToIn$, yyyymmddFromIn$, yyyymmddToIn$
     dim resultRow$:sqltmpl(zeroPtsChannel)
     
     while TRUE
@@ -1381,7 +1381,7 @@ setup_constants:
 :       "employ.salhr = 'H' and " + 
 :       cvs(jobareasWhereClause$, 2) + " " +
 :       "group by employ.badg " + 
-:       "having sum(atnd.pts) = 0"
+:       "having sum( iff(atnd.stat = 'A' and atnd.ptdt >= ? and atnd.ptdt <= ?, atnd.pts, 0) ) = 0"
 
     GET_ETO_BUSTERS_FOR_DATE_RANGE_STMT$ =
 :       "select employ.badg " +
