@@ -1,0 +1,10 @@
+REM /**
+REM  * TestProgramRunLog.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+elapsedSeconds =  60 * 60 * 30
+call "ProgramRunLogDAO.bbj::get_program_name_if_active_process", "11734", 60 * 60, programName$
+
+print "programName$ = ", programName$

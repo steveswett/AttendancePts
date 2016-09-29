@@ -1,0 +1,95 @@
+REM /**
+REM  * ProgramRunLogDAO.bbj
+REM  * @author stevett
+REM  *
+REM  * Written: August 2016
+REM  * 
+REM  * Description: Data Access Object for table PGMRUNLOG
+REM  *
+REM  */
+
+
+use java.util.LinkedHashMap
+use java.util.HashMap
+
+declare java.util.LinkedHashMap employeeRecordsMap!
+declare java.util.HashMap employeeDataMap!
+
+
+rem *- - - - - - - - - - CONSTANTS - - - - - - - - - -*
+
+rem  This section never runs for multi-entry point called programs, so subroutine "setup_constants" is called
+rem  for each entry point.
+
+
+rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
+
+functions:
+
+
+
+rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
+
+entry_points:
+
+
+get_program_name_if_active_process:
+
+    enter pidIn$, secondsElapsedSincePidStartIn, programNameOut$
+    
+    gosub setup_constants
+    
+    gosub query_for_active_program_name
+    
+    exit
+
+
+rem *- - - - - - - - - - SUBROUTINES - - - - - - - - - -*
+
+subroutines:
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  Get program name if active; otherwise return empty string
+REM  ------------------------------------------------------------------------------------------
+
+
+query_for_active_program_name:
+
+    runLogChannel = sqlunt
+    sqlopen(runLogChannel) attendPtsDataSource$
+
+    sqlprep(runLogChannel) GET_ACTIVE_PROGRAM_NAME_STMT$
+
+    programNameOut$ = ""
+    
+    sqlexec(runLogChannel) pidIn$, secondsElapsedSincePidStartIn * -1
+    dim resultRow$:sqltmpl(runLogChannel)
+    
+    resultRow$ = sqlfetch(runLogChannel,err=record_not_found)
+    programNameOut$ = cvs(resultRow.program_name$, 2)
+    
+    record_not_found:
+    
+    sqlclose(runLogChannel)
+
+    return
+
+
+REM  ------------------------------------------------------------------------------------------
+REM  setup_constants
+REM  ------------------------------------------------------------------------------------------
+
+setup_constants:
+
+    TRUE = 1
+    FALSE = 0
+
+    call "ConfigVarsDAO.bbj::get_value", "new.attend.pts.files.data.source.name", configVarFound, configVarDataType$, attendPtsDataSource$
+    
+    REM print "attendPtsDataSource$ = ", attendPtsDataSource$
+    
+    GET_ACTIVE_PROGRAM_NAME_STMT$ = "select program_name from pgmrunlog where process_id = ? and to_timestamp(start_date, 'yyyyMMddHHmmss') >= timestampadd('SQL_TSI_SECOND', ?, now())"
+    
+    return
+    
