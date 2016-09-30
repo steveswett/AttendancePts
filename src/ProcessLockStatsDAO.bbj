@@ -56,9 +56,12 @@ REM  ---------------------------------------------------------------------------
 
 insert_lock_records:
 
+    cmdsChannel = sqlunt
+    sqlopen(cmdsChannel) dataWarehouseDataSource$
+    sqlprep(cmdsChannel) GET_CMDS_STMT$
+    
     statsChannel = sqlunt
     sqlopen(statsChannel) dataWarehouseDataSource$
-
     sqlprep(statsChannel) INSERT_STATS_STMT$
     
     iter! = recordsMapIn!.keySet().iterator()
@@ -75,14 +78,32 @@ insert_lock_records:
         endif
         
         cmd$ = oneRecordMap!.get("cmd")
+
+        REM  Get overridden command(s) from ProcessStatistics table:
+        
+            REM  Defaults:
+            statsCmd$ = cmd$
+            statsOrigCmd$ = ""
+            
+            sqlexec(cmdsChannel) pidKey!, sqlTimeStamp$
+            dim cmdsResultRow$:sqltmpl(cmdsChannel)
+            
+            cmdsResultRow$ = sqlfetch(cmdsChannel,err=cmds_record_not_found)
+            
+            statsCmd$ = cvs(cmdsResultRow.Command$, 2)
+            statsOrigCmd$ = cvs(cmdsResultRow.OrigCommand$, 2)
+            
+            cmds_record_not_found:
+
         user$ = oneRecordMap!.get("user")
         fileName$ = oneRecordMap!.get("file_name")
         lockType$ = oneRecordMap!.get("lock_type")
 
-        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, user$, fileName$, lockType$     
+        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, statsCmd$, statsOrigCmd$, user$, fileName$, lockType$     
     
     wend
     
+    sqlclose(cmdsChannel)
     sqlclose(statsChannel)
 
     return
@@ -99,8 +120,10 @@ setup_constants:
 
     dataWarehouseDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+
+    GET_CMDS_STMT$ = "select Command, OrigCommand from ProcessStatistics where ProcessId = ? and CollectionTime = ?"
     
-    INSERT_STATS_STMT$ = "insert into ProcessLockStats (ProcessId, CollectionTime, Command, UserId, FileName, LockType) " +
-:                        "values (?, ?, ?, ?, ?, ?)"
+    INSERT_STATS_STMT$ = "insert into ProcessLockStats (ProcessId, CollectionTime, Command, OrigCommand, UserId, FileName, LockType) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?)"
     
     return

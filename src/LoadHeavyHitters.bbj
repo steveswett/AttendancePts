@@ -326,20 +326,28 @@ read_one_ps_record:
     if includeZeroCPUProcesses or cpuTimeInSeconds > 0 or user$ = 'root' then
     
         REM  See if a "RUN" program can be gleaned from program run log:
-        call "ProgramRunLogDAO.bbj::get_program_name_if_active_process", pid$, elapsedTimeInSeconds, runProgramName$
+        call "ProgramRunLogDAO.bbj::get_prog_name_and_elapsed_time_if_active_process", pid$, elapsedTimeInSeconds, runProgramName$, runElapsedTimeInSeconds
         
-        rem print "pid$, elapsedTimeInSeconds, runProgramName$ = ", pid$, ", ", elapsedTimeInSeconds, ", ", runProgramName$
-        
-        if len(runProgramName$) > 0 then cmd$ = runProgramName$
+        if len(runProgramName$) > 0 then
+            origCmd$ = cmd$
+            cmd$ = runProgramName$
+            origElapsedTimeInSeconds = elapsedTimeInSeconds
+            elapsedTimeInSeconds = runElapsedTimeInSeconds 
+        else
+            origCmd$ = ""
+            origElapsedTimeInSeconds = 0
+        endif
             
         oneRecordMap! = new java.util.HashMap()
         
         oneRecordMap!.put("cmd", cmd$)
+        oneRecordMap!.put("orig_cmd", origCmd$)
         oneRecordMap!.put("user", user$)
         oneRecordMap!.put("tty", tty$)
         oneRecordMap!.put("state", state$)
         oneRecordMap!.put("cpu_pct", cpuPercent$)
         oneRecordMap!.put("elapsed_tm_secs", elapsedTimeInSeconds)
+        oneRecordMap!.put("orig_elapsed_tm_secs", origElapsedTimeInSeconds)
         oneRecordMap!.put("cpu_time_secs", cpuTimeInSeconds)  
         oneRecordMap!.put("cpu_time_per_sec", cpuTimePerSecond)
         oneRecordMap!.put("data_memory_kb", memoryData$)

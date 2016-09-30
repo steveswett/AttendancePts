@@ -1,0 +1,13 @@
+REM /**
+REM  * TestDateUtilities.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+
+yyyymmddhhmmssFrom$ = "20151231235900"
+yyyymmddhhmmssTo$ = "20160101000005"
+
+call "DateUtilities.bbj::get_seconds_between", yyyymmddhhmmssFrom$, yyyymmddhhmmssTo$, secondsBetween
+
+print "seconds between = ", secondsBetween

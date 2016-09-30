@@ -170,6 +170,17 @@ get_days_between_inclusive:
     exit
     
     
+get_seconds_between:
+
+    enter yyyymmddhhmmssFrom$, yyyymmddhhmmssTo$, secondsBetween
+    
+    gosub setup_constants
+    
+    gosub sub_get_seconds_between
+    
+    exit
+    
+    
 get_yyyymmdd_relative_to_today_in_days:
 
     enter daysBeforeMinusOrAfterPlusIn, yyyymmddOut$
@@ -347,6 +358,61 @@ sub_get_relative_yyyymmdd_in_months:
         yyyymmddOut$ = formatter!.format(date!)
 
         return
+
+
+REM  ----------------------------------------------------------------------
+REM  Get the number of seconds, inclusive, between 2 YYYYMMDDHHMMSS dates
+REM  ----------------------------------------------------------------------
+
+
+sub_get_seconds_between:
+
+    REM  inputs: yyyymmddhhmmssFrom$, yyyymmddhhmmssTo$
+    
+        argInYyyymmddhhmmss$ = yyyymmddhhmmssFrom$
+        gosub sub_get_ms_for_yyyymmddhhmmss
+        msFrom = argOutMsForYyyymmddhhmmss
+    
+        argInYyyymmddhhmmss$ = yyyymmddhhmmssTo$
+        gosub sub_get_ms_for_yyyymmddhhmmss
+        msTo = argOutMsForYyyymmddhhmmss
+        
+        msDiff = msTo - msFrom
+        
+        if msDiff > 0 then
+            secondsBetween = round(msDiff / 1000, 0)
+        else
+          secondsBetween = 0
+        endif
+
+    return
+
+
+REM  ----------------------------------------------------------------------
+REM  Get the number of milliseconds in an "argInYyyymmddhhmmss$"
+REM  ----------------------------------------------------------------------
+
+
+sub_get_ms_for_yyyymmddhhmmss:
+    
+        calendar! = Calendar.getInstance()
+        
+        yr = num(argInYyyymmddhhmmss$(1,4))
+        mo = num(argInYyyymmddhhmmss$(5,2))
+        dy = num(argInYyyymmddhhmmss$(7,2))
+        hr = num(argInYyyymmddhhmmss$(9,2))
+        mn = num(argInYyyymmddhhmmss$(11,2))
+        sec = num(argInYyyymmddhhmmss$(13,2))
+        
+        rem  set(int year, int month, int date, int hourOfDay, int minute, int second)
+        rem  Sets the values for the fields YEAR, MONTH, DAY_OF_MONTH, HOUR, MINUTE, and SECOND.
+        
+        calendar!.set(yr, mo - 1, dy, hr, mn, sec)
+        
+        argOutMsForYyyymmddhhmmss = calendar!.getTimeInMillis()
+
+return
+
     
 REM  ----------------------------------------------------------------------
 REM  Get YYYYMMDD date relative to today using days (plus/minus)

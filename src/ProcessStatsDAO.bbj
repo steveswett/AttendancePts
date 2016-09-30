@@ -69,16 +69,18 @@ insert_stat_records:
         oneRecordMap! = cast( java.util.HashMap, recordsMapIn!.get(pidKey!) )
         
         cmd$ = oneRecordMap!.get("cmd")
+        origCmd$ = oneRecordMap!.get("orig_cmd")
         user$ = oneRecordMap!.get("user")
         tty$ = oneRecordMap!.get("tty")
         state$ = oneRecordMap!.get("state")
         cpuPercent$ = oneRecordMap!.get("cpu_pct")
         elapsedTimeInSeconds = oneRecordMap!.get("elapsed_tm_secs")
+        origElapsedTimeInSeconds = oneRecordMap!.get("orig_elapsed_tm_secs")
         cpuTimeInSeconds = oneRecordMap!.get("cpu_time_secs")
         cpuTimePerSecond = oneRecordMap!.get("cpu_time_per_sec")
         memoryData$ = oneRecordMap!.get("data_memory_kb")
 
-        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, user$, tty$, state$, cpuPercent$, elapsedTimeInSeconds, cpuTimeInSeconds, cpuTimePerSecond, memoryData$    
+        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, origCmd$, user$, tty$, state$, cpuPercent$, elapsedTimeInSeconds, origElapsedTimeInSeconds, cpuTimeInSeconds, cpuTimePerSecond, memoryData$    
     
     wend
     
@@ -99,7 +101,7 @@ setup_constants:
     dataWarehouseDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
     
-    INSERT_STATS_STMT$ = "insert into ProcessStatistics (ProcessId, CollectionTime, Command, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
-:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    INSERT_STATS_STMT$ = "insert into ProcessStatistics (ProcessId, CollectionTime, Command, OrigCommand, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, OrigElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     
     return

@@ -33,13 +33,13 @@ rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 entry_points:
 
 
-get_program_name_if_active_process:
+get_prog_name_and_elapsed_time_if_active_process:
 
-    enter pidIn$, secondsElapsedSincePidStartIn, programNameOut$
+    enter pidIn$, secondsElapsedSincePidStartIn, programNameOut$, runElapsedTimeInSecondsOut
     
     gosub setup_constants
     
-    gosub query_for_active_program_name
+    gosub query_for_prog_name_and_elapsed_time
     
     exit
 
@@ -50,11 +50,11 @@ subroutines:
 
 
 REM  ------------------------------------------------------------------------------------------
-REM  Get program name if active; otherwise return empty string
+REM  Get program name and elapsed time if active; otherwise return empty string
 REM  ------------------------------------------------------------------------------------------
 
 
-query_for_active_program_name:
+query_for_prog_name_and_elapsed_time:
 
     runLogChannel = sqlunt
     sqlopen(runLogChannel) attendPtsDataSource$
@@ -62,13 +62,19 @@ query_for_active_program_name:
     sqlprep(runLogChannel) GET_ACTIVE_PROGRAM_NAME_STMT$
 
     programNameOut$ = ""
+    runElapsedTimeInSecondsOut = 0
     
     sqlexec(runLogChannel) pidIn$, secondsElapsedSincePidStartIn * -1
     dim resultRow$:sqltmpl(runLogChannel)
     
     resultRow$ = sqlfetch(runLogChannel,err=record_not_found)
     programNameOut$ = cvs(resultRow.program_name$, 2)
-    
+
+    startDateYYYYMMDDHHMMSS$ = cvs(resultRow.start_date$, 2)
+    call "DateUtilities.bbj::get_current_timestamp", yyyymmddhhmmssNow$
+    call "DateUtilities.bbj::get_seconds_between", startDateYYYYMMDDHHMMSS$, yyyymmddhhmmssNow$, secondsBetween
+    runElapsedTimeInSecondsOut = secondsBetween    
+        
     record_not_found:
     
     sqlclose(runLogChannel)
@@ -89,7 +95,7 @@ setup_constants:
     
     REM print "attendPtsDataSource$ = ", attendPtsDataSource$
     
-    GET_ACTIVE_PROGRAM_NAME_STMT$ = "select program_name from pgmrunlog where process_id = ? and to_timestamp(start_date, 'yyyyMMddHHmmss') >= timestampadd('SQL_TSI_SECOND', ?, now())"
+    GET_ACTIVE_PROGRAM_NAME_STMT$ = "select program_name, start_date from pgmrunlog where process_id = ? and to_timestamp(start_date, 'yyyyMMddHHmmss') >= timestampadd('SQL_TSI_SECOND', ?, now())"
     
     return
     
