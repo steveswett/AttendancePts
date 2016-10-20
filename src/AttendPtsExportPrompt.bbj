@@ -6,6 +6,8 @@ REM  * Written: October 2015
 REM  * 
 REM  * Description: Attendance Points Export - prompt screen.
 REM  * 
+REM  * Revised: October 2016 - use ASCII 0-127 for function/edit key inputs.  See ERP-5239.
+REM  * 
 REM  */
 
 
@@ -47,7 +49,7 @@ F4_CTL_OUTPUT_VALUE$ = $04$
 TAB_CUSTOM_INPUT_VALUE$ = $09$
 TAB_CTL_OUTPUT_VALUE$ = $19$
 
-BACKTAB_CUSTOM_INPUT_VALUE$ = $83$
+BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
 BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
 
 

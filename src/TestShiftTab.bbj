@@ -26,7 +26,7 @@ resultIgnored$ = stbl("!EDIT", tabPair$ + backtabPair$ + stbl("!EDIT"))
 
 while 1
     input "Press any key, q to quit", ch$
-    print " ch$=", ch$
-    print " ctl=", ctl
+    print " ch$ = ", ch$
+    print " ctl = ", ctl
     if ch$="q" then break
 wend

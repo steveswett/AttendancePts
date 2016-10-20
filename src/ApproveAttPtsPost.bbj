@@ -6,6 +6,8 @@ REM  * Written: July 2015
 REM  * 
 REM  * Description: Post records summary/result screen for Supervisor Approval of Attendance Points.
 REM  *
+REM  * Revised: October 2016 - use ASCII 0-127 for function/edit key inputs.  See ERP-5239.
+REM  * 
 REM  */
 
 use java.util.LinkedHashMap
@@ -52,13 +54,16 @@ REM     Any value less than 63 will cause the input function to exit setting the
 REM     The "help" function causes an exit with CTL=-1.
 
 
-F2_CUSTOM_INPUT_VALUE$ = $81$
+rem  F2_CUSTOM_INPUT_VALUE$ = $81$
+F2_CUSTOM_INPUT_VALUE$ = $12$
 F2_CTL_OUTPUT_VALUE$ = $02$
 
-F3_CUSTOM_INPUT_VALUE$ = $82$
+rem  F3_CUSTOM_INPUT_VALUE$ = $82$
+F3_CUSTOM_INPUT_VALUE$ = $13$
 F3_CTL_OUTPUT_VALUE$ = $03$
 
-F4_CUSTOM_INPUT_VALUE$ = $83$
+rem  F4_CUSTOM_INPUT_VALUE$ = $83$
+F4_CUSTOM_INPUT_VALUE$ = $14$
 F4_CTL_OUTPUT_VALUE$ = $04$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$
@@ -67,10 +72,12 @@ TAB_CTL_OUTPUT_VALUE$ = $19$
 BACKTAB_CUSTOM_INPUT_VALUE$ = $15$
 BACKTAB_CTL_OUTPUT_VALUE$ = $1A$
 
-PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+rem  PAGE_UP_CUSTOM_INPUT_VALUE$ = $84$
+PAGE_UP_CUSTOM_INPUT_VALUE$ = $03$
 PAGE_UP_CTL_OUTPUT_VALUE$ = $1B$
 
-PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+rem  PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $85$
+PAGE_DOWN_CUSTOM_INPUT_VALUE$ = $04$
 PAGE_DOWN_CTL_OUTPUT_VALUE$ = $1C$
 
 

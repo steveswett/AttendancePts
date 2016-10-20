@@ -6,6 +6,8 @@ REM  * Written: October 2015
 REM  * 
 REM  * Description: Generate an attendance export file based on incoming parms and e-mail current user.
 REM  *
+REM  * Revised: October 2016 - use ASCII 0-127 for function/edit key inputs.  See ERP-5239.
+REM  * 
 REM  */
 
 
@@ -40,7 +42,8 @@ REM     Any value less than 63 will cause the input function to exit setting the
 REM     The "help" function causes an exit with CTL=-1.
 
 
-F4_CUSTOM_INPUT_VALUE$ = $83$
+rem  F4_CUSTOM_INPUT_VALUE$ = $83$
+F4_CUSTOM_INPUT_VALUE$ = $14$
 F4_CTL_OUTPUT_VALUE$ = $04$
 
 TAB_CUSTOM_INPUT_VALUE$ = $09$

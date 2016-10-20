@@ -6,6 +6,8 @@ REM  * Written: July 2015
 REM  * 
 REM  * Description: Disposition popup window for use in Supervisor Approval of Attendance Points.
 REM  * 
+REM  * Revised: October 2016 - use ASCII 0-127 for function/edit key inputs.  See ERP-5239.
+REM  * 
 REM  */
 
 
@@ -95,10 +97,12 @@ setup_constants:
     
     START_ROW_FOR_LIST = 1
     
-    UP_ARROW_CUSTOM_INPUT_VALUE$ = $86$
+    rem  UP_ARROW_CUSTOM_INPUT_VALUE$ = $86$
+    UP_ARROW_CUSTOM_INPUT_VALUE$ = $05$
     UP_ARROW_CTL_OUTPUT_VALUE$ = $1D$
     
-    DOWN_ARROW_CUSTOM_INPUT_VALUE$ = $87$
+    rem  DOWN_ARROW_CUSTOM_INPUT_VALUE$ = $87$
+    DOWN_ARROW_CUSTOM_INPUT_VALUE$ = $06$
     DOWN_ARROW_CTL_OUTPUT_VALUE$ = $1E$
 
     return
