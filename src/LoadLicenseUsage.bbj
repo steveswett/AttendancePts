@@ -134,16 +134,19 @@ load_database_connections:
     
 prep_and_open_lmstat_file:
 
+    REM  Remove temp files from current host (nmcanew5)
     removeCmd$ = "rm -f /tmp/lmstat-*" 
+    returnCode = scall(removeCmd$)
+
+    REM  Remove temp files from license manager host (BasisLicenseMgr)
+    removeCmd$ = "ssh BasisLicenseMgr ""rm -f /tmp/lmstat-*""" 
     returnCode = scall(removeCmd$)
     
     lmstatCmdOutputFile$ = "/tmp/lmstat-" + currentTimestamp$ + ".txt"
 
-    rem  lmstatCmd$ = "ssh nmcaold ""/usr/local/bbj/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
     lmstatCmd$ = "ssh BasisLicenseMgr ""/usr/local/blm/lmutil lmstat -a | grep ', start' > " + lmstatCmdOutputFile$ + """" 
     returnCode = scall(lmstatCmd$)
     
-    rem  scpCmd$ = "scp nmcaold:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
     scpCmd$ = "scp BasisLicenseMgr:" + lmstatCmdOutputFile$ + " " + lmstatCmdOutputFile$
     returnCode = scall(scpCmd$)
     
