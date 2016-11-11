@@ -244,7 +244,7 @@ display_data:
     
     print @(0,14), "FYI - the warning levels are as follows:"
     
-    row = 15
+    row = 14
     
     iter! = levelsMap!.keySet().iterator()
     
@@ -253,9 +253,9 @@ display_data:
       level! = iter!.next()
       row = row + 1
       
-      print @(19, row), str(level!:"#0")
-      print @(22, row), "="
-      print @(24, row), levelsMap!.get(level!)
+      print @(19, row), str(level!:"#0.00")
+      print @(25, row), "="
+      print @(27, row), levelsMap!.get(level!)
       
     wend
 
