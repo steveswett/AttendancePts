@@ -80,7 +80,7 @@ insert_stat_records:
         cpuTimePerSecond = oneRecordMap!.get("cpu_time_per_sec")
         memoryData$ = oneRecordMap!.get("data_memory_kb")
 
-        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, cmd$, origCmd$, user$, tty$, state$, cpuPercent$, elapsedTimeInSeconds, origElapsedTimeInSeconds, cpuTimeInSeconds, cpuTimePerSecond, memoryData$    
+        sqlexec(statsChannel) serverName$, pidKey!, sqlTimeStamp$, cmd$, origCmd$, user$, tty$, state$, cpuPercent$, elapsedTimeInSeconds, origElapsedTimeInSeconds, cpuTimeInSeconds, cpuTimePerSecond, memoryData$    
     
     wend
     
@@ -97,11 +97,13 @@ setup_constants:
 
     TRUE = 1
     FALSE = 0
+    
+    serverName$ = serverenv("HOSTNAME")
 
     dataWarehouseDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
     
-    INSERT_STATS_STMT$ = "insert into ProcessStatistics (ProcessId, CollectionTime, Command, OrigCommand, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, OrigElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
-:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    INSERT_STATS_STMT$ = "insert into ProcessStatistics (ServerName, ProcessId, CollectionTime, Command, OrigCommand, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, OrigElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     
     return

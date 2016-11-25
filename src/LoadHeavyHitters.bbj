@@ -6,6 +6,8 @@ REM  * Written: December 2, 2015
 REM  * 
 REM  * Description: Load Heavy Hitter production process into database for later analysis
 REM  * 
+REM  * Revised: 11/25/16 by S Swett to more robustly handle when lslk reports no locks.
+REM  * 
 REM  */
 
 
@@ -661,14 +663,16 @@ process_lslk_records:
     
     wend
     
-    REM  Now we need to add User and Command to the recordsMap! structure
-    
-    gosub prep_and_open_lock_ps_file
-    gosub process_lock_ps_records
-    gosub close_lock_ps_file
-    
     if recordsMap!.size() > 0 then
+
+        REM  Now we need to add User and Command to the recordsMap! structure
+        
+        gosub prep_and_open_lock_ps_file
+        gosub process_lock_ps_records
+        gosub close_lock_ps_file
+    
         call "ProcessLockStatsDAO.bbj::add_lock_records", currentTimestamp$, recordsMap!
+        
     endif
 
     return

@@ -79,7 +79,7 @@ insert_stat_records:
             statsCmd$ = cmd$
             statsOrigCmd$ = ""
             
-            sqlexec(cmdsChannel) pidKey!, sqlTimeStamp$
+            sqlexec(cmdsChannel) serverName$, pidKey!, sqlTimeStamp$
             dim cmdsResultRow$:sqltmpl(cmdsChannel)
             
             cmdsResultRow$ = sqlfetch(cmdsChannel,err=cmds_record_not_found)
@@ -96,7 +96,7 @@ insert_stat_records:
         swapIn$ = oneRecordMap!.get("swap_in")
         io$ = oneRecordMap!.get("io")
 
-        sqlexec(statsChannel) pidKey!, sqlTimeStamp$, statsCmd$, statsOrigCmd$, user$, priority$, diskRead$, diskWrite$, swapIn$, io$     
+        sqlexec(statsChannel) serverName$, pidKey!, sqlTimeStamp$, statsCmd$, statsOrigCmd$, user$, priority$, diskRead$, diskWrite$, swapIn$, io$     
     
     wend
     
@@ -114,13 +114,15 @@ setup_constants:
 
     TRUE = 1
     FALSE = 0
+    
+    serverName$ = serverenv("HOSTNAME")
 
     dataWarehouseDataSource$ = ""
     call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
 
-    GET_CMDS_STMT$ = "select Command, OrigCommand from ProcessStatistics where ProcessId = ? and CollectionTime = ?"
+    GET_CMDS_STMT$ = "select Command, OrigCommand from ProcessStatistics where ServerName = ? and ProcessId = ? and CollectionTime = ?"
     
-    INSERT_STATS_STMT$ = "insert into ProcessIOStats (ProcessId, CollectionTime, Command, OrigCommand, UserId, Priority, DiskReadKBperSec, DiskWriteKBperSec, SwapInPercent, IOPercent) " +
-:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    INSERT_STATS_STMT$ = "insert into ProcessIOStats (ServerName, ProcessId, CollectionTime, Command, OrigCommand, UserId, Priority, DiskReadKBperSec, DiskWriteKBperSec, SwapInPercent, IOPercent) " +
+:                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     
     return
