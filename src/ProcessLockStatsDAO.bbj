@@ -121,7 +121,7 @@ setup_constants:
     serverName$ = serverenv("HOSTNAME")
 
     dataWarehouseDataSource$ = ""
-    call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "erp.performance.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
 
     GET_CMDS_STMT$ = "select Command, OrigCommand from ProcessStatistics where ServerName = ? and ProcessId = ? and CollectionTime = ?"
     

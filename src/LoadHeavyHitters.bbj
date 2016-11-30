@@ -184,7 +184,7 @@ get_options_for_this_collection:
     
 prep_and_open_ps_file:
     
-    psCmdOutputFile$ = "/tmp/heavy-hitters-ps-" + currentTimestamp$ + ".txt"
+    psCmdOutputFile$ = "/tmp/heavy-hitters-ps.txt"
 
     psCmd$ = "ps -Ao pid,etime,time,%cpu,user,tty,m_drs,m_trs,state,cmd | grep pro5 > " + psCmdOutputFile$ 
 
@@ -423,7 +423,7 @@ print_ps_computed_fields:
     
 prep_and_open_io_file:
     
-    ioCmdOutputFile$ = "/tmp/heavy-hitters-io-" + currentTimestamp$ + ".txt"
+    ioCmdOutputFile$ = "/tmp/heavy-hitters-io.txt"
 
     ioCmd$ = "iotop -obPk -n 1 | grep pro5 > " + ioCmdOutputFile$ 
 
@@ -626,7 +626,7 @@ prep_and_open_lslk_file:
     if isWindowsEnv then
         lslkCmdOutputFile$ = "/tmp/lslkout.txt"
     else
-        lslkCmdOutputFile$ = "/tmp/heavy-hitters-lock-lslk-" + currentTimestamp$ + ".txt"
+        lslkCmdOutputFile$ = "/tmp/heavy-hitters-lock-lslk.txt"
     
         lslkCmd$ = "/usr/sbin/lslk | grep ""pro5"" | grep "" w \| W \| rw \| RW "" > " + lslkCmdOutputFile$ 
     
@@ -789,7 +789,7 @@ prep_and_open_lock_ps_file:
     if isWindowsEnv then
         lockPsCmdOutputFile$ = "/tmp/psout.txt"
     else
-        lockPsCmdOutputFile$ = "/tmp/heavy-hitters-lock-ps-" + currentTimestamp$ + ".txt"
+        lockPsCmdOutputFile$ = "/tmp/heavy-hitters-lock-ps.txt"
     
         lockPsCmd$ = "ps --no-headers -fp " + pidList$ + " > " + lockPsCmdOutputFile$ 
     

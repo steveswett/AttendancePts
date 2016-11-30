@@ -101,7 +101,7 @@ setup_constants:
     serverName$ = serverenv("HOSTNAME")
 
     dataWarehouseDataSource$ = ""
-    call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "erp.performance.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
     
     INSERT_STATS_STMT$ = "insert into ProcessStatistics (ServerName, ProcessId, CollectionTime, Command, OrigCommand, UserId, TtyDevice, State, CPUPercent, ElapsedTimeInSeconds, OrigElapsedTimeInSeconds, CPUTimeInSeconds, CPUTimePerSecond, DataMemoryKB) " +
 :                        "values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"

@@ -25,6 +25,25 @@ rem *- - - - - - - - - - FUNCTIONS - - - - - - - - - -*
 functions:
 
 
+rem  If the incoming number is bad, return a "0"
+
+def fnGetNumericOrZero$(aNumberIn$)
+
+    aNumberOut = num(aNumberIn$,err=number_error)
+    aNumberOut$ = aNumberIn$
+    goto number_ok
+    
+    number_error:
+    print "bad number (too big?) - aNumberIn$ = ", aNumberIn$
+    aNumberOut$ = "0"
+        
+    number_ok:
+
+    return aNumberOut$
+
+fnend
+
+
 
 rem *- - - - - - - - - - ENTRY POINTS - - - - - - - - - -*
 
@@ -91,10 +110,18 @@ insert_stat_records:
 
         priority$ = oneRecordMap!.get("priority")
         user$ = oneRecordMap!.get("user")
+        
         diskRead$ = oneRecordMap!.get("disk_read")
         diskWrite$ = oneRecordMap!.get("disk_write")
         swapIn$ = oneRecordMap!.get("swap_in")
         io$ = oneRecordMap!.get("io")
+        
+        rem  Validate/default the numbers:
+        
+        diskRead$ = fnGetNumericOrZero$(diskRead$)
+        diskWrite$ = fnGetNumericOrZero$(diskWrite$)
+        swapIn$ = fnGetNumericOrZero$(swapIn$)
+        io$ = fnGetNumericOrZero$(io$)
 
         sqlexec(statsChannel) serverName$, pidKey!, sqlTimeStamp$, statsCmd$, statsOrigCmd$, user$, priority$, diskRead$, diskWrite$, swapIn$, io$     
     
@@ -118,7 +145,7 @@ setup_constants:
     serverName$ = serverenv("HOSTNAME")
 
     dataWarehouseDataSource$ = ""
-    call "ConfigVarsDAO.bbj::get_value", "notions.data.warehouse.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
+    call "ConfigVarsDAO.bbj::get_value", "erp.performance.data.source.name", configVarFound, configVarDataType$, dataWarehouseDataSource$
 
     GET_CMDS_STMT$ = "select Command, OrigCommand from ProcessStatistics where ServerName = ? and ProcessId = ? and CollectionTime = ?"
     
