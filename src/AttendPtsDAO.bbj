@@ -1415,6 +1415,7 @@ setup_constants:
 :       "badg = ? and " +
 :       "atnd.ptdt >= ? and atnd.ptdt <= ? and " +
 :       "atnd.stat = 'A' and " + 
+:       "atnd.pts > 0 and " + 
 :       "attend_pts_reasn.ETO_BUSTER = 'Y' " +
 :       "group by atnd.badg"
 
