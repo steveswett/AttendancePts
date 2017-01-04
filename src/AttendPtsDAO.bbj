@@ -6,6 +6,8 @@ REM  * Written: August 2015
 REM  * 
 REM  * Description: Data Access Object for table ATND
 REM  *
+REM  * Revised: 1/4/17 by S Swett - fixed bug in ETO Busters SQL statement.
+REM  * 
 REM  */
 
 
@@ -1391,6 +1393,7 @@ setup_constants:
 :       "inner join attend_pts_reasn on attend_pts_work.DISP_EDT_REAS_ID = attend_pts_reasn.ID " +
 :       "where " + 
 :       "atnd.stat = 'A' and " + 
+:       "atnd.pts > 0 and " + 
 :       "atnd.ptdt >= ? and atnd.ptdt <= ? and " +
 :       "employ.termdt = '' and " + 
 :       "employ.salhr = 'H' and " + 
