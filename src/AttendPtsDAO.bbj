@@ -554,6 +554,7 @@ load_point_records_map:
         pointDataMap!.put("chgdt", resultRow.chgdt$)
         pointDataMap!.put("addby", resultRow.addby$)
         pointDataMap!.put("chgby", resultRow.chgby$)
+        pointDataMap!.put("eto_buster", resultRow.eto_buster$)
         
         if resultRow.stat$ = "A" then
             runningTotal = runningTotal + resultRow.pts
@@ -1328,15 +1329,19 @@ setup_constants:
 
     GET_NON_ZERO_PT_RECORDS_STMT$ =
 :       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, " +
-:       "chgdt, chgby, sched_shift_id, work_file_id, reduct_pts, reduct_time " +
+:       "chgdt, chgby, sched_shift_id, work_file_id, reduct_pts, reduct_time, attend_pts_reasn.eto_buster " +
 :       "from atnd " +
-:       "where badg = ? and stat = 'A' and pts > 0 " +
+:       "left outer join attend_pts_work on atnd.WORK_FILE_ID = attend_pts_work.ID " +
+:       "left outer join attend_pts_reasn on attend_pts_work.DISP_EDT_REAS_ID = attend_pts_reasn.ID " +
+:       "where badg = ? and stat = 'A' and (pts > 0 or attend_pts_reasn.eto_buster = 'Y') " +
 :       "order by ptdt"
 
     GET_ALL_PT_RECORDS_STMT$ =
 :       "select badg, ptdt, pts, stat, cd, wfmr_exc_def_id, disp_cd, text, wfmr_reason_id, adddt, addby, " +
-:       "chgdt, chgby, sched_shift_id, work_file_id, reduct_pts, reduct_time " +
+:       "chgdt, chgby, sched_shift_id, work_file_id, reduct_pts, reduct_time, attend_pts_reasn.eto_buster " +
 :       "from atnd " +
+:       "left outer join attend_pts_work on atnd.WORK_FILE_ID = attend_pts_work.ID " +
+:       "left outer join attend_pts_reasn on attend_pts_work.DISP_EDT_REAS_ID = attend_pts_reasn.ID " +
 :       "where badg = ?" +
 :       "order by ptdt"
 

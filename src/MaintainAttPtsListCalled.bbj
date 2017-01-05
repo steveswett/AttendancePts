@@ -334,6 +334,8 @@ display_data:
       text2$ = pointDataMap!.get("text2")
       text3$ = pointDataMap!.get("text3")
       
+      etoBuster$ = pointDataMap!.get("eto_buster")
+      
       if len(text1$) > 0 then
         if len(text2$) > 0 or len(text3$) > 0 then
             text1$ = cvs(text1$, 2) + " ..."
@@ -367,6 +369,10 @@ display_data:
 
       print @(67,row), system$
       print @(74,row), str(runningTotal:"##.0")
+      
+      if etoBuster$ = "Y" then
+          print @(4,row + 1), "(resets ETO period)"
+      endif
       
       print @(26,row + 1), text1$ 
       
