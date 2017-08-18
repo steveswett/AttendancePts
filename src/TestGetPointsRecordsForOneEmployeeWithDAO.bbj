@@ -1,0 +1,32 @@
+REM /**
+REM  * TestGetPointsRecordsForOneEmployeeWithDAO.bbj
+REM  * @author stevett
+REM  *
+REM  */
+
+use java.util.HashMap
+use java.util.LinkedHashMap
+
+declare java.util.LinkedHashMap pointRecordsMap!
+declare java.util.HashMap pointDataMap!
+
+pointRecordsMap! = new java.util.LinkedHashMap()
+
+badge5In$ = "27506"
+showZeroPtRecords = 1
+
+call "AttendPtsDAO.bbj::get_pts_records_for_employee", badge5In$, showZeroPtRecords, pointRecordsMap!
+
+iter! = pointRecordsMap!.keySet().iterator()
+
+while iter!.hasNext()
+
+    badgeKey! = iter!.next()
+    pointDataMap! = cast( java.util.HashMap, pointRecordsMap!.get(badgeKey!) )
+    
+    print "badge, pts, stat, cd, adddt = ", badgeKey!, ", ", pointDataMap!.get("pts"), ", ",  
+:       pointDataMap!.get("stat"), ", ", pointDataMap!.get("cd"), ", ", pointDataMap!.get("adddt")
+
+wend
+
+print $0A$, "Number of rows: ", pointRecordsMap!.size()

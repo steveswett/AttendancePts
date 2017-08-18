@@ -118,12 +118,23 @@ insert_stat_records:
         
         rem  Validate/default the numbers:
         
-        diskRead$ = fnGetNumericOrZero$(diskRead$)
-        diskWrite$ = fnGetNumericOrZero$(diskWrite$)
-        swapIn$ = fnGetNumericOrZero$(swapIn$)
-        io$ = fnGetNumericOrZero$(io$)
+REM         diskRead$ = fnGetNumericOrZero$(diskRead$)
+REM         diskWrite$ = fnGetNumericOrZero$(diskWrite$)
+REM         swapIn$ = fnGetNumericOrZero$(swapIn$)
+REM         io$ = fnGetNumericOrZero$(io$)
 
-        sqlexec(statsChannel) serverName$, pidKey!, sqlTimeStamp$, statsCmd$, statsOrigCmd$, user$, priority$, diskRead$, diskWrite$, swapIn$, io$     
+        sqlexec(statsChannel,err=sql_err) serverName$, pidKey!, sqlTimeStamp$, statsCmd$, statsOrigCmd$, user$, priority$, diskRead$, diskWrite$, swapIn$, io$
+        goto sql_ok
+
+        sql_err:
+            print "Getting arithmetic overflow for one of these fields - ProcessIOStatsDAO.bbj"
+            print "serverName$, pidKey!, sqlTimeStamp$", serverName$, pidKey!, sqlTimeStamp$
+            print "statsCmd$, statsOrigCmd$, user$", statsCmd$, statsOrigCmd$, user$
+            print "priority$, diskRead$, diskWrite$", priority$, diskRead$, diskWrite$
+            print "swapIn$, io$", swapIn$, io$
+        
+        sql_ok:     
+
     
     wend
     
